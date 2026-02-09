@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import type { Container } from '../container.js';
-import { ProjectStatus } from '@cop1/domain';
 
 /**
  * Projects routes

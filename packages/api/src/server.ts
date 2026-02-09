@@ -13,16 +13,7 @@ export interface ServerConfig {
 
 export async function createServer(config: ServerConfig) {
   const fastify = Fastify({
-    logger: {
-      level: 'info',
-      transport: {
-        target: 'pino-pretty',
-        options: {
-          translateTime: 'HH:MM:ss Z',
-          ignore: 'pid,hostname',
-        },
-      },
-    },
+    logger: true,
   });
 
   // CORS

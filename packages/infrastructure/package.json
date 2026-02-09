@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@cop1/domain": "workspace:*",
+    "@cop1/rules-engine": "workspace:*",
+    "@cop1/llm-gateway": "workspace:*",
     "better-sqlite3": "^11.7.0"
   },
   "devDependencies": {

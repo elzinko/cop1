@@ -52,6 +52,12 @@ importers:
       '@cop1/domain':
         specifier: workspace:*
         version: link:../domain
+      '@cop1/llm-gateway':
+        specifier: workspace:*
+        version: link:../llm-gateway
+      '@cop1/rules-engine':
+        specifier: workspace:*
+        version: link:../rules-engine
       better-sqlite3:
         specifier: ^11.7.0
         version: 11.10.0

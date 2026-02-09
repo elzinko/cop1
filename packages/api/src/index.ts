@@ -15,7 +15,7 @@ console.log('🚀 Starting cop1 API...');
 console.log(`📦 Database: ${serverConfig.dbPath}`);
 
 try {
-  const server = await createServer(serverConfig);
+  await createServer(serverConfig);
   console.log(`✅ cop1 API running on http://${serverConfig.host}:${serverConfig.port}`);
 } catch (error) {
   console.error('❌ Failed to start server:', error);
