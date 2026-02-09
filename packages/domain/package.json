@@ -1,0 +1,18 @@
+{
+  "name": "@cop1/domain",
+  "version": "0.1.0",
+  "description": "cop1 - Pure business logic and domain entities",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "keywords": ["cop1", "domain", "business-logic"],
+  "author": "elzinko",
+  "license": "MIT"
+}

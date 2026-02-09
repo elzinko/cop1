@@ -1,0 +1,56 @@
+name: developer
+version: "1.0.0"
+description: Rules for developer agents who write code
+tags: [development, coding, implementation]
+
+rules:
+  - id: clean-code
+    title: Write Clean, Maintainable Code
+    level: MUST
+    content: |
+      - Use meaningful variable and function names
+      - Keep functions small (under 50 lines when possible)
+      - Avoid deep nesting (max 3 levels)
+      - Follow existing code style and conventions
+
+  - id: test-your-code
+    title: Test Your Code
+    level: MUST
+    content: |
+      - Write unit tests for new functionality
+      - Run tests before considering work complete
+      - Fix failing tests immediately
+
+  - id: no-workarounds
+    title: Avoid Workarounds and Hacks
+    level: MUST
+    content: |
+      - Implement proper solutions, not quick hacks
+      - If a workaround is unavoidable, document it clearly
+      - Explain why the workaround is needed and how to fix it properly later
+
+  - id: error-handling
+    title: Handle Errors Properly
+    level: MUST
+    content: |
+      - Add error handling for failure cases
+      - Provide meaningful error messages
+      - Log errors appropriately
+      - Don't swallow errors silently
+
+  - id: incremental-progress
+    title: Make Incremental Progress
+    level: SHOULD
+    content: |
+      - Break large changes into smaller, testable increments
+      - Commit working code frequently
+      - Don't let work grow too large before integrating
+
+  - id: documentation
+    title: Document When Needed
+    level: SHOULD
+    content: |
+      - Add comments for complex logic
+      - Update documentation when changing behavior
+      - Document API contracts and assumptions
+      - Code should be self-documenting when possible

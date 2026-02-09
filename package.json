@@ -1,0 +1,28 @@
+{
+  "name": "cop1",
+  "version": "0.1.0",
+  "description": "Autonomous AI agents team working on your backlog",
+  "private": true,
+  "type": "module",
+  "author": "elzinko",
+  "license": "MIT",
+  "scripts": {
+    "dev": "pnpm --filter @cop1/api dev",
+    "dev:web": "pnpm --filter @cop1/web dev",
+    "dev:all": "pnpm --parallel --filter @cop1/api --filter @cop1/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

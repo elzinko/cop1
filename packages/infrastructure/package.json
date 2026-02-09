@@ -1,0 +1,25 @@
+{
+  "name": "@cop1/infrastructure",
+  "version": "0.1.0",
+  "description": "cop1 - Technical adapters (DB, HTTP, etc.)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@cop1/domain": "workspace:*",
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12"
+  },
+  "keywords": ["cop1", "infrastructure", "adapters"],
+  "author": "elzinko",
+  "license": "MIT"
+}

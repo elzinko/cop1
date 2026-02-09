@@ -1,0 +1,34 @@
+# Docker Compose for cop1
+# Optional: Use this if you want to run LLM locally with Ollama
+
+version: '3.8'
+
+services:
+  # Ollama - Local LLM server (optional)
+  # Uncomment if you want to use Ollama for local LLMs
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: cop1-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   restart: unless-stopped
+
+  # cop1 API (future: can be dockerized)
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - DB_PATH=/data/cop1.db
+  #     - LOCAL_LLM_ENDPOINT=http://ollama:11434
+  #   volumes:
+  #     - ./data:/data
+  #   depends_on:
+  #     - ollama
+
+# volumes:
+#   ollama-data:
