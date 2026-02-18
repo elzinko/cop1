@@ -2,6 +2,8 @@ import type { QualityGatePort } from '@cop1/quality-intelligence';
 import type { Cop1Config } from '@cop1/shared-kernel';
 import { EventBus } from '@cop1/shared-kernel';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CheckpointPhase } from '../../checkpoint/domain/CheckpointState.js';
+import type { CheckpointState } from '../../checkpoint/domain/CheckpointState.js';
 import { WorkflowEngine } from '../application/WorkflowEngine.js';
 import type { StepResult } from '../domain/StepResult.js';
 import type { WorkflowContext } from '../domain/WorkflowContext.js';
@@ -138,5 +140,70 @@ describe('WorkflowEngine', () => {
 
     expect(result.status).toBe('ok');
     expect(events).toEqual(['dev', 'reviewer', 'qa', 'pm']);
+  });
+
+  describe('resume', () => {
+    function createCheckpoint(stepIndex: number, stepName: string): CheckpointState {
+      return {
+        storyId: 'TEST-001',
+        agentName: 'dev',
+        stepIndex,
+        stepName,
+        timestamp: new Date().toISOString(),
+        phase: CheckpointPhase.AGENT_STARTED,
+      };
+    }
+
+    it('should skip completed steps and resume from checkpoint', async () => {
+      const steps = [createStubStep('dev'), createStubStep('reviewer'), createStubStep('qa')];
+      const context = createContext();
+      const checkpoint = createCheckpoint(1, 'reviewer');
+
+      const result = await engine.resume(context, steps, checkpoint);
+
+      expect(result.status).toBe('ok');
+      expect(steps[0]?.run).not.toHaveBeenCalled();
+      expect(steps[1]?.run).toHaveBeenCalledOnce();
+      expect(steps[2]?.run).toHaveBeenCalledOnce();
+    });
+
+    it('should emit workflow.resumed event', async () => {
+      const steps = [createStubStep('dev'), createStubStep('reviewer')];
+      const context = createContext();
+      const checkpoint = createCheckpoint(1, 'reviewer');
+      const events: string[] = [];
+
+      eventBus.on(WorkflowEvent.WORKFLOW_RESUMED, () => events.push('resumed'));
+      eventBus.on(WorkflowEvent.STEP_STARTED, () => events.push('step.started'));
+      eventBus.on(WorkflowEvent.STEP_COMPLETED, () => events.push('step.completed'));
+      eventBus.on(WorkflowEvent.WORKFLOW_COMPLETED, () => events.push('workflow.completed'));
+
+      await engine.resume(context, steps, checkpoint);
+
+      expect(events).toEqual(['resumed', 'step.started', 'step.completed', 'workflow.completed']);
+    });
+
+    it('should fail for invalid checkpoint stepIndex', async () => {
+      const steps = [createStubStep('dev')];
+      const context = createContext();
+      const checkpoint = createCheckpoint(5, 'nonexistent');
+
+      const result = await engine.resume(context, steps, checkpoint);
+
+      expect(result.status).toBe('failed');
+    });
+
+    it('should resume from last step', async () => {
+      const steps = [createStubStep('dev'), createStubStep('reviewer'), createStubStep('qa')];
+      const context = createContext();
+      const checkpoint = createCheckpoint(2, 'qa');
+
+      const result = await engine.resume(context, steps, checkpoint);
+
+      expect(result.status).toBe('ok');
+      expect(steps[0]?.run).not.toHaveBeenCalled();
+      expect(steps[1]?.run).not.toHaveBeenCalled();
+      expect(steps[2]?.run).toHaveBeenCalledOnce();
+    });
   });
 });

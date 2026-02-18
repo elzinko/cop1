@@ -1,5 +1,6 @@
 import type { QualityGatePort } from '@cop1/quality-intelligence';
 import type { EventBus } from '@cop1/shared-kernel';
+import type { CheckpointState } from '../../checkpoint/domain/CheckpointState.js';
 import type { StepResult } from '../domain/StepResult.js';
 import type { WorkflowContext } from '../domain/WorkflowContext.js';
 import { WorkflowEvent } from '../domain/WorkflowEvent.js';
@@ -12,12 +13,44 @@ export class WorkflowEngine {
   ) {}
 
   async run(context: WorkflowContext, steps: WorkflowStep[]): Promise<StepResult> {
-    this.eventBus.emit(WorkflowEvent.WORKFLOW_STARTED, {
+    return this.executeFrom(context, steps, 0);
+  }
+
+  async resume(
+    context: WorkflowContext,
+    steps: WorkflowStep[],
+    checkpoint: CheckpointState,
+  ): Promise<StepResult> {
+    const startIndex = checkpoint.stepIndex;
+
+    if (startIndex < 0 || startIndex >= steps.length) {
+      return { status: 'failed', error: new Error(`Invalid checkpoint stepIndex: ${startIndex}`) };
+    }
+
+    this.eventBus.emit(WorkflowEvent.WORKFLOW_RESUMED, {
       storyId: context.storyId,
-      steps: steps.map((s) => s.name),
+      fromStep: checkpoint.stepName,
+      fromIndex: startIndex,
     });
 
+    return this.executeFrom(context, steps, startIndex);
+  }
+
+  private async executeFrom(
+    context: WorkflowContext,
+    steps: WorkflowStep[],
+    startIndex: number,
+  ): Promise<StepResult> {
+    if (startIndex === 0) {
+      this.eventBus.emit(WorkflowEvent.WORKFLOW_STARTED, {
+        storyId: context.storyId,
+        steps: steps.map((s) => s.name),
+      });
+    }
+
     for (const [i, step] of steps.entries()) {
+      if (i < startIndex) continue;
+
       this.eventBus.emit(WorkflowEvent.STEP_STARTED, {
         storyId: context.storyId,
         step: step.name,

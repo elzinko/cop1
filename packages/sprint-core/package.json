@@ -7,10 +7,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@cop1/shared-kernel": "workspace:*",
-    "@cop1/observability": "workspace:*",
     "@cop1/llm-intelligence": "workspace:*",
-    "@cop1/quality-intelligence": "workspace:*"
+    "@cop1/observability": "workspace:*",
+    "@cop1/quality-intelligence": "workspace:*",
+    "@cop1/shared-kernel": "workspace:*",
+    "yaml": "^2.8.2"
   },
   "scripts": {
     "build": "tsc",
