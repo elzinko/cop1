@@ -11,8 +11,8 @@ function createSnapshot(ramPercent: number): ResourceSnapshot {
     ramPercent,
     ramUsedGB: ramPercent * 0.64,
     ramTotalGB: 64,
-    cpuLoad: [1, 1, 1],
-    timestamp: new Date().toISOString(),
+    cpuPercent: 10,
+    timestamp: new Date(),
   };
 }
 

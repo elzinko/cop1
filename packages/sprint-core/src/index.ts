@@ -73,3 +73,22 @@ export type { ReviewerPort } from './features/reviewer-agent/domain/ports/Review
 // Merge
 export { MergeService } from './features/merge/application/MergeService.js';
 export type { MergeProposal } from './features/merge/domain/MergeProposal.js';
+
+// Time Estimator
+export { TimeEstimator } from './features/time-estimator/application/TimeEstimator.js';
+
+// Sprint Dashboard
+export { SprintDashboardService } from './features/sprint-dashboard/application/SprintDashboardService.js';
+export type {
+  StoryCard,
+  SprintMetrics,
+} from './features/sprint-dashboard/domain/SprintDashboardTypes.js';
+
+// Burndown
+export { BurndownCalculator } from './features/burndown/application/BurndownCalculator.js';
+export type {
+  BurndownDataPoint,
+  BurnupDataPoint,
+  ChartData,
+} from './features/burndown/domain/BurndownTypes.js';
+export type { DailySnapshot } from './features/burndown/application/BurndownCalculator.js';

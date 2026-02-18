@@ -8,7 +8,7 @@ export class StoryFileLockService {
   private readonly locksDir: string;
 
   constructor(
-    private readonly projectPath: string,
+    projectPath: string,
     private readonly now: () => Date = () => new Date(),
   ) {
     this.locksDir = join(projectPath, LOCKS_DIR);

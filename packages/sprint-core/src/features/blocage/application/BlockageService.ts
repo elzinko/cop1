@@ -10,7 +10,7 @@ export class BlockageService {
   private readonly blocagesDir: string;
 
   constructor(
-    private readonly projectPath: string,
+    projectPath: string,
     private readonly eventBus: EventBus,
   ) {
     this.blocagesDir = join(projectPath, BLOCAGES_DIR);

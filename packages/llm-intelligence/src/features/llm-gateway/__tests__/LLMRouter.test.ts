@@ -64,6 +64,8 @@ describe('LLMRouter', () => {
         },
         llm_routing: routing,
         llm_fallback: {},
+        git: { auto_merge: false },
+        blocage_rules: {},
         schedule: { auto_start: [] },
       }),
     };

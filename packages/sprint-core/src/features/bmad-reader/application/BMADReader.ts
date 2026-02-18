@@ -55,11 +55,11 @@ export class BMADReader implements BMADReaderPort {
   ): StoryMetadata | null {
     // Extract title from first # heading
     const titleMatch = content.match(/^#\s+(?:Story\s+)?(.+)$/m);
-    const title = titleMatch ? titleMatch[1]?.trim() : filename.replace('.md', '');
+    const title = titleMatch?.[1]?.trim() ?? filename.replace('.md', '');
 
     // Extract status from "Status: <value>" line
     const statusMatch = content.match(/^Status:\s*(.+)$/m);
-    const status = statusMatch ? statusMatch[1]?.trim() : 'unknown';
+    const status = statusMatch?.[1]?.trim() ?? 'unknown';
 
     // Extract ID from filename (e.g., E1-S1-monorepo-setup.md → E1-S1)
     const idMatch = filename.match(/^(E\d+-S\d+)/);
