@@ -1,3 +1,4 @@
+import { SprintSessionService, StoryStatusTracker, YamlStatusStore } from '@cop1/sprint-core';
 import { DEFAULT_PORT } from '../domain/DaemonState.js';
 import { HttpServer } from '../infrastructure/HttpServer.js';
 import { PidFileManager } from '../infrastructure/PidFileManager.js';
@@ -17,6 +18,20 @@ export class DaemonService {
     const projectPath = options.projectPath ?? process.cwd();
     this.httpServer = new HttpServer();
     this.pidManager = new PidFileManager(projectPath);
+
+    this.httpServer.setSprintStatusProvider(() => {
+      const store = new YamlStatusStore(projectPath);
+      const tracker = new StoryStatusTracker(store);
+      const sessionService = new SprintSessionService(projectPath);
+
+      const statuses = tracker.getAllStatuses();
+      const stories: Record<string, string> = {};
+      for (const [id, entry] of statuses) {
+        stories[id] = entry.status;
+      }
+
+      return { stories, session: sessionService.check() };
+    });
   }
 
   async start(): Promise<void> {

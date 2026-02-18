@@ -1,0 +1,40 @@
+import { SprintSessionService, StoryStatusTracker, YamlStatusStore } from '@cop1/sprint-core';
+
+export function sprintStatusCommand(): void {
+  const projectPath = process.cwd();
+  const statusStore = new YamlStatusStore(projectPath);
+  const tracker = new StoryStatusTracker(statusStore);
+  const sessionService = new SprintSessionService(projectPath);
+
+  // Session info
+  const session = sessionService.check();
+  if (session) {
+    console.log(`\nSprint session: ${session.status}`);
+    console.log(`  Started:  ${session.startedAt}`);
+    console.log(`  Deadline: ${session.deadline}`);
+    console.log(`  Duration: ${session.durationMinutes}min`);
+  } else {
+    console.log('\nNo active sprint session.');
+  }
+
+  // Story statuses
+  const statuses = tracker.getAllStatuses();
+  if (statuses.size === 0) {
+    console.log('\nNo story statuses tracked yet.');
+    return;
+  }
+
+  const byStatus: Record<string, string[]> = {};
+  for (const [storyId, entry] of statuses) {
+    if (!byStatus[entry.status]) {
+      byStatus[entry.status] = [];
+    }
+    byStatus[entry.status]?.push(storyId);
+  }
+
+  console.log(`\nStories: ${statuses.size} total`);
+  for (const [status, ids] of Object.entries(byStatus).sort()) {
+    console.log(`  ${status}: ${ids.length}`);
+  }
+  console.log('');
+}

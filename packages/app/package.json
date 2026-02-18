@@ -4,11 +4,16 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "bin": {
     "cop1": "./dist/cli/index.js"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "dependencies": {
     "@cop1/ceremony-engine": "workspace:*",
     "@cop1/llm-intelligence": "workspace:*",

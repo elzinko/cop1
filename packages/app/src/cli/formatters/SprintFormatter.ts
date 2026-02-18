@@ -1,0 +1,62 @@
+import type { EventBus } from '@cop1/shared-kernel';
+
+export class SprintFormatter {
+  private storySteps: Map<string, string[]> = new Map();
+
+  attach(eventBus: EventBus): void {
+    eventBus.on('sprint.starting', (payload: unknown) => {
+      const p = payload as { totalStories: number; eligibleStories: number; dryRun: boolean };
+      console.log(`\nSprint: ${p.eligibleStories} stories eligible (${p.totalStories} total)`);
+      if (p.dryRun) {
+        console.log('(dry-run mode — no changes will be made)\n');
+      } else {
+        console.log('');
+      }
+    });
+
+    eventBus.on('story.workflow.started', (payload: unknown) => {
+      const p = payload as { storyId: string; steps: string[] };
+      this.storySteps.set(p.storyId, []);
+      process.stdout.write(`  [${p.storyId}] `);
+    });
+
+    eventBus.on('story.step.completed', (payload: unknown) => {
+      const p = payload as { storyId: string; step: string; status: string };
+      const steps = this.storySteps.get(p.storyId) ?? [];
+      steps.push(p.step);
+      this.storySteps.set(p.storyId, steps);
+      process.stdout.write(`${p.step} ok `);
+    });
+
+    eventBus.on('story.workflow.completed', (payload: unknown) => {
+      const p = payload as { storyId: string };
+      process.stdout.write('-> done\n');
+      this.storySteps.delete(p.storyId);
+    });
+
+    eventBus.on('story.workflow.failed', (payload: unknown) => {
+      const p = payload as { storyId: string; failedStep: string; error?: string };
+      process.stdout.write(`-> FAILED at ${p.failedStep}\n`);
+      this.storySteps.delete(p.storyId);
+    });
+
+    eventBus.on('sprint.completed', (payload: unknown) => {
+      const p = payload as {
+        storiesDone: number;
+        storiesFailed: number;
+        storiesSkipped: number;
+        durationMs: number;
+      };
+      const seconds = (p.durationMs / 1000).toFixed(1);
+      console.log(`\nSprint completed in ${seconds}s`);
+      console.log(
+        `  Done: ${p.storiesDone}  Failed: ${p.storiesFailed}  Skipped: ${p.storiesSkipped}`,
+      );
+    });
+
+    eventBus.on('sprint.expired', (payload: unknown) => {
+      const p = payload as { storyId: string };
+      console.log(`\n  Session expired before processing ${p.storyId}`);
+    });
+  }
+}

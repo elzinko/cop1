@@ -2,10 +2,20 @@ import { type IncomingMessage, type Server, type ServerResponse, createServer } 
 import type { EventBus } from '@cop1/shared-kernel';
 import { COP1_VERSION, type HealthInfo } from '../domain/DaemonState.js';
 
+export type SprintStatusProvider = () => {
+  stories: Record<string, string>;
+  session: unknown;
+} | null;
+
 export class HttpServer {
   private server: Server | null = null;
   private readonly startedAt: number = Date.now();
   private sseClients: Set<ServerResponse> = new Set();
+  private sprintStatusProvider: SprintStatusProvider | null = null;
+
+  setSprintStatusProvider(provider: SprintStatusProvider): void {
+    this.sprintStatusProvider = provider;
+  }
 
   setEventBus(eventBus: EventBus): void {
     // Bridge all events to SSE clients
@@ -39,6 +49,13 @@ export class HttpServer {
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(health));
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/sprint/status') {
+      const data = this.sprintStatusProvider?.() ?? null;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
       return;
     }
 

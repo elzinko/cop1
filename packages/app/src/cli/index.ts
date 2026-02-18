@@ -3,6 +3,8 @@ import { Command } from 'commander';
 import { COP1_VERSION } from '../features/daemon/domain/DaemonState.js';
 import { healthCommand } from './commands/health.js';
 import { initCommand } from './commands/init.js';
+import { sprintRunCommand } from './commands/sprint-run.js';
+import { sprintStatusCommand } from './commands/sprint-status.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 import { stopCommand } from './commands/stop.js';
@@ -34,5 +36,19 @@ program
   .option('--project-key <key>', 'Override auto-detected project key')
   .option('--project-name <name>', 'Override auto-detected project name')
   .action(initCommand);
+
+const sprint = program.command('sprint').description('Sprint management commands');
+
+sprint
+  .command('run')
+  .description('Run a sprint on eligible stories')
+  .option('--dry-run', 'List stories without executing')
+  .option('--filter <pattern>', 'Filter stories by ID pattern (e.g., E8-*)')
+  .action(sprintRunCommand);
+
+sprint
+  .command('status')
+  .description('Show sprint session and story statuses')
+  .action(sprintStatusCommand);
 
 program.parse();
