@@ -8,7 +8,6 @@
   "references": [
     { "path": "../shared-kernel" },
     { "path": "../observability" },
-    { "path": "../llm-intelligence" },
     { "path": "../quality-intelligence" }
   ]
 }

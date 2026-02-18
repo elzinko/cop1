@@ -12,7 +12,6 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@cop1/llm-intelligence": "workspace:*",
     "@cop1/observability": "workspace:*",
     "@cop1/quality-intelligence": "workspace:*",
     "@cop1/shared-kernel": "workspace:*",

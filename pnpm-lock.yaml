@@ -74,6 +74,9 @@ importers:
       '@cop1/shared-kernel':
         specifier: workspace:*
         version: link:../shared-kernel
+      '@cop1/sprint-core':
+        specifier: workspace:*
+        version: link:../sprint-core
 
   packages/observability:
     dependencies:
@@ -94,9 +97,6 @@ importers:
 
   packages/sprint-core:
     dependencies:
-      '@cop1/llm-intelligence':
-        specifier: workspace:*
-        version: link:../llm-intelligence
       '@cop1/observability':
         specifier: workspace:*
         version: link:../observability

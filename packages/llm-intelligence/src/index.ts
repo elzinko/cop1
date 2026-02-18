@@ -34,3 +34,7 @@ export {
   LLMProviderRegistry,
   ProviderNotFoundError,
 } from './features/provider-registry/application/LLMProviderRegistry.js';
+
+// LLM Agent Adapters
+export { LLMCodeGenerator } from './features/llm-gateway/infrastructure/LLMCodeGenerator.js';
+export { LLMReviewer } from './features/llm-gateway/infrastructure/LLMReviewer.js';

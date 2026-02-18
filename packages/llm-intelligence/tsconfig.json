@@ -5,5 +5,9 @@
     "rootDir": "./src"
   },
   "include": ["src"],
-  "references": [{ "path": "../shared-kernel" }, { "path": "../observability" }]
+  "references": [
+    { "path": "../shared-kernel" },
+    { "path": "../observability" },
+    { "path": "../sprint-core" }
+  ]
 }

@@ -7,8 +7,8 @@
   "author": "elzinko",
   "license": "MIT",
   "scripts": {
-    "build": "tsc -b packages/shared-kernel packages/observability packages/llm-intelligence packages/quality-intelligence packages/sprint-core packages/ceremony-engine packages/app",
-    "typecheck": "tsc -b --noEmit packages/shared-kernel packages/observability packages/llm-intelligence packages/quality-intelligence packages/sprint-core packages/ceremony-engine packages/app",
+    "build": "tsc -b packages/shared-kernel packages/observability packages/quality-intelligence packages/sprint-core packages/llm-intelligence packages/ceremony-engine packages/app",
+    "typecheck": "tsc -b --noEmit packages/shared-kernel packages/observability packages/quality-intelligence packages/sprint-core packages/llm-intelligence packages/ceremony-engine packages/app",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
