@@ -1,0 +1,21 @@
+{
+  "name": "@cop1/sprint-core",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@cop1/shared-kernel": "workspace:*",
+    "@cop1/observability": "workspace:*",
+    "@cop1/llm-intelligence": "workspace:*",
+    "@cop1/quality-intelligence": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  }
+}

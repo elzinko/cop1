@@ -1,0 +1,27 @@
+{
+  "name": "@cop1/app",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "cop1": "./dist/cli/index.js"
+  },
+  "dependencies": {
+    "@cop1/ceremony-engine": "workspace:*",
+    "@cop1/llm-intelligence": "workspace:*",
+    "@cop1/observability": "workspace:*",
+    "@cop1/quality-intelligence": "workspace:*",
+    "@cop1/shared-kernel": "workspace:*",
+    "@cop1/sprint-core": "workspace:*",
+    "commander": "^14.0.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../shared-kernel" },
+    { "path": "../observability" },
+    { "path": "../llm-intelligence" },
+    { "path": "../quality-intelligence" },
+    { "path": "../sprint-core" },
+    { "path": "../ceremony-engine" }
+  ]
+}

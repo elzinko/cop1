@@ -7,17 +7,20 @@
   "author": "elzinko",
   "license": "MIT",
   "scripts": {
-    "dev": "pnpm --parallel --filter @cop1/api --filter @cop1/web dev",
-    "dev:api": "pnpm --filter @cop1/api dev",
-    "dev:web": "pnpm --filter @cop1/web dev",
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "build": "tsc -b packages/shared-kernel packages/observability packages/llm-intelligence packages/quality-intelligence packages/sprint-core packages/ceremony-engine packages/app",
+    "typecheck": "tsc -b --noEmit packages/shared-kernel packages/observability packages/llm-intelligence packages/quality-intelligence packages/sprint-core packages/ceremony-engine packages/app",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
     "@types/node": "^22.10.0",
-    "tsx": "^4.19.0",
+    "@vitest/coverage-v8": "^2.1.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
   },
