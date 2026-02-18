@@ -1,0 +1,23 @@
+/** @type {import('dependency-cruiser').IConfiguration} */
+module.exports = {
+  forbidden: [
+    {
+      name: 'no-circular',
+      severity: 'error',
+      comment: 'Circular dependencies are not allowed',
+      from: {},
+      to: { circular: true },
+    },
+    {
+      name: 'no-cross-feature-imports',
+      severity: 'warn',
+      comment: 'Features should not import from other features directly',
+      from: { path: 'src/features/([^/]+)/' },
+      to: { path: 'src/features/([^/]+)/', pathNot: 'src/features/$1/' },
+    },
+  ],
+  options: {
+    doNotFollow: { path: 'node_modules' },
+    tsConfig: { fileName: 'tsconfig.json' },
+  },
+};

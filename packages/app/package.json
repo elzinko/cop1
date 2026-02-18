@@ -16,7 +16,9 @@
     "@cop1/quality-intelligence": "workspace:*",
     "@cop1/shared-kernel": "workspace:*",
     "@cop1/sprint-core": "workspace:*",
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
   },
   "scripts": {
     "build": "tsc",

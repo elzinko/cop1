@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { COP1_VERSION } from '../features/daemon/domain/DaemonState.js';
 import { healthCommand } from './commands/health.js';
+import { initCommand } from './commands/init.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 import { stopCommand } from './commands/stop.js';
@@ -25,5 +26,13 @@ program
   .description('Get daemon health info (JSON)')
   .option('-p, --port <port>', 'Daemon port')
   .action(healthCommand);
+
+program
+  .command('init')
+  .description('Initialize a project for cop1')
+  .argument('<project-path>', 'Path to the target project')
+  .option('--project-key <key>', 'Override auto-detected project key')
+  .option('--project-name <name>', 'Override auto-detected project name')
+  .action(initCommand);
 
 program.parse();
