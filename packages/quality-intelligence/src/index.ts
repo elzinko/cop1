@@ -17,3 +17,12 @@ export type {
   AnalysisResult,
   Violation,
 } from './features/static-analysis-gate/domain/AnalysisResult.js';
+
+// Config Templates
+export { QualityConfigTemplateService } from './features/config-templates/application/QualityConfigTemplateService.js';
+
+// Arch Drift Detector
+export { ArchDriftDetector } from './features/arch-drift/application/ArchDriftDetector.js';
+
+// SonarQube
+export { SonarQubeAdapter } from './features/sonarqube/application/SonarQubeAdapter.js';

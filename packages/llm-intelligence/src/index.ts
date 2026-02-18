@@ -7,3 +7,30 @@ export type { LLMRequest, LLMOptions } from './features/llm-gateway/domain/types
 export type { LLMChunk } from './features/llm-gateway/domain/types/LLMChunk.js';
 export { LLMUnavailableError } from './features/llm-gateway/domain/errors/LLMUnavailableError.js';
 export { LLMRouter } from './features/llm-gateway/application/LLMRouter.js';
+
+// Claude API
+export { ClaudeAPIAdapter } from './features/claude-adapter/application/ClaudeAPIAdapter.js';
+
+// Model Manager
+export { ModelManager } from './features/model-manager/application/ModelManager.js';
+
+// MCP Registry
+export {
+  MCPRegistry,
+  MCPUnauthorizedError,
+} from './features/mcp-registry/application/MCPRegistry.js';
+
+// Adaptive Escalation
+export { AdaptiveLLMService } from './features/adaptive-escalation/application/AdaptiveLLMService.js';
+
+// Tokens Monitor
+export { TokensPerSecMonitor } from './features/tokens-monitor/application/TokensPerSecMonitor.js';
+
+// Ollama Management
+export { OllamaManagementAdapter } from './features/ollama-management/application/OllamaManagementAdapter.js';
+
+// Provider Registry
+export {
+  LLMProviderRegistry,
+  ProviderNotFoundError,
+} from './features/provider-registry/application/LLMProviderRegistry.js';

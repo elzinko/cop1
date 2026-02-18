@@ -92,3 +92,46 @@ export type {
   ChartData,
 } from './features/burndown/domain/BurndownTypes.js';
 export type { DailySnapshot } from './features/burndown/application/BurndownCalculator.js';
+
+// DoR Validator
+export { DORValidator } from './features/dor-validator/application/DORValidator.js';
+export type {
+  DORValidationResult,
+  DimensionResult,
+} from './features/dor-validator/domain/DORResult.js';
+
+// INVEST Validator
+export { INVESTValidator } from './features/invest-validator/application/INVESTValidator.js';
+
+// PM Agent
+export { PMAgent } from './features/pm-agent/application/PMAgent.js';
+export type { BacklogPort, BacklogStory } from './features/pm-agent/domain/ports/BacklogPort.js';
+
+// WSJF
+export { WSJFService } from './features/wsjf/application/WSJFService.js';
+
+// Backlog Monitor
+export { BacklogMonitor } from './features/backlog-monitor/application/BacklogMonitor.js';
+
+// Sprint End Report
+export { SprintEndReportService } from './features/sprint-end-report/application/SprintEndReportService.js';
+
+// iamthelaw
+export { IamTheLawLoader } from './features/iamthelaw/application/IamTheLawLoader.js';
+export type { Rule, RuleSet } from './features/iamthelaw/domain/RuleSet.js';
+
+// DoD Validator
+export { DoDService } from './features/dod-validator/application/DoDService.js';
+export { DoDLimiter } from './features/dod-validator/application/DoDLimiter.js';
+
+// Iteration Limiter
+export {
+  IterationLimiter,
+  MaxIterationsError as MaxIterationsReachedError,
+} from './features/iteration-limiter/application/IterationLimiter.js';
+
+// Conflict Planner
+export { SprintPlannerService } from './features/conflict-planner/application/SprintPlannerService.js';
+
+// PM Decision
+export { PMDecisionService } from './features/pm-decision/application/PMDecisionService.js';
