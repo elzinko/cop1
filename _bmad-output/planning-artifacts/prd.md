@@ -438,6 +438,7 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 - **FR49** : Le System peut upgrader dynamiquement le LLM d'un agent ("Super Saiyan mode") selon le niveau de difficulté détecté — chaque agent a un LLM par défaut + un LLM de fallback supérieur
 - **FR83** : Le System persiste l'état complet du workflow à chaque transition (story en cours, agent actif, étape, contexte) dans un fichier de checkpoint
 - **FR84** : Le System peut reprendre un workflow interrompu (crash, redémarrage, arrêt manuel) depuis le dernier checkpoint sans perte de travail
+- **FR116** : Le Developer peut exécuter un sprint en mode worktree (`--simulate`) dans un git worktree isolé — les vrais agents LLM (DevAgent, ReviewerAgent) s'exécutent sur les stories, produisent du code réel, sans auto-merge. Le développeur inspecte le worktree et merge manuellement.
 
 ### Capability Area 3 — LLM Infrastructure
 
