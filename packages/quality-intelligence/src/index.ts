@@ -26,3 +26,12 @@ export { ArchDriftDetector } from './features/arch-drift/application/ArchDriftDe
 
 // SonarQube
 export { SonarQubeAdapter } from './features/sonarqube/application/SonarQubeAdapter.js';
+
+// Review Quality Metrics
+export { ReviewQualityMetricsService } from './features/review-metrics/application/ReviewQualityMetricsService.js';
+
+// Retro Quality Metrics
+export { RetroQualityMetricsService } from './features/retro-metrics/application/RetroQualityMetricsService.js';
+
+// Improvement KPI
+export { ImprovementKPIService } from './features/improvement-kpi/application/ImprovementKPIService.js';

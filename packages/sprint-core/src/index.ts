@@ -135,3 +135,33 @@ export { SprintPlannerService } from './features/conflict-planner/application/Sp
 
 // PM Decision
 export { PMDecisionService } from './features/pm-decision/application/PMDecisionService.js';
+
+// Rule Proposal
+export { RuleProposalService } from './features/rule-proposal/application/RuleProposalService.js';
+
+// Quality Binding
+export { QualityBindingService } from './features/quality-binding/application/QualityBindingService.js';
+
+// Auto-Rule Suggestions
+export { AutoRuleSuggestionService } from './features/auto-rule-suggestion/application/AutoRuleSuggestionService.js';
+
+// Sprint Journal
+export { SprintJournalService } from './features/sprint-journal/application/SprintJournalService.js';
+
+// KPIs Dashboard
+export { KPIsDashboardService } from './features/kpis-dashboard/application/KPIsDashboardService.js';
+
+// Velocity Projector
+export { VelocityProjector } from './features/velocity-projector/application/VelocityProjector.js';
+
+// Agent Self-Assessment
+export { AgentSelfAssessmentService } from './features/agent-self-assessment/application/AgentSelfAssessmentService.js';
+
+// Improvement Persistence
+export { ImprovementPersistenceService } from './features/improvement-persistence/application/ImprovementPersistenceService.js';
+
+// Improvement Review
+export { ImprovementReviewService } from './features/improvement-review/application/ImprovementReviewService.js';
+
+// Rule Auto-Apply
+export { RuleAutoApplyService } from './features/rule-auto-apply/application/RuleAutoApplyService.js';
