@@ -39,6 +39,8 @@ function createContext(projectPath: string): WorkflowContext {
       },
       llm_routing: {},
       llm_fallback: {},
+      git: { auto_merge: false },
+      blocage_rules: {},
       schedule: { auto_start: [] },
     } satisfies Cop1Config,
   };

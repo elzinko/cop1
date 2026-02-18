@@ -17,6 +17,10 @@ export interface Cop1Config {
   };
   llm_routing: Record<string, string>;
   llm_fallback: Record<string, string>;
+  git: {
+    auto_merge: boolean;
+  };
+  blocage_rules: Record<string, string>;
   schedule: {
     auto_start: string[];
   };

@@ -24,6 +24,7 @@ export { StoryStatusTracker } from './features/story-tracker/application/StorySt
 export { StoryStatus } from './features/story-tracker/domain/StoryStatus.js';
 export type { StoryStatusValue } from './features/story-tracker/domain/StoryStatus.js';
 export { InvalidTransitionError } from './features/story-tracker/domain/errors/InvalidTransitionError.js';
+export { YamlStatusStore } from './features/story-tracker/infrastructure/YamlStatusStore.js';
 
 // Snapshot
 export { SnapshotService } from './features/story-snapshot/application/SnapshotService.js';
@@ -47,3 +48,28 @@ export type { CodeGeneratorPort } from './features/dev-agent/domain/ports/CodeGe
 export { WorktreeManager } from './features/dev-agent/infrastructure/WorktreeManager.js';
 export { buildDevPrompt, parseLLMResponse } from './features/dev-agent/domain/DevPromptTemplate.js';
 export type { FileOperation } from './features/dev-agent/domain/DevPromptTemplate.js';
+
+// StoryFileLock
+export { StoryFileLockService } from './features/story-lock/application/StoryFileLockService.js';
+export { LockConflictError } from './features/story-lock/domain/StoryFileLock.js';
+export type { LockInfo } from './features/story-lock/domain/StoryFileLock.js';
+
+// Blocage
+export { BlockageService } from './features/blocage/application/BlockageService.js';
+export { EscaladeService } from './features/blocage/application/EscaladeService.js';
+export { BlocageType, BlocageStatus, BlocageEvent } from './features/blocage/domain/Blocage.js';
+export type {
+  BlocageData,
+  BlocageTypeValue,
+  BlocageStatusValue,
+} from './features/blocage/domain/Blocage.js';
+
+// ReviewerAgent
+export { ReviewerAgent } from './features/reviewer-agent/application/ReviewerAgent.js';
+export { MaxRejectionsError } from './features/reviewer-agent/domain/ReviewResult.js';
+export type { ReviewResult } from './features/reviewer-agent/domain/ReviewResult.js';
+export type { ReviewerPort } from './features/reviewer-agent/domain/ports/ReviewerPort.js';
+
+// Merge
+export { MergeService } from './features/merge/application/MergeService.js';
+export type { MergeProposal } from './features/merge/domain/MergeProposal.js';

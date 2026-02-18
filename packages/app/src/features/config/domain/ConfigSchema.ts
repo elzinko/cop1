@@ -33,6 +33,12 @@ export const ConfigSchema = z
       }),
     llm_routing: z.record(z.string(), z.string()).default({}),
     llm_fallback: z.record(z.string(), z.string()).default({}),
+    git: z
+      .object({
+        auto_merge: z.boolean().default(false),
+      })
+      .default({ auto_merge: false }),
+    blocage_rules: z.record(z.string(), z.string()).default({}),
     schedule: z
       .object({
         auto_start: z.array(z.string()).default([]),

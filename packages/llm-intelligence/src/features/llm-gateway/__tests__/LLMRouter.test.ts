@@ -15,6 +15,8 @@ function createMockConfigPort(overrides: Partial<Cop1Config> = {}): ConfigPort {
     },
     llm_routing: {},
     llm_fallback: {},
+    git: { auto_merge: false },
+    blocage_rules: {},
     schedule: { auto_start: [] },
     ...overrides,
   };
