@@ -7,6 +7,7 @@ import {
   LLMReviewer,
   LLMRouter,
   OllamaAdapter,
+  TokensPerSecMonitor,
 } from '@cop1/llm-intelligence';
 import { QualityGateService } from '@cop1/quality-intelligence';
 import { EventBus } from '@cop1/shared-kernel';
@@ -218,6 +219,13 @@ export class SprintRunner {
     const gateway = new LLMGateway(ollama, this.eventBus).withRouter(new LLMRouter(configLoader));
     const codeGenerator = new LLMCodeGenerator(gateway);
     const reviewer = new LLMReviewer(gateway);
+
+    // Wire tokens-per-second monitor
+    const tpsMonitor = new TokensPerSecMonitor();
+    this.eventBus.on('llm.call.completed', (payload: unknown) => {
+      const p = payload as { agentType: string; tokenCount: number; durationMs: number };
+      tpsMonitor.record(p.agentType, p.tokenCount, p.durationMs);
+    });
 
     return [
       new DevAgent(codeGenerator),
