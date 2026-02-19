@@ -4,4 +4,6 @@ export interface WorkflowContext {
   storyId: string;
   projectPath: string;
   config: Cop1Config;
+  /** When true, DevAgent preserves its worktree for inspection */
+  preserveWorktree?: boolean;
 }

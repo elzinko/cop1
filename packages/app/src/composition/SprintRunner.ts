@@ -144,7 +144,12 @@ export class SprintRunner {
         phase: CheckpointPhase.AGENT_STARTED,
       });
 
-      const context = { storyId: story.id, projectPath: executionPath, config };
+      const context = {
+        storyId: story.id,
+        projectPath: executionPath,
+        config,
+        preserveWorktree: options.simulate,
+      };
 
       let result: StepResult;
       if (resumeStoryId === story.id && checkpoint) {

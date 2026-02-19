@@ -47,14 +47,14 @@ export class DevAgent implements WorkflowStep {
         });
       }
 
-      return { status: 'ok' };
+      return { status: 'ok', worktreePath };
     } catch (error) {
       return {
         status: 'failed',
         error: error instanceof Error ? error : new Error(String(error)),
       };
     } finally {
-      if (worktreePath) {
+      if (worktreePath && !context.preserveWorktree) {
         try {
           this.worktreeManager.cleanup(context.projectPath, worktreePath);
         } catch {
