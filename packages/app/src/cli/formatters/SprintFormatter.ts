@@ -1,7 +1,14 @@
 import type { EventBus } from '@cop1/shared-kernel';
 
+interface LLMCallInfo {
+  model: string;
+  durationMs: number;
+  tokenCount: number;
+}
+
 export class SprintFormatter {
   private storySteps: Map<string, string[]> = new Map();
+  private llmCalls: Map<string, LLMCallInfo> = new Map();
 
   attach(eventBus: EventBus): void {
     eventBus.on('sprint.starting', (payload: unknown) => {
@@ -37,12 +44,35 @@ export class SprintFormatter {
       process.stdout.write(`  [${p.storyId}] `);
     });
 
+    // Buffer LLM call info keyed by agentType (last call wins, sequential execution)
+    eventBus.on('llm.call.completed', (payload: unknown) => {
+      const p = payload as {
+        agentType: string;
+        model: string;
+        durationMs: number;
+        tokenCount: number;
+      };
+      this.llmCalls.set(p.agentType, {
+        model: p.model,
+        durationMs: p.durationMs,
+        tokenCount: p.tokenCount,
+      });
+    });
+
     eventBus.on('story.step.completed', (payload: unknown) => {
       const p = payload as { storyId: string; step: string; status: string };
       const steps = this.storySteps.get(p.storyId) ?? [];
       steps.push(p.step);
       this.storySteps.set(p.storyId, steps);
-      process.stdout.write(`${p.step} ok `);
+
+      const llmInfo = this.llmCalls.get(p.step);
+      if (llmInfo) {
+        const seconds = (llmInfo.durationMs / 1000).toFixed(1);
+        process.stdout.write(`${p.step} (${llmInfo.model} ${seconds}s ${llmInfo.tokenCount}t) ok `);
+        this.llmCalls.delete(p.step);
+      } else {
+        process.stdout.write(`${p.step} ok `);
+      }
     });
 
     eventBus.on('story.workflow.completed', (payload: unknown) => {
