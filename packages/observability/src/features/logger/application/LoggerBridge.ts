@@ -9,6 +9,8 @@ const TRACKED_EVENTS = [
   'story.step.completed',
   'resource.snapshot',
   'config.reloaded',
+  'llm.call.started',
+  'llm.call.completed',
 ];
 
 export class LoggerBridge {
