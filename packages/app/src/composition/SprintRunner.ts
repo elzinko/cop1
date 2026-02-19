@@ -215,7 +215,7 @@ export class SprintRunner {
 
   private buildRealSteps(configLoader: ConfigLoader): WorkflowStep[] {
     const ollama = new OllamaAdapter();
-    const gateway = new LLMGateway(ollama).withRouter(new LLMRouter(configLoader));
+    const gateway = new LLMGateway(ollama, this.eventBus).withRouter(new LLMRouter(configLoader));
     const codeGenerator = new LLMCodeGenerator(gateway);
     const reviewer = new LLMReviewer(gateway);
 
