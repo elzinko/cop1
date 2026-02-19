@@ -35,6 +35,9 @@ export {
   ProviderNotFoundError,
 } from './features/provider-registry/application/LLMProviderRegistry.js';
 
+// Ollama Adapter
+export { OllamaAdapter } from './features/llm-gateway/infrastructure/OllamaAdapter.js';
+
 // LLM Agent Adapters
 export { LLMCodeGenerator } from './features/llm-gateway/infrastructure/LLMCodeGenerator.js';
 export { LLMReviewer } from './features/llm-gateway/infrastructure/LLMReviewer.js';

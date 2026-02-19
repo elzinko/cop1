@@ -1,9 +1,22 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { YamlStatusStore } from '@cop1/sprint-core';
+import {
+  DevAgentStep,
+  PMAgentStep,
+  QAAgentStep,
+  ReviewerAgentStep,
+  YamlStatusStore,
+} from '@cop1/sprint-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SprintRunner } from '../SprintRunner.js';
+
+const stubSteps = [
+  new DevAgentStep(),
+  new ReviewerAgentStep(),
+  new QAAgentStep(),
+  new PMAgentStep(),
+];
 
 function createTempProject(): string {
   const dir = join(tmpdir(), `cop1-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -42,7 +55,7 @@ describe('SprintRunner', () => {
   });
 
   it('should run all eligible stories through the workflow', async () => {
-    const runner = new SprintRunner(projectPath);
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
     const result = await runner.run();
 
     expect(result.dryRun).toBe(false);
@@ -59,7 +72,7 @@ describe('SprintRunner', () => {
     entries.set('E1-S1', { status: 'done', updatedAt: new Date().toISOString() });
     store.write(entries);
 
-    const runner = new SprintRunner(projectPath);
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
     const result = await runner.run();
 
     expect(result.storiesDone).toBe(2);
@@ -67,7 +80,7 @@ describe('SprintRunner', () => {
   });
 
   it('should support dry-run mode without changing anything', async () => {
-    const runner = new SprintRunner(projectPath);
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
     const result = await runner.run({ dryRun: true });
 
     expect(result.dryRun).toBe(true);
@@ -81,7 +94,7 @@ describe('SprintRunner', () => {
   });
 
   it('should filter stories by pattern', async () => {
-    const runner = new SprintRunner(projectPath);
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
     const result = await runner.run({ filter: 'E1-*' });
 
     expect(result.storiesDone).toBe(2);
@@ -89,7 +102,7 @@ describe('SprintRunner', () => {
   });
 
   it('should emit sprint events', async () => {
-    const runner = new SprintRunner(projectPath);
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
     const events: string[] = [];
 
     runner.eventBus.on('sprint.starting', () => events.push('starting'));
@@ -102,7 +115,7 @@ describe('SprintRunner', () => {
   });
 
   it('should transition stories through all status steps', async () => {
-    const runner = new SprintRunner(projectPath);
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
     await runner.run({ filter: 'E1-S1' });
 
     const store = new YamlStatusStore(projectPath);

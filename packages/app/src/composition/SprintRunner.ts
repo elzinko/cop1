@@ -1,19 +1,27 @@
+import {
+  LLMCodeGenerator,
+  LLMGateway,
+  LLMReviewer,
+  LLMRouter,
+  OllamaAdapter,
+} from '@cop1/llm-intelligence';
 import { QualityGateService } from '@cop1/quality-intelligence';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   BMADReader,
   CheckpointPhase,
   CheckpointService,
-  DevAgentStep,
+  DevAgent,
   PMAgentStep,
   QAAgentStep,
-  ReviewerAgentStep,
+  ReviewerAgent,
   SprintSessionService,
   type StepResult,
   type StoryMetadata,
   StoryStatus,
   StoryStatusTracker,
   WorkflowEngine,
+  type WorkflowStep,
   YamlStatusStore,
 } from '@cop1/sprint-core';
 import { ConfigLoader } from '../features/config/application/ConfigLoader.js';
@@ -35,10 +43,12 @@ export interface SprintRunResult {
 export class SprintRunner {
   readonly eventBus: EventBus;
   private readonly projectPath: string;
+  private readonly customSteps?: WorkflowStep[];
 
-  constructor(projectPath: string, eventBus?: EventBus) {
+  constructor(projectPath: string, eventBus?: EventBus, steps?: WorkflowStep[]) {
     this.projectPath = projectPath;
     this.eventBus = eventBus ?? new EventBus();
+    this.customSteps = steps;
   }
 
   async run(options: SprintRunOptions = {}): Promise<SprintRunResult> {
@@ -90,12 +100,8 @@ export class SprintRunner {
       this.eventBus.emit('sprint.resuming', { checkpoint });
     }
 
-    const steps = [
-      new DevAgentStep(),
-      new ReviewerAgentStep(),
-      new QAAgentStep(),
-      new PMAgentStep(),
-    ];
+    // Build workflow steps — use custom steps (for testing) or real agents
+    const steps = this.customSteps ?? this.buildRealSteps(configLoader);
 
     let done = 0;
     let failed = 0;
@@ -154,6 +160,20 @@ export class SprintRunner {
 
     this.eventBus.emit('sprint.completed', runResult);
     return runResult;
+  }
+
+  private buildRealSteps(configLoader: ConfigLoader): WorkflowStep[] {
+    const ollama = new OllamaAdapter();
+    const gateway = new LLMGateway(ollama).withRouter(new LLMRouter(configLoader));
+    const codeGenerator = new LLMCodeGenerator(gateway);
+    const reviewer = new LLMReviewer(gateway);
+
+    return [
+      new DevAgent(codeGenerator),
+      new ReviewerAgent(reviewer),
+      new QAAgentStep(), // stub — will be wired in a future story
+      new PMAgentStep(), // stub — will be wired in a future story
+    ];
   }
 
   private filterEligible(
