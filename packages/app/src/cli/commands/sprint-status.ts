@@ -1,6 +1,7 @@
+import { OllamaManagementAdapter } from '@cop1/llm-intelligence';
 import { SprintSessionService, StoryStatusTracker, YamlStatusStore } from '@cop1/sprint-core';
 
-export function sprintStatusCommand(): void {
+export async function sprintStatusCommand(): Promise<void> {
   const projectPath = process.cwd();
   const statusStore = new YamlStatusStore(projectPath);
   const tracker = new StoryStatusTracker(statusStore);
@@ -21,20 +22,37 @@ export function sprintStatusCommand(): void {
   const statuses = tracker.getAllStatuses();
   if (statuses.size === 0) {
     console.log('\nNo story statuses tracked yet.');
-    return;
-  }
-
-  const byStatus: Record<string, string[]> = {};
-  for (const [storyId, entry] of statuses) {
-    if (!byStatus[entry.status]) {
-      byStatus[entry.status] = [];
+  } else {
+    const byStatus: Record<string, string[]> = {};
+    for (const [storyId, entry] of statuses) {
+      if (!byStatus[entry.status]) {
+        byStatus[entry.status] = [];
+      }
+      byStatus[entry.status]?.push(storyId);
     }
-    byStatus[entry.status]?.push(storyId);
+
+    console.log(`\nStories: ${statuses.size} total`);
+    for (const [status, ids] of Object.entries(byStatus).sort()) {
+      console.log(`  ${status}: ${ids.length}`);
+    }
   }
 
-  console.log(`\nStories: ${statuses.size} total`);
-  for (const [status, ids] of Object.entries(byStatus).sort()) {
-    console.log(`  ${status}: ${ids.length}`);
+  // Ollama models
+  console.log('');
+  try {
+    const ollama = new OllamaManagementAdapter();
+    const models = await ollama.listModels();
+    if (models.length > 0) {
+      console.log('Ollama Models:');
+      for (const m of models) {
+        const sizeGB = (m.size / 1e9).toFixed(1);
+        console.log(`  ${m.name}  (${sizeGB} GB)`);
+      }
+    } else {
+      console.log('Ollama: no models installed');
+    }
+  } catch {
+    console.log('Ollama: unavailable');
   }
   console.log('');
 }
