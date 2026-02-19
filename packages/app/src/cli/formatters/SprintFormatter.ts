@@ -5,13 +5,30 @@ export class SprintFormatter {
 
   attach(eventBus: EventBus): void {
     eventBus.on('sprint.starting', (payload: unknown) => {
-      const p = payload as { totalStories: number; eligibleStories: number; dryRun: boolean };
+      const p = payload as {
+        totalStories: number;
+        eligibleStories: number;
+        dryRun: boolean;
+        simulate?: boolean;
+      };
       console.log(`\nSprint: ${p.eligibleStories} stories eligible (${p.totalStories} total)`);
       if (p.dryRun) {
         console.log('(dry-run mode — no changes will be made)\n');
+      } else if (p.simulate) {
+        console.log('(simulate mode — isolated worktree, no auto-merge)\n');
       } else {
         console.log('');
       }
+    });
+
+    eventBus.on('simulate.worktree.creating', (payload: unknown) => {
+      const p = payload as { path: string };
+      console.log(`Creating worktree: ${p.path}`);
+    });
+
+    eventBus.on('simulate.worktree.created', (payload: unknown) => {
+      const p = payload as { path: string };
+      console.log(`Worktree ready: ${p.path}\n`);
     });
 
     eventBus.on('story.workflow.started', (payload: unknown) => {

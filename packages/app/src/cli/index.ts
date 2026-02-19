@@ -43,6 +43,7 @@ sprint
   .command('run')
   .description('Run a sprint on eligible stories')
   .option('--dry-run', 'List stories without executing')
+  .option('--simulate', 'Run in isolated git worktree (no auto-merge)')
   .option('--filter <pattern>', 'Filter stories by ID pattern (e.g., E8-*)')
   .action(sprintRunCommand);
 

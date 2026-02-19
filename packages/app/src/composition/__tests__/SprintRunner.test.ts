@@ -1,4 +1,5 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -39,6 +40,17 @@ function createTempProject(): string {
     join(storiesDir, 'E2-S1.md'),
     '# Story E2-S1: Test Story C\n\nStatus: ready-for-dev\n\n## Acceptance Criteria\n- AC1: works',
   );
+
+  return dir;
+}
+
+function createGitProject(): string {
+  const dir = createTempProject();
+
+  // Initialize git repo for worktree support
+  execSync('git init', { cwd: dir, stdio: 'pipe' });
+  execSync('git add -A', { cwd: dir, stdio: 'pipe' });
+  execSync('git commit -m "init" --no-gpg-sign', { cwd: dir, stdio: 'pipe' });
 
   return dir;
 }
@@ -124,5 +136,92 @@ describe('SprintRunner', () => {
 
     expect(status).toBeDefined();
     expect(status?.status).toBe('done');
+  });
+
+  it('should reject dry-run and simulate together', async () => {
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+
+    await expect(runner.run({ dryRun: true, simulate: true })).rejects.toThrow(
+      '--dry-run and --simulate are mutually exclusive',
+    );
+  });
+});
+
+describe('SprintRunner simulate mode', () => {
+  let projectPath: string;
+
+  beforeEach(() => {
+    projectPath = createGitProject();
+  });
+
+  afterEach(() => {
+    // Clean up worktrees before removing directory
+    try {
+      const output = execSync('git worktree list --porcelain', {
+        cwd: projectPath,
+        encoding: 'utf-8',
+      });
+      const worktrees = output
+        .split('\n')
+        .filter((l) => l.startsWith('worktree '))
+        .map((l) => l.replace('worktree ', ''))
+        .filter((p) => p !== projectPath);
+      for (const wt of worktrees) {
+        execSync(`git worktree remove "${wt}" --force`, { cwd: projectPath, stdio: 'pipe' });
+      }
+    } catch {
+      // best effort
+    }
+    rmSync(projectPath, { recursive: true, force: true });
+  });
+
+  it('should create a worktree and execute sprint inside it', async () => {
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const result = await runner.run({ simulate: true });
+
+    expect(result.simulate).toBe(true);
+    expect(result.worktreePath).toBeDefined();
+    expect(result.worktreePath).toContain('agent/simulate-');
+    expect(result.storiesDone).toBe(3);
+
+    // Worktree is preserved (not cleaned up)
+    expect(existsSync(result.worktreePath!)).toBe(true);
+  });
+
+  it('should not modify main project status in simulate mode', async () => {
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const result = await runner.run({ simulate: true, filter: 'E1-S1' });
+
+    // Main project tracker is untouched
+    const mainStore = new YamlStatusStore(projectPath);
+    const mainEntries = mainStore.readAll();
+    expect(mainEntries.has('E1-S1')).toBe(false);
+
+    // Worktree tracker has the status
+    const wtStore = new YamlStatusStore(result.worktreePath!);
+    const wtEntries = wtStore.readAll();
+    expect(wtEntries.get('E1-S1')?.status).toBe('done');
+  });
+
+  it('should support simulate with filter', async () => {
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const result = await runner.run({ simulate: true, filter: 'E2-*' });
+
+    expect(result.simulate).toBe(true);
+    expect(result.storiesDone).toBe(1);
+    expect(result.storiesProcessed).toBe(1);
+  });
+
+  it('should emit simulate worktree events', async () => {
+    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const events: string[] = [];
+
+    runner.eventBus.on('simulate.worktree.creating', () => events.push('creating'));
+    runner.eventBus.on('simulate.worktree.created', () => events.push('created'));
+
+    await runner.run({ simulate: true });
+
+    expect(events).toContain('creating');
+    expect(events).toContain('created');
   });
 });

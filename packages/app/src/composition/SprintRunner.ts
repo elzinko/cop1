@@ -1,3 +1,6 @@
+import { execSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   LLMCodeGenerator,
   LLMGateway,
@@ -29,6 +32,7 @@ import { ConfigLoader } from '../features/config/application/ConfigLoader.js';
 export interface SprintRunOptions {
   filter?: string;
   dryRun?: boolean;
+  simulate?: boolean;
 }
 
 export interface SprintRunResult {
@@ -38,6 +42,8 @@ export interface SprintRunResult {
   storiesSkipped: number;
   durationMs: number;
   dryRun: boolean;
+  simulate: boolean;
+  worktreePath?: string;
 }
 
 export class SprintRunner {
@@ -52,29 +58,30 @@ export class SprintRunner {
   }
 
   async run(options: SprintRunOptions = {}): Promise<SprintRunResult> {
+    if (options.dryRun && options.simulate) {
+      throw new Error('--dry-run and --simulate are mutually exclusive');
+    }
+
     const start = Date.now();
 
-    // Load config
+    // Load config from the real project (always)
     const configLoader = new ConfigLoader({ skipRamValidation: true });
     const config = configLoader.load(this.projectPath);
 
-    // Initialize services
+    // Read stories from the real project (always)
     const bmadReader = new BMADReader();
+    const allStories = bmadReader.listStories(this.projectPath);
+
+    // Tracker from the real project (for filtering eligibility)
     const statusStore = new YamlStatusStore(this.projectPath);
     const tracker = new StoryStatusTracker(statusStore);
-    const sessionService = new SprintSessionService(this.projectPath);
-    const checkpointService = new CheckpointService(this.projectPath);
-    const qualityGate = new QualityGateService();
-    const engine = new WorkflowEngine(this.eventBus, qualityGate);
-
-    // Read stories
-    const allStories = bmadReader.listStories(this.projectPath);
     const eligibleStories = this.filterEligible(allStories, tracker, options.filter);
 
     this.eventBus.emit('sprint.starting', {
       totalStories: allStories.length,
       eligibleStories: eligibleStories.length,
       dryRun: options.dryRun ?? false,
+      simulate: options.simulate ?? false,
     });
 
     if (options.dryRun) {
@@ -85,8 +92,20 @@ export class SprintRunner {
         storiesSkipped: eligibleStories.length,
         durationMs: Date.now() - start,
         dryRun: true,
+        simulate: false,
       };
     }
+
+    // Determine execution path: simulate (worktree) or normal
+    const executionPath = options.simulate ? this.createSimulateWorktree() : this.projectPath;
+
+    // Initialize services in execution path
+    const execStatusStore = new YamlStatusStore(executionPath);
+    const execTracker = new StoryStatusTracker(execStatusStore);
+    const sessionService = new SprintSessionService(executionPath);
+    const checkpointService = new CheckpointService(executionPath);
+    const qualityGate = new QualityGateService();
+    const engine = new WorkflowEngine(this.eventBus, qualityGate);
 
     // Start sprint session
     const durationMinutes = config.sprint.default_duration_hours * 60;
@@ -100,7 +119,7 @@ export class SprintRunner {
       this.eventBus.emit('sprint.resuming', { checkpoint });
     }
 
-    // Build workflow steps — use custom steps (for testing) or real agents
+    // Build workflow steps
     const steps = this.customSteps ?? this.buildRealSteps(configLoader);
 
     let done = 0;
@@ -113,7 +132,7 @@ export class SprintRunner {
       }
 
       // Transition: backlog → ready → in-progress
-      this.transitionToInProgress(tracker, story.id);
+      this.transitionToInProgress(execTracker, story.id);
 
       // Save checkpoint
       checkpointService.save({
@@ -125,7 +144,7 @@ export class SprintRunner {
         phase: CheckpointPhase.AGENT_STARTED,
       });
 
-      const context = { storyId: story.id, projectPath: this.projectPath, config };
+      const context = { storyId: story.id, projectPath: executionPath, config };
 
       let result: StepResult;
       if (resumeStoryId === story.id && checkpoint) {
@@ -137,8 +156,8 @@ export class SprintRunner {
 
       if (result.status === 'ok') {
         // in-progress → review → done
-        tracker.setStatus(story.id, StoryStatus.REVIEW);
-        tracker.setStatus(story.id, StoryStatus.DONE);
+        execTracker.setStatus(story.id, StoryStatus.REVIEW);
+        execTracker.setStatus(story.id, StoryStatus.DONE);
         done++;
       } else {
         failed++;
@@ -156,10 +175,37 @@ export class SprintRunner {
       storiesSkipped: eligibleStories.length - done - failed,
       durationMs: Date.now() - start,
       dryRun: false,
+      simulate: options.simulate ?? false,
+      worktreePath: options.simulate ? executionPath : undefined,
     };
 
     this.eventBus.emit('sprint.completed', runResult);
     return runResult;
+  }
+
+  private createSimulateWorktree(): string {
+    const timestamp = Date.now();
+    const worktreeName = `simulate-${timestamp}`;
+    const worktreePath = join(this.projectPath, 'agent', worktreeName);
+
+    this.eventBus.emit('simulate.worktree.creating', { path: worktreePath });
+
+    execSync(`git worktree add "${worktreePath}" HEAD`, {
+      cwd: this.projectPath,
+      stdio: 'pipe',
+    });
+
+    // Copy .cop1 state into the worktree
+    const cop1Dir = join(this.projectPath, '.cop1');
+    const targetCop1Dir = join(worktreePath, '.cop1');
+    if (existsSync(cop1Dir)) {
+      mkdirSync(targetCop1Dir, { recursive: true });
+      cpSync(cop1Dir, targetCop1Dir, { recursive: true });
+    }
+
+    this.eventBus.emit('simulate.worktree.created', { path: worktreePath });
+
+    return worktreePath;
   }
 
   private buildRealSteps(configLoader: ConfigLoader): WorkflowStep[] {

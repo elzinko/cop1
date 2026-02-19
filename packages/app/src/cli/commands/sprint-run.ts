@@ -5,7 +5,14 @@ import { SprintFormatter } from '../formatters/SprintFormatter.js';
 export async function sprintRunCommand(options: {
   dryRun?: boolean;
   filter?: string;
+  simulate?: boolean;
 }): Promise<void> {
+  if (options.dryRun && options.simulate) {
+    console.error('Error: --dry-run and --simulate are mutually exclusive');
+    process.exitCode = 1;
+    return;
+  }
+
   const projectPath = process.cwd();
   const runner = new SprintRunner(projectPath);
   const formatter = new SprintFormatter();
@@ -40,10 +47,23 @@ export async function sprintRunCommand(options: {
     return;
   }
 
+  if (options.simulate) {
+    console.log('\nWorktree execution mode — running in isolated worktree\n');
+  }
+
   const result = await runner.run({
     filter: options.filter,
     dryRun: false,
+    simulate: options.simulate,
   });
+
+  if (result.simulate && result.worktreePath) {
+    console.log('\nWorktree preserved for inspection:');
+    console.log(`  ${result.worktreePath}`);
+    console.log(`\nTo inspect:  cd ${result.worktreePath}`);
+    console.log('To merge:    git merge <branch>  (from main)');
+    console.log(`To discard:  git worktree remove ${result.worktreePath}`);
+  }
 
   if (result.storiesFailed > 0) {
     process.exitCode = 1;
