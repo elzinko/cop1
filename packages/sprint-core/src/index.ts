@@ -174,3 +174,19 @@ export { ImprovementReviewService } from './features/improvement-review/applicat
 
 // Rule Auto-Apply
 export { RuleAutoApplyService } from './features/rule-auto-apply/application/RuleAutoApplyService.js';
+
+// BMAD Orchestration
+export type {
+  BMADCommandPort,
+  BMADCommandResult,
+} from './features/bmad-orchestration/domain/ports/BMADCommandPort.js';
+export { ClaudeCliAdapter } from './features/bmad-orchestration/infrastructure/ClaudeCliAdapter.js';
+export type {
+  ClaudeCliAdapterOptions,
+  ProcessSpawner,
+} from './features/bmad-orchestration/infrastructure/ClaudeCliAdapter.js';
+export { BMADCommandStep } from './features/bmad-orchestration/application/BMADCommandStep.js';
+export { BMADDevStoryStep } from './features/bmad-orchestration/application/BMADDevStoryStep.js';
+export { BMADReviewStep } from './features/bmad-orchestration/application/BMADReviewStep.js';
+export { StoryContextBuilder } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
+export type { StoryContext } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
