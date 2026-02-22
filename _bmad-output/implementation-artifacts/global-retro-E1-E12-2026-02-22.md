@@ -254,6 +254,25 @@ src/modules/bmm/extensions/cop1-sprint/
 
 **Current assessment:** Extension Modules are not needed for Sprint 9. The customize.yaml + sidecar combination covers all immediate needs. Extension Modules become relevant when iamthelaw is mature enough to be packaged as a distributable module (E19, Sprint 14+).
 
+#### Why an Extension Module Cannot Replace cop1
+
+An autonomous-sprint Extension Module (Example 3 above) could chain dev → review → QA → retro in a single BMAD workflow. However, it runs within **a single Claude Code session**, which imposes fundamental limitations that cop1 is designed to overcome:
+
+| Capability | BMAD Extension Module alone | cop1 + BMAD |
+|------------|----------------------------|-------------|
+| Chain dev → review → QA | Yes (single workflow) | Yes |
+| Launch each step in a **separate prompt** | No (single session) | Yes |
+| Route to **different models** per agent | No (one model per session) | Yes (LLM routing) |
+| **Budget tracking** across steps | No | Yes (EA2) |
+| **Checkpoint/resume** between steps | No (crash = everything lost) | Yes (E3-S3/S4) |
+| **Timeout + retry** per step | No | Yes (EA1-S7) |
+| **Resource suspension** if RAM insufficient | No | Yes (E7) |
+| **Local vs container** execution | No (terminal only) | Yes (Execution Gateway) |
+| **Governance** (iamthelaw rules, retro → proposals) | No | Yes (E8+E9+E12) |
+| **Metrics & observability** per step | No | Yes (EventBus, JSONL) |
+
+**Key insight:** BMAD excels at defining **what** each agent does (dev-story 10-step, code-review checklist, QA validation). cop1 excels at controlling **how** agents are orchestrated (scheduling, isolation, budget, governance). They are complementary, not competing.
+
 ### Integration Strategy (validated against ADR-007)
 
 **Phase 1 — Sidecar + customize.yaml (EA5, Sprint 9):**
