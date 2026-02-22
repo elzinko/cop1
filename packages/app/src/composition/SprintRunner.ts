@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   LLMCodeGenerator,
@@ -9,6 +9,7 @@ import {
   OllamaAdapter,
   TokensPerSecMonitor,
 } from '@cop1/llm-intelligence';
+import { LoggerBridge, StructuredLogger } from '@cop1/observability';
 import { QualityGateService } from '@cop1/quality-intelligence';
 import { EventBus } from '@cop1/shared-kernel';
 import {
@@ -16,8 +17,8 @@ import {
   CheckpointPhase,
   CheckpointService,
   DevAgent,
-  PMAgentStep,
-  QAAgentStep,
+  PMAgentWorkflowStep,
+  QAAgent,
   ReviewerAgent,
   SprintSessionService,
   type StepResult,
@@ -68,6 +69,11 @@ export class SprintRunner {
     // Load config from the real project (always)
     const configLoader = new ConfigLoader({ skipRamValidation: true });
     const config = configLoader.load(this.projectPath);
+
+    // Wire structured logging
+    const logger = new StructuredLogger(this.projectPath);
+    const loggerBridge = new LoggerBridge(this.eventBus, logger);
+    loggerBridge.start();
 
     // Read stories from the real project (always)
     const bmadReader = new BMADReader();
@@ -145,10 +151,19 @@ export class SprintRunner {
         phase: CheckpointPhase.AGENT_STARTED,
       });
 
+      // Read story content for prompt enrichment
+      let storyContent: string | undefined;
+      try {
+        storyContent = readFileSync(story.filePath, 'utf-8');
+      } catch {
+        // Story file may not be accessible from worktree — fall back to ID only
+      }
+
       const context = {
         storyId: story.id,
         projectPath: executionPath,
         config,
+        storyContent,
         preserveWorktree: options.simulate,
       };
 
@@ -230,8 +245,8 @@ export class SprintRunner {
     return [
       new DevAgent(codeGenerator),
       new ReviewerAgent(reviewer),
-      new QAAgentStep(), // stub — will be wired in a future story
-      new PMAgentStep(), // stub — will be wired in a future story
+      new QAAgent(),
+      new PMAgentWorkflowStep(),
     ];
   }
 

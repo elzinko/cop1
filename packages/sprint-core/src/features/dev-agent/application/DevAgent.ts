@@ -26,7 +26,8 @@ export class DevAgent implements WorkflowStep {
     try {
       worktreePath = this.worktreeManager.create(context.projectPath, context.storyId);
 
-      const prompt = buildDevPrompt(context.storyId, `Story: ${context.storyId}`);
+      const snapshotContent = context.storyContent ?? `Story: ${context.storyId}`;
+      const prompt = buildDevPrompt(context.storyId, snapshotContent);
       const response = await this.codeGenerator.generate(prompt);
       const { files, commitMessage } = parseLLMResponse(response);
 

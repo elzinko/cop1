@@ -73,6 +73,7 @@ export class WorkflowEngine {
         step: step.name,
         index: i,
         status: result.status,
+        ...(result.report ? { report: result.report } : {}),
       });
 
       // Run quality gate between steps (not after the last one)

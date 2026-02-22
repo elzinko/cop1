@@ -12,6 +12,7 @@ export type { WorkflowEventValue } from './features/workflow/domain/WorkflowEven
 export { DevAgentStep } from './features/workflow/infrastructure/steps/DevAgentStep.js';
 export { ReviewerAgentStep } from './features/workflow/infrastructure/steps/ReviewerAgentStep.js';
 export { QAAgentStep } from './features/workflow/infrastructure/steps/QAAgentStep.js';
+/** @deprecated Use PMAgentWorkflowStep instead */
 export { PMAgentStep } from './features/workflow/infrastructure/steps/PMAgentStep.js';
 
 // BMAD Reader
@@ -42,11 +43,18 @@ export { SprintSessionService } from './features/sprint-session/application/Spri
 export { parseDuration } from './features/sprint-session/domain/SprintSession.js';
 export type { SprintSessionData } from './features/sprint-session/domain/SprintSession.js';
 
+// QA Agent
+export { QAAgent } from './features/qa-agent/application/QAAgent.js';
+
 // DevAgent
 export { DevAgent } from './features/dev-agent/application/DevAgent.js';
 export type { CodeGeneratorPort } from './features/dev-agent/domain/ports/CodeGeneratorPort.js';
 export { WorktreeManager } from './features/dev-agent/infrastructure/WorktreeManager.js';
-export { buildDevPrompt, parseLLMResponse } from './features/dev-agent/domain/DevPromptTemplate.js';
+export {
+  buildDevPrompt,
+  extractMarkdownSection,
+  parseLLMResponse,
+} from './features/dev-agent/domain/DevPromptTemplate.js';
 export type { FileOperation } from './features/dev-agent/domain/DevPromptTemplate.js';
 
 // StoryFileLock
@@ -105,6 +113,7 @@ export { INVESTValidator } from './features/invest-validator/application/INVESTV
 
 // PM Agent
 export { PMAgent } from './features/pm-agent/application/PMAgent.js';
+export { PMAgentWorkflowStep } from './features/pm-agent/application/PMAgentWorkflowStep.js';
 export type { BacklogPort, BacklogStory } from './features/pm-agent/domain/ports/BacklogPort.js';
 
 // WSJF
