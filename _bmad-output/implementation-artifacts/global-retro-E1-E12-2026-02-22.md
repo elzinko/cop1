@@ -58,12 +58,17 @@ EventBus used consistently across all features. SprintFormatter displays LLM met
 ### 6. Change Proposal Process
 3 documented sprint change proposals (2026-02-18, 19, 20) show explicit course correction. Not waterfall; the team adapted when architecture gaps were discovered.
 
+### 7. Late Adapter Implementation Was a Hidden Advantage
+The delayed agent wiring (Sprint 6) turned out to be a fortunate accident. By the time real adapters were needed, it became clear that BMAD's battle-tested workflows (dev-story, code-review, QA) were far superior to custom LLM prompts. The hexagonal architecture meant the naive LLM adapters could be replaced wholesale by BMAD command adapters without any domain refactoring. Had the adapters been implemented in detail early on, that investment would have been wasted.
+
 ---
 
 ## What Didn't Go Well
 
-### 1. Agent Wiring Discovered Late (Sprint 6)
+### 1. Agent Wiring Discovered Late (Sprint 6) — Mitigated by BMAD Pivot
 Sprints 0-5 built independent infrastructure with stubs. Real LLM agent wiring (`LLMCodeGenerator`, `LLMReviewer`) only happened in Sprint 6 (E5-S8, E3-S16). Sprint change proposal 2026-02-18: "The real agents exist but are not wired."
+
+**Retrospective assessment:** This delay was initially seen as a problem, but the BMAD pivot (EA1) made it a non-issue. The naive LLM adapters were never meant to be the long-term solution. BMAD provides complete, extensible workflows via B-Map Module Template and B-Map Builder for agents, workflows, and modules — far beyond what custom adapters could achieve.
 
 ### 2. Poor LLM Prompt Quality (Sprint 7)
 DevAgent had a 14-line prompt template with no project context, no conventions, no structured AC parsing. Generated generic code instead of targeted TypeScript. Fixed in E3-S17 but late.
@@ -76,6 +81,9 @@ PMAgentWorkflowStep was a no-op placeholder. E3-S18 wired heuristic AC matching 
 
 ### 5. LLM Observability Added Late (Sprint 6-7)
 LLM event tracking (E5-S9 to S12), SprintFormatter display (E11-S13) — all Sprint 6-7. Without visibility, prompt quality issues went undiagnosed.
+
+### 6. sprint-status.yaml Location Mismatch
+The `sprint-status.yaml` file is stored in `.cop1/` (hardcoded in `YamlStatusStore`) while BMAD workflows expect it in `_bmad-output/implementation-artifacts/`. This dual architecture creates confusion: the file was manually created for cop1 runtime tracking, but BMAD's sprint-planning workflow generates it in a different location. This mismatch should be resolved — either align cop1's `YamlStatusStore` to use BMAD's expected path, or configure BMAD to read from `.cop1/`.
 
 ---
 
@@ -107,6 +115,8 @@ iamthelaw YAML rules with version history (`history.jsonl`), mandatory retrospec
 
 5. **Governance-as-pipeline works**: E8+E9+E12 form a closed loop. This pattern should be preserved in the BMAD pivot.
 
+6. **Stay within BMAD's extension framework**: BMAD provides native mechanisms for customization (customize.yaml, sidecar memory, Extension Modules via B-Map Builder). cop1 should leverage these rather than building parallel systems. The iamthelaw integration should use the sidecar pattern (validated by tech-writer sidecar) and eventually evolve into a BMM Extension Module (E19).
+
 ---
 
 ## BMAD Pivot Validation
@@ -120,8 +130,50 @@ This retrospective confirms the BMAD pivot (EA1-EA5) as the correct strategic de
 | QA validation | Stub (600ms) | Structured QA workflow |
 | PM validation | Heuristic AC matching | Semantic AC validation |
 | Prompt quality | Weak, late-improved | Proven on 106 stories |
+| Extensibility | Custom TypeScript adapters | B-Map Builder: custom agents, workflows, modules |
 
 **Decision:** cop1 becomes a thin orchestration layer over BMAD. Infrastructure (EventBus, checkpoints, resources, governance) is retained. LLM adapters are replaced by `BMADCommandPort`.
+
+---
+
+## BMAD Builder Integration Analysis
+
+Analysis of BMAD v6.0.0 customization mechanisms and cop1 integration strategy.
+
+### Available BMAD Customization Mechanisms
+
+| Mechanism | Location | cop1 Relevance |
+|-----------|----------|---------------|
+| **customize.yaml** | `_bmad/_config/agents/{module}-{agent}.customize.yaml` | Load iamthelaw rules via `critical_actions` |
+| **Sidecar memory** | `_bmad/_memory/{agent}-sidecar/` | Persist LLM-friendly rules for BMAD agents |
+| **Extension Module** | `src/modules/{code}/` with `module.yaml` | Future: package iamthelaw as BMM extension |
+| **project-context.md** | `_bmad-output/project-context.md` | Rejected — overwrite risk from `generate-project-context` |
+| **Module variables** | `module.yaml` variable definitions | Useful but not for evolving rules |
+
+### Integration Strategy (validated against ADR-007)
+
+**Phase 1 — Sidecar + customize.yaml (EA5, Sprint 9):**
+- Sync `.cop1/rules/active-rules.yaml` to `_bmad/_memory/iamthelaw-sidecar/rules.md`
+- Configure `critical_actions` in `bmm-dev.customize.yaml`, `bmm-qa.customize.yaml`, `bmm-sm.customize.yaml`
+- Pattern validated by existing tech-writer sidecar at `_bmad/_memory/tech-writer-sidecar/documentation-standards.md`
+
+**Phase 2 — Bidirectional validation (Sprint 12+):**
+- BMAD interactive agents read rules from sidecar
+- cop1 autonomous agents read rules from `.cop1/rules/`
+- cop1 retrospective writes rules to both locations
+
+**Phase 3 — BMM Extension Module (E19, Sprint 14+):**
+- Package iamthelaw as Extension Module (`code: bmm`)
+- Add "Judge" agent with `hasSidecar: true`
+- Add rule-check workflow in BMM phase 4 sequence
+- Distributable as npm package
+
+### BMAD Limitations (confirmed)
+
+- No plugin/event/hook system — cop1 cannot inject behavior inside a running BMAD workflow
+- No programmatic API — agents are prompt-driven (markdown + XML)
+- No real-time sync — files loaded at workflow start, not watched
+- No cross-agent communication during sessions
 
 ---
 
@@ -129,26 +181,28 @@ This retrospective confirms the BMAD pivot (EA1-EA5) as the correct strategic de
 
 ### Process Improvements
 
-| # | Action | Owner | Deadline | Success Criteria |
-|---|--------|-------|----------|-----------------|
-| 1 | Complete BMAD pipeline (EA1-S4, S5, S7) | Dev | Sprint 9 | `cop1 sprint run` executes Dev+Review+QA via BMAD |
-| 2 | Integrate budget tracking (EA2-S1, S2) | Architect | Sprint 9 | Every Claude CLI call tracked in tokens + cost |
-| 3 | Wire SprintRunner to BMAD steps (EA1-S5) | Dev | Sprint 9 | `buildRealSteps()` uses BMADCommandStep |
+| # | Action | Type | Owner | Deadline | Success Criteria |
+|---|--------|------|-------|----------|-----------------|
+| 1 | Complete BMAD pipeline (EA1-S4, S5, S7) | User Story | Dev | Sprint 9 | `cop1 sprint run` executes Dev+Review+QA via BMAD |
+| 2 | Integrate budget tracking (EA2-S1, S2) | User Story | Architect | Sprint 9 | Every Claude CLI call tracked in tokens + cost |
+| 3 | Wire SprintRunner to BMAD steps (EA1-S5) | User Story | Dev | Sprint 9 | `buildRealSteps()` uses BMADCommandStep |
+| 4 | Sidecar sync BMAD (EA5-S1, S2, S3) | Enabler | Dev | Sprint 9 | iamthelaw rules visible to BMAD agents |
 
 ### Technical Debt
 
-| # | Item | Priority | Action |
-|---|------|----------|--------|
-| 1 | ReviewerAgent weak prompt | LOW | Obsoleted by BMADReviewStep |
-| 2 | QAAgent stub | LOW | Replaced by BMADQAStep (EA1-S4) |
-| 3 | 4 stories in backlog | MEDIUM | Evaluate relevance post-pivot |
+| # | Item | Priority | Type | Action |
+|---|------|----------|------|--------|
+| 1 | ReviewerAgent weak prompt | LOW | Tech Debt | Obsoleted by BMADReviewStep |
+| 2 | QAAgent stub | LOW | Tech Debt | Replaced by BMADQAStep (EA1-S4) |
+| 3 | 4 stories in backlog (E9-S5, E10-S9, E11-S10, E12-S6b) | MEDIUM | Backlog Grooming | Evaluate relevance post-pivot |
+| 4 | sprint-status.yaml path mismatch (.cop1/ vs implementation-artifacts/) | MEDIUM | Tech Debt | Align cop1 YamlStatusStore with BMAD expected path |
 
 ### Preparation for Phase A
 
-| # | Task | Sprint | Prerequisite |
-|---|------|--------|-------------|
-| 1 | Sidecar sync BMAD (EA5) | 9 | Connect iamthelaw rules to BMAD agents |
-| 2 | UX design with Sally | Before Sprint 10 | Run /bmad-bmm-create-ux-design |
+| # | Task | Type | Sprint | Note |
+|---|------|------|--------|------|
+| 1 | UX design with Sally | Spike / Discovery | Before Sprint 10 | Run /bmad-bmm-create-ux-design with existing brief |
+| 2 | Unified backlog tracking for non-dev tasks | Future Epic | TBD | Currently no tracking for ideation/PM/UX tasks — gap identified |
 
 ---
 
@@ -170,6 +224,7 @@ Sample story execution (E10-S9):
 3. Run UX design session before Sprint 10
 4. Begin EA3 (Dashboard) in Sprint 10
 5. Review 4 backlog stories for post-pivot relevance
+6. Resolve sprint-status.yaml path mismatch
 
 ---
 
