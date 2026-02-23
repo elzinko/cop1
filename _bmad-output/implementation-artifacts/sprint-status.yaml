@@ -159,7 +159,7 @@ development_status:
   E9-S2: done       # DoD Definition & Validation
   E9-S3: done       # DoD Rejection Limiter
   E9-S4: done       # Rule Proposal Workflow
-  E9-S5: backlog    # Rule Approval UI — replanned to Sprint 9 with EA5
+  E9-S5: ready-for-dev  # Rule Approval UI — replanned to Sprint 9 with EA5
   E9-S6: done       # Quality Tool Binding
   E9-S7: done       # Auto-Rule Suggestions
   E9-S8: done       # RuleApplicationService
@@ -219,17 +219,17 @@ development_status:
   EA1-S1: done       # BMADCommandPort + ClaudeCliAdapter (commit 4dbe595)
   EA1-S2: done       # BMADDevStoryStep (commit 4dbe595)
   EA1-S3: done       # BMADReviewStep (commit 4dbe595)
-  EA1-S4: backlog    # BMADQAStep — Sprint 9
-  EA1-S5: backlog    # SprintRunner BMAD wiring — Sprint 9
+  EA1-S4: ready-for-dev  # BMADQAStep — Sprint 9
+  EA1-S5: ready-for-dev  # SprintRunner BMAD wiring — Sprint 9
   EA1-S6: done       # Story context preparation (commit 4dbe595)
-  EA1-S7: backlog    # Error handling & retry — Sprint 9
+  EA1-S7: ready-for-dev  # Error handling & retry — Sprint 9
   EA1-S8: backlog    # Integration test — Sprint 10
   epic-ea1-retrospective: optional
 
   # --- Epic EA2 — Budget & Consumption Tracking (Sprint 9-12) ---
-  epic-ea2: backlog
-  EA2-S1: backlog    # TokenBudgetService — Sprint 9
-  EA2-S2: backlog    # Budget config — Sprint 9
+  epic-ea2: in-progress
+  EA2-S1: ready-for-dev  # TokenBudgetService — Sprint 9
+  EA2-S2: ready-for-dev  # Budget config — Sprint 9
   EA2-S3: backlog    # Budget alert system — Sprint 10
   EA2-S4: backlog    # Pre-call budget check — Sprint 10
   EA2-S5: backlog    # Budget CLI — Sprint 10
@@ -258,8 +258,8 @@ development_status:
   epic-ea4-retrospective: optional
 
   # --- Epic EA5 — BMAD Sidecar Sync (Sprint 9) ---
-  epic-ea5: backlog
-  EA5-S1: backlog    # Sidecar sync service — Sprint 9
-  EA5-S2: backlog    # BMAD customize.yaml setup — Sprint 9
-  EA5-S3: backlog    # Auto-sync on rule change — Sprint 9
+  epic-ea5: in-progress
+  EA5-S1: ready-for-dev  # Sidecar sync service — Sprint 9
+  EA5-S2: ready-for-dev  # BMAD customize.yaml setup — Sprint 9
+  EA5-S3: ready-for-dev  # Auto-sync on rule change — Sprint 9
   epic-ea5-retrospective: optional
