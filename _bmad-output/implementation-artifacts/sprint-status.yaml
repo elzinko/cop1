@@ -1,0 +1,265 @@
+# generated: 2026-02-23
+# project: cop1
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+#
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+#
+# MIGRATION NOTE:
+# ===============
+# Migrated from .cop1/sprint-status.yaml on 2026-02-23 (Phase A BMAD Pivot).
+# Phase 1 (E1-E12): 102 done, 4 backlog. Phase A (EA1-EA5): 4 done (Sprint 8), 26 backlog.
+# See sprint-change-proposal-2026-02-22.md for pivot rationale.
+
+generated: 2026-02-23
+project: cop1
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+
+  # ============================================================
+  # PHASE 1 — Epics E1-E12 (Sprints 0-7)
+  # ============================================================
+
+  # --- Epic 1 — Foundation & Project Init ---
+  epic-1: done
+  E1-S1: done       # Monorepo setup
+  E1-S2: done       # cop1 CLI daemon
+  E1-S3: done       # cop1.config.yaml
+  E1-S4: done       # cop1 init
+  E1-S5: done       # Export sessions
+  E1-S6: done       # cop1.config.yaml for M3 Max
+  epic-1-retrospective: done
+
+  # --- Epic 2 — Backlog Management & BMAD Interface ---
+  epic-2: done
+  E2-S1: done       # BMAD Reader
+  E2-S2: done       # Story Status Tracker
+  E2-S3: done       # Story Snapshot
+  E2-S4: done       # Story Enrichment
+  E2-S5: done       # DoR Validator
+  E2-S6: done       # INVEST Validator
+  E2-S7: done       # PM Agent — Backlog Health Report
+  E2-S8: done       # WSJF Scoring
+  E2-S9: done       # Backlog Alerts
+  E2-S10: done      # Sprint End Report
+  E2-S11: done      # Backlog Dashboard (Web UI)
+  epic-2-retrospective: done
+
+  # --- Epic 3 — Workflow Engine & Agent Orchestration ---
+  epic-3: done
+  E3-S1: done       # Workflow Engine
+  E3-S2: done       # LLM Routing per Command
+  E3-S3: done       # Checkpoint System
+  E3-S4: done       # Resume from Checkpoint
+  E3-S5: done       # DevAgent
+  E3-S6: done       # ReviewerAgent
+  E3-S7: done       # StoryFileLock
+  E3-S8: done       # Branch & Merge Management
+  E3-S9: done       # Night Mode Scheduler
+  E3-S10: done      # Iteration Limiter
+  E3-S11: done      # Conflict-Aware Sprint Planning
+  E3-S12: done      # PM Decision File
+  E3-S13: done      # Time-Boxed Sprint
+  E3-S14: done      # Backlog Edit Lock
+  E3-S15: done      # Worktree Execution Mode
+  E3-S16: done      # Wire Real Agents in SprintRunner
+  E3-S17: done      # DevAgent Prompt Enhancement
+  E3-S18: done      # PM Agent Wiring
+  epic-3-retrospective: done
+
+  # --- Epic 4 — Blocage & Escalade ---
+  epic-4: done
+  E4-S1: done       # BlockageDeclaration
+  E4-S2: done       # Escalade Router
+  E4-S3: done       # Developer Response Channel
+  E4-S4: done       # Blocage Config
+  epic-4-retrospective: done
+
+  # --- Epic 5 — LLM Infrastructure & MCP ---
+  epic-5: done
+  E5-S1: done       # LLM Gateway
+  E5-S2: done       # Claude API Adapter
+  E5-S3: done       # LLM Routing Config
+  E5-S4: done       # Model Manager
+  E5-S5: done       # MCP Server Registry
+  E5-S6: done       # Adaptive LLM Escalation
+  E5-S7: done       # Tokens/sec Monitor
+  E5-S8: done       # LLM Agent Adapters
+  E5-S9: done       # LLMGateway Event Emission
+  E5-S10: done      # LoggerBridge LLM Event Tracking
+  E5-S11: done      # TokensPerSecMonitor Wiring
+  E5-S12: done      # Ollama Models in Sprint Status
+  epic-5-retrospective: done
+
+  # --- Epic 6 — LLM Provisioning ---
+  epic-6: done
+  E6-S1: done       # OllamaManagementAdapter
+  E6-S2: done       # ContainerRuntimePort
+  E6-S3: done       # LLMProviderRegistry
+  E6-S4: done       # LLM Management UI
+  epic-6-retrospective: done
+
+  # --- Epic 7 — Resource Management ---
+  epic-7: done
+  E7-S1: done       # Resource Monitor
+  E7-S2: done       # Suspension automatique
+  E7-S3: done       # Session Ramp-Up
+  E7-S4: done       # Resource Config
+  E7-S5: done       # Co-Presence Mode
+  epic-7-retrospective: done
+
+  # --- Epic 8 — Ceremony Engine ---
+  epic-8: done
+  E8-S1: done       # Round-Table Engine
+  E8-S2: done       # Scrum Master Agent
+  E8-S3: done       # Sprint Planning Ceremony
+  E8-S4: done       # Daily Async Ceremony
+  E8-S5: done       # Sprint Review Ceremony
+  E8-S6: done       # Retrospective Ceremony
+  E8-S7: done       # Grooming Ceremony
+  E8-S8: done       # Developer Async Channel
+  E8-S9: done       # PlanningDecision Protocol
+  E8-S10: done      # Ceremony Summary Report
+  epic-8-retrospective: done
+
+  # --- Epic 9 — iamthelaw Rules Engine ---
+  epic-9: in-progress   # E9-S5 still in backlog
+  E9-S1: done       # iamthelaw Core
+  E9-S2: done       # DoD Definition & Validation
+  E9-S3: done       # DoD Rejection Limiter
+  E9-S4: done       # Rule Proposal Workflow
+  E9-S5: backlog    # Rule Approval UI — replanned to Sprint 9 with EA5
+  E9-S6: done       # Quality Tool Binding
+  E9-S7: done       # Auto-Rule Suggestions
+  E9-S8: done       # RuleApplicationService
+  E9-S9: done       # Application Audit Log
+  epic-9-retrospective: optional
+
+  # --- Epic 10 — Quality Intelligence ---
+  epic-10: in-progress  # E10-S9 deferred to Phase B
+  E10-S1: done      # Quality Config Templates
+  E10-S2: done      # Coverage Gate
+  E10-S3: done      # Static Analysis Gate
+  E10-S4: done      # Architectural Drift Detector
+  E10-S5: done      # SonarQube Adapter
+  E10-S6: done      # QualityGateService
+  E10-S7: done      # Review Quality Metrics
+  E10-S8: done      # Retrospective Quality Metrics
+  E10-S9: backlog   # Quality Dashboard — deferred to Phase B
+  epic-10-retrospective: optional
+
+  # --- Epic 11 — Monitoring & Reporting ---
+  epic-11: in-progress  # E11-S10 to verify coverage by EA3
+  E11-S1: done      # SSE Daemon Stream
+  E11-S2: done      # Sprint Dashboard
+  E11-S3: done      # Session Report Generator
+  E11-S4: done      # Structured JSON Logger
+  E11-S5: done      # Decision History
+  E11-S6: done      # Async Notification
+  E11-S7: done      # Narrative Sprint Journal
+  E11-S8: done      # KPIs Dashboard
+  E11-S9: done      # Velocity & Capacity Projector
+  E11-S10: backlog  # Improvement Decisions History UI — verify coverage by EA3
+  E11-S11: done     # Burndown & Burnup Temps Réel
+  E11-S12: done     # Time-to-Completion Estimator
+  E11-S13: done     # SprintFormatter LLM Display
+  epic-11-retrospective: optional
+
+  # --- Epic 12 — Continuous Improvement Review ---
+  epic-12: in-progress  # E12-S6b to verify coverage by EA4
+  E12-S1: done      # Retrospective Outputs Mandatory
+  E12-S2: done      # Agent Self-Assessment
+  E12-S3: done      # Improvement Persistence
+  E12-S4: done      # Improvement Review UI
+  E12-S5: done      # Developer Review Actions
+  E12-S6: done      # Quorum Re-Analysis Session
+  E12-S6b: backlog  # Team Debate Button — verify coverage by EA4
+  E12-S7: done      # Rule Auto-Application
+  E12-S8: done      # Improvement KPI Tracking
+  epic-12-retrospective: optional
+
+  # ============================================================
+  # PHASE A — BMAD Pivot Epics EA1-EA5 (Sprints 8-12)
+  # Added 2026-02-22 — Sprint Change Proposal approved
+  # ============================================================
+
+  # --- Epic EA1 — BMAD Command Orchestration (Sprint 8-10) ---
+  epic-ea1: in-progress  # 4 done (Sprint 8), 4 remaining
+  EA1-S1: done       # BMADCommandPort + ClaudeCliAdapter (commit 4dbe595)
+  EA1-S2: done       # BMADDevStoryStep (commit 4dbe595)
+  EA1-S3: done       # BMADReviewStep (commit 4dbe595)
+  EA1-S4: backlog    # BMADQAStep — Sprint 9
+  EA1-S5: backlog    # SprintRunner BMAD wiring — Sprint 9
+  EA1-S6: done       # Story context preparation (commit 4dbe595)
+  EA1-S7: backlog    # Error handling & retry — Sprint 9
+  EA1-S8: backlog    # Integration test — Sprint 10
+  epic-ea1-retrospective: optional
+
+  # --- Epic EA2 — Budget & Consumption Tracking (Sprint 9-12) ---
+  epic-ea2: backlog
+  EA2-S1: backlog    # TokenBudgetService — Sprint 9
+  EA2-S2: backlog    # Budget config — Sprint 9
+  EA2-S3: backlog    # Budget alert system — Sprint 10
+  EA2-S4: backlog    # Pre-call budget check — Sprint 10
+  EA2-S5: backlog    # Budget CLI — Sprint 10
+  EA2-S6: backlog    # Claude usage API adapter — Sprint 12
+  epic-ea2-retrospective: optional
+
+  # --- Epic EA3 — Enhanced Dashboard (Sprint 10-11) ---
+  epic-ea3: backlog
+  EA3-S1: backlog    # Sprint Replay Engine — Sprint 10
+  EA3-S2: backlog    # Sprint Replay UI — Sprint 10
+  EA3-S3: backlog    # Sprint Overview & KPI scorecard — Sprint 11
+  EA3-S4: backlog    # Scrum Metrics View — Sprint 11
+  EA3-S5: backlog    # Budget View — Sprint 11
+  EA3-S6: backlog    # Ceremony Reports View — Sprint 11
+  EA3-S7: backlog    # UX Preview — Sprint 11
+  epic-ea3-retrospective: optional
+
+  # --- Epic EA4 — Auto-Retro & Scrum Reconciliation (Sprint 11-12) ---
+  epic-ea4: backlog
+  EA4-S1: backlog    # DoR Gate — Sprint 11
+  EA4-S2: backlog    # Smart Story Abandonment — Sprint 12
+  EA4-S3: backlog    # BMAD Retro Step — Sprint 12
+  EA4-S4: backlog    # Retro metrics injection — Sprint 12
+  EA4-S5: backlog    # Retro output processing — Sprint 12
+  EA4-S6: backlog    # Retro-to-rules loop — Sprint 12
+  epic-ea4-retrospective: optional
+
+  # --- Epic EA5 — BMAD Sidecar Sync (Sprint 9) ---
+  epic-ea5: backlog
+  EA5-S1: backlog    # Sidecar sync service — Sprint 9
+  EA5-S2: backlog    # BMAD customize.yaml setup — Sprint 9
+  EA5-S3: backlog    # Auto-sync on rule change — Sprint 9
+  epic-ea5-retrospective: optional

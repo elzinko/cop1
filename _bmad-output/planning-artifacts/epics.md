@@ -8,6 +8,8 @@ workflowType: 'create-epics-and-stories'
 project_name: 'cop1'
 user_name: 'elzinko'
 date: '2026-02-13'
+lastAmended: '2026-02-22'
+amendment: 'Phase A BMAD Pivot — EA1-EA5 replaces E13-E20 (Sprint Change Proposal 2026-02-22)'
 totalFRs: 115
 totalNFRs: 24
 ---
@@ -17,6 +19,21 @@ totalNFRs: 24
 ## Overview
 
 Ce document décompose les requirements du PRD et de l'Architecture en epics et stories implémentables, respectant les décisions architecturales (Feature First Hexagonal, ADR-001 à ADR-006).
+
+> **Phase A Pivot (2026-02-22):** After Sprints 0-7 (E1-E12, 102/106 stories done), a global retrospective revealed cop1 should **orchestrate** BMAD commands rather than replicate BMAD's agent workflows. Phase 2+ epics E13-E20 (from `epics-phase2-ideation.md`) are replaced by **EA1-EA5**. See [Sprint Change Proposal 2026-02-22](sprint-change-proposal-2026-02-22.md) and [Phase A Course Correction Brief](phase-a-course-correction-brief.md) for full rationale.
+>
+> **E13-E20 Disposition:**
+>
+> | Epic | Decision | Rationale |
+> |------|----------|-----------|
+> | E13 (Prompt Composer) | Mostly obsolete | BMAD handles prompt composition. Sidecar sync → EA5 |
+> | E14 (Token Budget) | Elevated to EA2 | Budget tracking essential, simplified to Claude API |
+> | E15 (Agent Lab) | Deferred to Phase B | Requires local LLM |
+> | E16 (Dashboard Enrichi) | Merged into EA3 | Enhanced with UX preview |
+> | E17 (Workflow Scrum) | Split | DoR gate → EA4-S1, Auto-retro → EA4-S3 |
+> | E18 (Mode Interactif) | Deferred to Phase B | Nice-to-have |
+> | E19 (iamthelaw BMAD) | Deferred to Phase C | Requires mature rule system |
+> | E20 (CoachAgent) | Deferred to Phase C | Requires scoring data |
 
 ---
 
@@ -380,6 +397,8 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 | FR116 | E3 | ✅ |
 
 **Couverture : 116/116 FRs — 100%**
+
+**Phase A Coverage (EA1-EA5):** Phase A epics address new requirements from the BMAD pivot (not part of original FR1-FR116). EA1 covers BMAD command orchestration, EA2 covers Claude API budget tracking, EA3 covers enhanced dashboard with replay, EA4 covers auto-retro and scrum reconciliation, EA5 covers BMAD sidecar sync. PRD updates tracked in Proposal 4 of the Sprint Change Proposal.
 
 ---
 
@@ -749,6 +768,155 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 ---
 
+## Phase A — BMAD Pivot Epics (EA1-EA5)
+
+> Added 2026-02-22. Replaces planned E13-E20. cop1 orchestrates BMAD commands instead of building custom LLM prompts. See [Sprint Change Proposal](sprint-change-proposal-2026-02-22.md).
+
+### Epic EA1 — BMAD Command Orchestration
+
+**User Value:** "cop1 executes BMAD dev-story/review/QA commands via Claude Code CLI, replacing raw LLM calls — I get battle-tested 10-step workflows instead of naive prompts."
+
+**Technical approach:**
+- New hexagonal port `BMADCommandPort` in `@cop1/sprint-core`
+- Adapter `ClaudeCliAdapter` using `child_process.spawn('claude', ['-p', command, '--output-format', 'json', '--permission-mode', 'acceptEdits'])`
+- New `BMADDevStoryStep`, `BMADReviewStep`, `BMADQAStep` implementing `WorkflowStep`
+- `SprintRunner.buildRealSteps()` switches from LLM-based to BMAD-based pipeline
+
+**Package principal:** `@cop1/sprint-core` (feature `bmad-orchestration`)
+
+**Dependencies:** E3 (WorkflowEngine, WorkflowStep), E5 (LLMGateway for fallback)
+
+**Stories:**
+
+- **EA1-S1** : BMADCommandPort + ClaudeCliAdapter — Port interface + adapter (spawn Claude CLI, parse JSON, handle errors/timeouts, emit llm events)
+- **EA1-S2** : BMADDevStoryStep — WorkflowStep wrapping `/bmad-bmm-dev-story` with story context injection
+- **EA1-S3** : BMADReviewStep — WorkflowStep wrapping `/bmad-bmm-code-review`
+- **EA1-S4** : BMADQAStep — WorkflowStep wrapping QA validation via BMAD
+- **EA1-S5** : SprintRunner BMAD wiring — Replace `buildRealSteps()` to use BMAD steps, keep LLM steps as fallback
+- **EA1-S6** : Story context preparation — Format story markdown + project context for BMAD command input
+- **EA1-S7** : Error handling & retry — BMAD command failures, timeouts, Claude API errors, budget exhaustion
+- **EA1-S8** : Integration test — End-to-end: `cop1 sprint run` executes BMAD dev-story on a real story
+
+**Definition of Done:**
+- `BMADCommandPort.execute()` spawns Claude CLI, captures JSON output, emits `llm.call.started`/`llm.call.completed` events
+- `BMADDevStoryStep` injects story context and executes `/bmad-bmm-dev-story` successfully
+- `SprintRunner` pipeline uses BMAD steps by default, falls back to LLM steps if configured
+- Integration test: `cop1 sprint run` processes a story end-to-end via BMAD dev-story → review → QA
+- Error handling: timeout after configurable duration, retry with exponential backoff, budget check before launch
+
+---
+
+### Epic EA2 — Budget & Consumption Tracking
+
+**User Value:** "I can see how many tokens each BMAD command consumed, get alerts before budget is exhausted, and track costs across sprints."
+
+**Package principal:** `@cop1/sprint-core` (feature `budget`)
+
+**Dependencies:** EA1 (BMAD commands emit token events)
+
+**Stories:**
+
+- **EA2-S1** : TokenBudgetService — Count tokens from `llm.call.completed` events (or BMAD command output), persist in `.cop1/budget-{date}.yaml`
+- **EA2-S2** : Budget config — `cop1.config.yaml` section `budget:` with `sprint_max_tokens`, alert thresholds
+- **EA2-S3** : Budget alert system — Emit `budget.warning` / `budget.exceeded` events at 50%, 80%, 95%
+- **EA2-S4** : Pre-call budget check — Verify budget before launching BMAD command, reject if exhausted
+- **EA2-S5** : Budget CLI — `cop1 budget status` showing consumption breakdown
+- **EA2-S6** : Claude usage API adapter — Query Claude API for actual consumption (port `CloudUsagePort`)
+
+**Definition of Done:**
+- Token consumption tracked per BMAD command and per sprint, persisted to YAML
+- Budget config loaded from `cop1.config.yaml` with validation
+- Events emitted at 50%, 80%, 95% thresholds — SSE dashboard receives them
+- BMAD command rejected with clear error when budget exhausted
+- `cop1 budget status` displays breakdown by agent/command/sprint
+- CloudUsagePort queries actual Claude API usage (with mock adapter for tests)
+
+---
+
+### Epic EA3 — Enhanced Dashboard
+
+**User Value:** "I wake up and see exactly what happened overnight — sprint replay timeline, KPI scorecard, burndown charts, budget consumption, and ceremony reports."
+
+**Package principal:** `@cop1/web` + `@cop1/app` (API routes)
+
+**Dependencies:** EA2 (budget data), E11 (existing dashboard), E8 (ceremony engine)
+
+**Prerequisite:** Run `/bmad-bmm-create-ux-design` with existing brief at `_bmad-output/planning-artifacts/ux-design-brief.md` before implementing UI stories.
+
+**Stories:**
+
+- **EA3-S1** : Sprint Replay Engine — Parse JSONL events, serve via `GET /api/sprint/{id}/replay`
+- **EA3-S2** : Sprint Replay UI — React timeline with play/pause/step controls, color-coded by agent
+- **EA3-S3** : Sprint Overview & KPI scorecard — Landing page with metrics from `SprintDashboardService` + `KPIsDashboardService`
+- **EA3-S4** : Scrum Metrics View — Burndown/burnup charts using `BurndownCalculator` + `VelocityProjector`
+- **EA3-S5** : Budget View — Token consumption visualization (depends on EA2)
+- **EA3-S6** : Ceremony Reports View — List ceremonies from `.cop1/ceremonies/`, render markdown
+- **EA3-S7** : UX Preview — Display UX design artifacts (mockups/wireframes) in dashboard
+
+**Definition of Done:**
+- Sprint replay timeline renders JSONL events chronologically with play/pause/step controls
+- Events color-coded by agent type (Dev=blue, Reviewer=orange, QA=green, PM=purple)
+- KPI scorecard shows velocity, blockage rate, DoD rejection rate, coverage with trend arrows
+- Burndown and burnup charts render with ideal vs actual lines
+- Budget view shows per-command consumption with threshold markers
+- Ceremony reports rendered as markdown with action item extraction
+- All views accessible via tab navigation in dark theme
+
+---
+
+### Epic EA4 — Auto-Retro & Scrum Reconciliation
+
+**User Value:** "After each sprint, cop1 automatically runs a retrospective via BMAD, extracts action items, and feeds them into the improvement loop — no human intervention needed."
+
+**Package principal:** `@cop1/sprint-core` (features `workflow`, `rule-proposal`) + `@cop1/ceremony-engine`
+
+**Dependencies:** EA1 (BMADCommandPort), EA5 (sidecar sync for rules), E9 (iamthelaw), E12 (RuleApplicationService)
+
+**Stories:**
+
+- **EA4-S1** : DoR Gate — `SprintRunner` runs `DORValidator` before each story, skip non-DoR with `--skip-dor` override
+- **EA4-S2** : Smart Story Abandonment — Max rejections → `blocked` status, continue to next story, log for retro
+- **EA4-S3** : BMAD Retro Step — `BMADRetroStep` launching `/bmad-bmm-retro` via `BMADCommandPort` after sprint completion
+- **EA4-S4** : Retro metrics injection — Feed sprint metrics (KPIs, blockages, rejections) as context to BMAD retro command
+- **EA4-S5** : Retro output processing — Parse retro output, extract action items, feed into rule proposals
+- **EA4-S6** : Retro-to-rules loop — Proposed rules → `RuleProposalService` → sidecar sync (EA5)
+
+**Definition of Done:**
+- Stories failing DoR check are skipped with clear log entry; `--skip-dor` flag overrides
+- Story with N+ rejections (configurable) moves to `blocked` status; sprint continues to next story
+- `BMADRetroStep` executes `/bmad-bmm-retro` successfully with sprint context
+- Retro output parsed into structured action items (RuleProposal, RefactoringStory, etc.)
+- Action items feed into `RuleProposalService` → rules synced via EA5 sidecar
+- Full cycle tested: sprint → retro → action items → rule proposals → sidecar sync
+
+---
+
+### Epic EA5 — BMAD Sidecar Sync
+
+**User Value:** "cop1's iamthelaw rules are automatically visible to BMAD agents via sidecar memory — agents enforce the same governance rules that cop1 maintains."
+
+**Package principal:** `@cop1/sprint-core` (feature `iamthelaw`)
+
+**Dependencies:** E9 (iamthelaw rules), EA4 (retro-to-rules loop)
+
+**BMAD mechanisms used:**
+- **customize.yaml**: Agent configuration override. `critical_actions` APPEND to base agent → load sidecar at activation.
+- **Sidecar memory**: Persistent markdown at `_bmad/_memory/{agent}-sidecar/`. Read/write by agent.
+
+**Stories:**
+
+- **EA5-S1** : Sidecar sync service — Sync `.cop1/rules/active-rules.yaml` → `_bmad/_memory/iamthelaw-sidecar/rules.md` (LLM-friendly markdown)
+- **EA5-S2** : BMAD customize.yaml setup — `cop1 init-bmad-bridge` command configuring `_bmad/_config/agents/` customize files with `critical_actions` loading sidecar
+- **EA5-S3** : Auto-sync on rule change — EventBus listener: when rules change → trigger sidecar sync automatically
+
+**Definition of Done:**
+- `active-rules.yaml` converted to LLM-friendly markdown and written to `_bmad/_memory/iamthelaw-sidecar/rules.md`
+- `cop1 init-bmad-bridge` generates customize.yaml files for dev, qa, sm agents with sidecar `critical_actions`
+- Rule change event → sidecar markdown updated within same process cycle
+- BMAD agent loading customize.yaml sees cop1 rules in its context (verified manually)
+
+---
+
 ## Sprint Ordering
 
 ### Sprint 0 (Manuel — Bootstrap)
@@ -797,6 +965,37 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 ### Sprint 7 — Quality Improvements
 - E3-S17 (DevAgent Prompt Enhancement) — CRITICAL
 - E3-S18 (PM Agent Wiring) — after E3-S17
+
+### Sprint 8 — BMAD Command Foundation (Phase A — PARTIALLY DONE)
+- EA1-S1 (BMADCommandPort + ClaudeCliAdapter) — **DONE** (commit 4dbe595)
+- EA1-S2 (BMADDevStoryStep) — **DONE** (commit 4dbe595)
+- EA1-S3 (BMADReviewStep) — **DONE** (commit 4dbe595)
+- EA1-S6 (Story context preparation) — **DONE** (commit 4dbe595)
+
+### Sprint 9 — Full BMAD Pipeline + Sidecar + Budget Start
+- EA1-S4 (BMADQAStep)
+- EA1-S5 (SprintRunner BMAD wiring)
+- EA1-S7 (Error handling & retry)
+- EA5-S1, EA5-S2, EA5-S3 (Sidecar sync)
+- EA2-S1, EA2-S2 (TokenBudgetService + config)
+- E9-S5 (iamthelaw rules — backlog story)
+- YamlStatusStore → SprintStatusReader refactoring
+
+### Sprint 10 — Budget Enforcement + Dashboard Start
+- EA2-S3, EA2-S4, EA2-S5 (Alerts + pre-call check + CLI)
+- EA1-S8 (Integration test)
+- EA3-S1, EA3-S2 (Sprint Replay Engine + UI)
+- **Prerequisite:** UX design with Sally before this sprint
+
+### Sprint 11 — Dashboard Complete
+- EA3-S3, EA3-S4, EA3-S5, EA3-S6 (Overview + Scrum Metrics + Budget View + Ceremonies)
+- EA3-S7 (UX Preview)
+- EA4-S1 (DoR Gate)
+
+### Sprint 12 — Auto-Retro & Scrum Loop
+- EA4-S2, EA4-S3, EA4-S4, EA4-S5, EA4-S6 (Smart abandonment + BMAD retro + rules loop)
+- EA2-S6 (Claude usage API)
+- **Goal:** Autonomous sprint-to-retro loop, closed improvement cycle.
 
 ---
 
@@ -1710,7 +1909,312 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 ---
 
+## Phase A — Stories Backlog (EA1-EA5)
+
+> Added 2026-02-22. Sprint Change Proposal approved. Stories ordered by sprint.
+
+---
+
+### Sprint 8 — BMAD Command Foundation
+
+> Objective: Establish BMADCommandPort infrastructure and first BMAD workflow steps. 4 stories done (commit 4dbe595).
+
+---
+
+#### [EA1-S1] BMADCommandPort + ClaudeCliAdapter
+> **5 pts** | Must Have | Status: **DONE** (commit 4dbe595)
+
+- **AC1** : `BMADCommandPort` interface defines `execute(command: BMADCommand): Promise<BMADCommandResult>` with typed command/result structures
+- **AC2** : `ClaudeCliAdapter` spawns `claude -p "<command>" --output-format json --permission-mode acceptEdits`, captures stdout JSON, emits `llm.call.started` and `llm.call.completed` events via EventBus
+- **AC3** : Timeout configurable (default 300s), process killed on timeout with `SIGTERM` → `SIGKILL` fallback, error event emitted
+
+---
+
+#### [EA1-S2] BMADDevStoryStep
+> **3 pts** | Must Have | Status: **DONE** (commit 4dbe595)
+
+- **AC1** : `BMADDevStoryStep` implements `WorkflowStep`, calls `BMADCommandPort.execute()` with `/bmad-bmm-dev-story` command and injected story context
+- **AC2** : Story context includes: story markdown content, project conventions, tech stack info — formatted by `StoryContextBuilder`
+
+---
+
+#### [EA1-S3] BMADReviewStep
+> **3 pts** | Must Have | Status: **DONE** (commit 4dbe595)
+
+- **AC1** : `BMADReviewStep` implements `WorkflowStep`, calls `BMADCommandPort.execute()` with `/bmad-bmm-code-review` command
+- **AC2** : Review output parsed for pass/fail status — failure triggers re-entry to dev step (up to max iterations)
+
+---
+
+#### [EA1-S6] Story Context Preparation
+> **3 pts** | Must Have | Status: **DONE** (commit 4dbe595)
+
+- **AC1** : `StoryContextBuilder` reads story markdown, extracts AC section, dev notes, and tasks — formats as structured prompt context
+- **AC2** : Project context injected: tech stack (TypeScript strict, pnpm monorepo, hexagonal architecture), conventions (kebab-case files, PascalCase classes)
+
+---
+
+### Sprint 9 — Full BMAD Pipeline + Sidecar + Budget Start
+
+> Objective: Complete BMAD pipeline, cop1 rules visible to BMAD agents, budget tracking started.
+
+---
+
+#### [EA1-S4] BMADQAStep
+> **3 pts** | Must Have | Depends on: EA1-S1
+
+- **AC1** : `BMADQAStep` implements `WorkflowStep`, executes QA validation via BMAD command (tests pass, AC coverage verified)
+- **AC2** : QA output parsed for pass/fail — failure feeds back to dev step with QA feedback context
+- **AC3** : Unit tests with mocked `BMADCommandPort` verify step execution, context injection, and output parsing
+
+---
+
+#### [EA1-S5] SprintRunner BMAD Wiring
+> **5 pts** | Must Have | Depends on: EA1-S2, EA1-S3, EA1-S4
+
+- **AC1** : `SprintRunner.buildRealSteps()` returns BMAD-based pipeline (BMADDevStoryStep → BMADReviewStep → BMADQAStep) by default
+- **AC2** : Configuration flag `workflow.useBMAD: false` falls back to legacy LLM-based steps (DevAgent, ReviewerAgent, QAAgent)
+- **AC3** : Pipeline steps injected via DI container — no hard-coded step instantiation in SprintRunner
+
+---
+
+#### [EA1-S7] Error Handling & Retry
+> **5 pts** | Must Have | Depends on: EA1-S1
+
+- **AC1** : BMAD command timeout (configurable, default 5min) triggers graceful abort: `SIGTERM`, wait 10s, `SIGKILL` if still running
+- **AC2** : Retry with exponential backoff (1s, 2s, 4s, max 3 retries) on transient errors (Claude API 429/503, process crash)
+- **AC3** : Budget exhaustion during command → immediate abort, story marked `blocked` with reason `budget_exhausted`, sprint continues to next story
+
+---
+
+#### [EA5-S1] Sidecar Sync Service
+> **5 pts** | Must Have | Depends on: E9 (iamthelaw rules)
+
+- **AC1** : `SidecarSyncService` reads `.cop1/rules/active-rules.yaml` and converts to LLM-friendly markdown at `_bmad/_memory/iamthelaw-sidecar/rules.md`
+- **AC2** : Markdown output organized by rule theme (architecture, team, agent, quality) with clear headings and bullet points
+- **AC3** : Sync is idempotent — running twice with same input produces identical output
+
+---
+
+#### [EA5-S2] BMAD customize.yaml Setup
+> **3 pts** | Should Have | Depends on: EA5-S1
+
+- **AC1** : `cop1 init-bmad-bridge` CLI command generates `_bmad/_config/agents/{dev,qa,sm}.customize.yaml` with `critical_actions` loading sidecar
+- **AC2** : Generated customize.yaml uses APPEND semantics — base BMAD agent prompts preserved intact, only sidecar loading added
+- **AC3** : Command is idempotent — running twice does not duplicate `critical_actions` entries
+
+---
+
+#### [EA5-S3] Auto-Sync on Rule Change
+> **3 pts** | Should Have | Depends on: EA5-S1
+
+- **AC1** : EventBus listener on `rule.applied` / `rule.rejected` events triggers `SidecarSyncService.sync()` automatically
+- **AC2** : Sync completed within same event processing cycle — BMAD agents see updated rules on next command invocation
+- **AC3** : Sync failure does not block rule application — error logged, retry on next rule change
+
+---
+
+#### [EA2-S1] TokenBudgetService
+> **5 pts** | Must Have | Depends on: EA1-S1 (llm events)
+
+- **AC1** : `TokenBudgetService` listens to `llm.call.completed` events and accumulates token counts per command, per agent, per sprint
+- **AC2** : Budget state persisted to `.cop1/budget-{date}.yaml` after each command completion — survives process restart
+- **AC3** : `getBudgetStatus()` returns current consumption, remaining budget, and percentage used
+
+---
+
+#### [EA2-S2] Budget Config
+> **3 pts** | Must Have
+
+- **AC1** : `cop1.config.yaml` section `budget:` with fields: `sprint_max_tokens` (number), `alert_thresholds` (array of percentages), `auto_pause` (boolean)
+- **AC2** : Config validated at startup — missing `budget` section uses defaults (sprint_max_tokens: 1_000_000, thresholds: [50, 80, 95])
+- **AC3** : Config hot-reloadable — budget limits can be changed without restarting daemon
+
+---
+
+### Sprint 10 — Budget Enforcement + Dashboard Start
+
+> Objective: Budget enforcement active, integration test passes, dashboard replay started.
+> **Prerequisite:** Run `/bmad-bmm-create-ux-design` with Sally before this sprint.
+
+---
+
+#### [EA2-S3] Budget Alert System
+> **3 pts** | Must Have | Depends on: EA2-S1, EA2-S2
+
+- **AC1** : `budget.warning` event emitted when consumption crosses 50% and 80% thresholds — includes current consumption and threshold value
+- **AC2** : `budget.exceeded` event emitted at 95% threshold — triggers auto-pause if `auto_pause: true` in config
+- **AC3** : Events forwarded to SSE endpoint — dashboard receives budget alerts in real-time
+
+---
+
+#### [EA2-S4] Pre-Call Budget Check
+> **3 pts** | Must Have | Depends on: EA2-S1
+
+- **AC1** : `BMADCommandPort` wrapper checks remaining budget before spawning Claude CLI — rejects if budget exhausted
+- **AC2** : Rejection returns structured error `{ code: 'BUDGET_EXHAUSTED', remaining: 0, limit: N }` — story marked as blocked
+- **AC3** : Budget check uses estimated cost per command type (configurable) — not just remaining absolute tokens
+
+---
+
+#### [EA2-S5] Budget CLI
+> **3 pts** | Should Have | Depends on: EA2-S1
+
+- **AC1** : `cop1 budget status` displays: total consumed, remaining, percentage, per-agent breakdown, per-command breakdown
+- **AC2** : `cop1 budget history` displays daily budget consumption for the last 7 days
+- **AC3** : Output formatted for terminal (table with colors) and supports `--json` flag for machine-readable output
+
+---
+
+#### [EA1-S8] Integration Test
+> **5 pts** | Must Have | Depends on: EA1-S5, EA1-S7
+
+- **AC1** : End-to-end test: `cop1 sprint run` picks a story, executes BMAD dev-story → review → QA pipeline, story transitions through statuses
+- **AC2** : Test uses a real BMAD command (not mocked) on a simple test story — verifies actual Claude CLI invocation
+- **AC3** : Test validates: story context injected correctly, JSONL events logged, budget tracked, story status updated
+
+---
+
+#### [EA3-S1] Sprint Replay Engine
+> **5 pts** | Must Have
+
+- **AC1** : `SprintReplayService` parses `.cop1/sprint-log-YYYY-MM-DD.jsonl` files into typed event arrays
+- **AC2** : `GET /api/sprint/{id}/replay` returns paginated events with `?offset=N&limit=M` — default limit 100
+- **AC3** : Events enriched with computed fields: duration between events, cumulative token count, agent type classification
+
+---
+
+#### [EA3-S2] Sprint Replay UI
+> **8 pts** | Must Have | Depends on: EA3-S1
+
+- **AC1** : React timeline component renders events chronologically (vertical layout), color-coded by agent type
+- **AC2** : Play/Pause/Step Forward/Step Back controls with configurable speed (1x, 5x, 10x)
+- **AC3** : Click on event → detail panel showing: prompt sent, response received, duration, tokens consumed, model used
+- **AC4** : Sprint selector dropdown to pick which day's log to replay — sorted by date descending
+
+---
+
+### Sprint 11 — Dashboard Complete
+
+> Objective: All dashboard views implemented, DoR gate operational.
+
+---
+
+#### [EA3-S3] Sprint Overview & KPI Scorecard
+> **5 pts** | Must Have
+
+- **AC1** : Landing page shows KPI scorecard (velocity, blockage rate, DoD rejection rate, coverage) with trend arrows (up/down/stable)
+- **AC2** : Story status distribution displayed as progress bar or mini chart (done/in-progress/blocked/backlog)
+- **AC3** : Active alerts section shows open blockages and budget warnings — linked to detail views
+
+---
+
+#### [EA3-S4] Scrum Metrics View
+> **5 pts** | Must Have
+
+- **AC1** : Burndown chart with ideal line vs actual remaining points — data from `BurndownCalculator.computeChartData()`
+- **AC2** : Burnup chart with scope line vs completed points — projected completion indicator with confidence badge
+- **AC3** : Velocity bar chart showing points per sprint (historical) — data from `VelocityProjector.project()`
+
+---
+
+#### [EA3-S5] Budget View
+> **3 pts** | Should Have | Depends on: EA2
+
+- **AC1** : Budget progress bar with threshold markers (50%, 80%, 95%) and current consumption highlighted
+- **AC2** : Per-BMAD-command consumption breakdown (bar chart) — dev-story vs code-review vs QA vs retro
+- **AC3** : Projection: "At current rate, budget exhausted in X hours" — based on average token consumption per command
+
+---
+
+#### [EA3-S6] Ceremony Reports View
+> **3 pts** | Should Have
+
+- **AC1** : List of past ceremonies (date, type, participants) with filter by ceremony type
+- **AC2** : Click on ceremony → full report rendered as markdown with syntax highlighting
+- **AC3** : Actions extracted from ceremonies displayed with status (pending/done/rejected)
+
+---
+
+#### [EA3-S7] UX Preview
+> **3 pts** | Nice to Have
+
+- **AC1** : Dashboard view displays UX design artifacts (mockups/wireframes) from `_bmad-output/planning-artifacts/`
+- **AC2** : Image files (PNG, SVG) rendered inline — markdown files rendered with formatting
+
+---
+
+#### [EA4-S1] DoR Gate
+> **3 pts** | Must Have | Depends on: E2 (DORValidator)
+
+- **AC1** : `SprintRunner` executes `DORValidator.validate(story)` before processing each story — non-DoR stories skipped with log entry
+- **AC2** : `--skip-dor` CLI flag disables DoR gate for entire sprint run — useful for testing and urgent fixes
+- **AC3** : DoR validation results logged to JSONL sprint log — visible in sprint replay
+
+---
+
+### Sprint 12 — Auto-Retro & Scrum Loop
+
+> Objective: Autonomous sprint-to-retro loop, closed improvement cycle.
+
+---
+
+#### [EA4-S2] Smart Story Abandonment
+> **5 pts** | Must Have
+
+- **AC1** : After N review rejections (configurable, default 3), story moves to `blocked` status with reason `max_rejections_exceeded`
+- **AC2** : Sprint continues to next story in backlog — blocked story logged for retrospective analysis
+- **AC3** : Abandonment metrics (count, reasons) tracked per sprint — fed into retro context
+
+---
+
+#### [EA4-S3] BMAD Retro Step
+> **5 pts** | Must Have | Depends on: EA1-S1
+
+- **AC1** : `BMADRetroStep` implements `WorkflowStep`, executes `/bmad-bmm-retro` via `BMADCommandPort` after sprint completion
+- **AC2** : Retro triggered automatically when `sprint.completed` event fires — no manual intervention
+- **AC3** : Retro output captured in JSONL sprint log and persisted to `.cop1/retro-reports/{date}-retro.md`
+
+---
+
+#### [EA4-S4] Retro Metrics Injection
+> **3 pts** | Must Have | Depends on: EA4-S3
+
+- **AC1** : Sprint metrics (KPIs, blockages, rejections, velocity, budget consumption) formatted as retro context and injected into BMAD retro command
+- **AC2** : Per-story performance data included: duration, token consumption, rejection count, final status
+
+---
+
+#### [EA4-S5] Retro Output Processing
+> **5 pts** | Must Have | Depends on: EA4-S3
+
+- **AC1** : Retro output parsed into structured action items: `RuleProposal`, `RefactoringStory`, `ProcessChange`
+- **AC2** : Each action item categorized by type (architecture, team, agent, quality, process) and priority
+- **AC3** : Action items persisted to `.cop1/improvement-decisions.jsonl` with status `pending_review`
+
+---
+
+#### [EA4-S6] Retro-to-Rules Loop
+> **5 pts** | Must Have | Depends on: EA4-S5, EA5 (sidecar sync)
+
+- **AC1** : Parsed rule proposals fed into `RuleProposalService.propose()` — creates pending proposals for Developer review
+- **AC2** : Approved rules auto-synced to BMAD sidecar via EA5 `SidecarSyncService` — BMAD agents see new rules on next invocation
+- **AC3** : Full cycle verified: sprint → retro → action items → rule proposal → approval → sidecar sync → agent behavior updated
+
+---
+
+#### [EA2-S6] Claude Usage API Adapter
+> **5 pts** | Should Have
+
+- **AC1** : `CloudUsagePort` interface + `ClaudeApiUsageAdapter` queries Claude API for actual token consumption
+- **AC2** : Reconciliation between local tracking (EA2-S1) and API-reported usage — discrepancies logged as warnings
+- **AC3** : Usage data cached with configurable TTL (default 5min) to avoid excessive API calls
+
+---
+
 ## Récapitulatif Backlog
+
+### Phase 1 (E1-E12) — Sprints 0-7
 
 | Sprint | Stories | Points | Cumul |
 |--------|---------|--------|-------|
@@ -1722,8 +2226,32 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 | Sprint 5 | 26 stories | 110 pts | 410 pts |
 | Sprint 6 | 4 stories | 17 pts | 427 pts |
 | Sprint 7 | 2 stories | 8 pts | 435 pts |
-| **Total** | **98 stories** | **435 pts** | — |
+| **Subtotal Phase 1** | **110 stories** | **435 pts** | — |
 
-> **Note :** Les sprints 4 et 5 sont larges — à découper en 2 mini-sprints chacun lors du Sprint Planning (E8-S3). Les stories `Should Have` et `Nice to Have` peuvent être différées selon la vélocité observée.
+> **Note :** Le total initial était de 98 stories. 12 stories ajoutées pendant Sprints 6-7 : E3-S13→S18, E5-S8→S12, E8-S9/S10, E11-S11→S13.
 
-**Couverture FRs via stories : 116/116 — 100%**
+### Phase A (EA1-EA5) — Sprints 8-12
+
+| Sprint | Stories | Points | Cumul (from Phase 1) |
+|--------|---------|--------|-------|
+| Sprint 8 | 4 stories | 14 pts | 449 pts |
+| Sprint 9 | 8 stories | 32 pts | 481 pts |
+| Sprint 10 | 6 stories | 27 pts | 508 pts |
+| Sprint 11 | 6 stories | 22 pts | 530 pts |
+| Sprint 12 | 6 stories | 28 pts | 558 pts |
+| **Subtotal Phase A** | **30 stories** | **123 pts** | — |
+
+### Grand Total
+
+| Phase | Stories | Points |
+|-------|---------|--------|
+| Phase 1 (E1-E12) | 110 | 435 |
+| Phase A (EA1-EA5) | 30 | 123 |
+| **Total** | **140 stories** | **558 pts** |
+
+> **Note Phase 1 :** Les sprints 4 et 5 sont larges — à découper en 2 mini-sprints chacun lors du Sprint Planning (E8-S3). Les stories `Should Have` et `Nice to Have` peuvent être différées selon la vélocité observée.
+
+> **Note Phase A :** Velocity expected to be lower than Phase 1 — BMAD workflows are more thorough but slower than direct Claude development. Sprint 9 includes 1 backlog story from Phase 1 (E9-S5) not counted in Phase A totals.
+
+**Couverture FRs via stories : 116/116 — 100%** (Phase 1)
+**Phase A stories : 30 stories covering BMAD pivot requirements (EA1-EA5)**

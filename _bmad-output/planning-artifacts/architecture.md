@@ -222,6 +222,8 @@ orchestrateur.run(storyPath)
 
 ### ADR-005 — LLM Routing & Access Tiers : Config YAML + PM Agent + interface domain
 
+> **SUSPENDED (2026-02-22):** Phase A BMAD Pivot — Ollama/LLM tier routing suspended for Phase A. All agent execution goes through BMADCommandPort → Claude Code CLI. This ADR may be reactivated in Phase B when local LLM support is added. See ADR-008.
+
 **Décision :** 3 couches séparées. `iamthelaw` n'est PAS impliqué (reste dédié aux règles comportementales).
 
 **Couche 1 — `cop1.config.yaml` (defaults statiques) :**
@@ -833,6 +835,86 @@ web  ← importe shared-kernel + app via HTTP uniquement
 
 **Règle de graduation feature → package :**
 > Si une feature-dossier : (a) dépasse ~800 lignes OU (b) est importée par 3+ packages → elle devient son propre package npm avec le même graphe de dépendances.
+
+---
+
+### ADR-008 — BMAD Execution Gateway : cop1 Orchestrator / BMAD Executor (Phase A)
+
+> Added 2026-02-22. Sprint Change Proposal approved. See [Phase A Course Correction Brief](phase-a-course-correction-brief.md).
+
+**Context:** After Sprints 0-7, a global retrospective revealed that cop1's custom LLM prompts (14-line DevAgent, 25-char ReviewerAgent) were inferior to BMAD's battle-tested workflows (10-step dev-story, 50+ check code-review). cop1 should orchestrate BMAD commands, not replicate them.
+
+**Décision:** New hexagonal port `BMADCommandPort` with Strategy pattern adapter. cop1 is the **Orchestrator** (scheduling, budget, governance, checkpoint/resume), BMAD is the **Executor** (dev-story, code-review, QA, retro workflows).
+
+**Pattern: Execution Gateway**
+
+```
+cop1 SprintRunner
+    │
+    ▼
+BMADCommandPort (interface)
+    │
+    ├── LocalCliAdapter        ← Phase A: spawns `claude -p "/bmad-bmm-dev-story" --output-format json`
+    ├── ContainerAdapter       ← Future: runs in isolated Docker container
+    ├── RemoteAdapter          ← Future: delegates to remote Claude Code instance
+    └── OllamaProxyAdapter     ← Future (Phase B): routes to local LLM via Ollama API
+```
+
+**Interface:**
+
+```typescript
+interface BMADCommandPort {
+  execute(command: BMADCommand): Promise<BMADCommandResult>
+}
+
+interface BMADCommand {
+  workflow: '/bmad-bmm-dev-story' | '/bmad-bmm-code-review' | '/bmad-bmm-retro' | string
+  context: string          // Story markdown + project context
+  timeout?: number         // ms, default 300_000
+  budgetCheck?: boolean    // Pre-check budget before execution
+}
+
+interface BMADCommandResult {
+  success: boolean
+  output: string           // JSON or markdown output from BMAD
+  tokensUsed: number
+  durationMs: number
+  model: string
+}
+```
+
+**cop1 responsibilities (Orchestrator):**
+1. **Scheduling** — pick next story, build pipeline, manage sprint lifecycle
+2. **Budget** — track token consumption, enforce limits, emit alerts
+3. **Governance** — iamthelaw rules, retro outputs, rule proposals
+4. **Resilience** — checkpoint/resume, timeout/retry, error handling
+5. **Observability** — JSONL event logging, SSE streaming, dashboard
+
+**BMAD responsibilities (Executor):**
+1. **Dev workflow** — 10-step dev-story with AC validation
+2. **Code review** — adversarial checklist with 50+ checks
+3. **QA validation** — test execution and coverage verification
+4. **Retro** — structured retrospective with action items
+5. **Sprint-status transitions** — `ready-for-dev → in-progress → review` (Steps 4 & 9 of dev-story)
+
+**sprint-status.yaml ownership:**
+- **BMAD** manages transitions (dev-story Steps 4 & 9)
+- **cop1** reads from `_bmad-output/implementation-artifacts/sprint-status.yaml` (read-only `SprintStatusReader`)
+- cop1 writes only its own execution history to `.cop1/sprint-log-*.jsonl`
+
+**Rationale:**
+- BMAD workflows are battle-tested (10-step dev-story > 14-line DevAgent prompt)
+- Hexagonal architecture makes the swap trivial (new port + adapter)
+- Strategy pattern allows future Docker/Ollama/Remote adapters without changing orchestration code
+- ADR-005 (LLM Routing) suspended for Phase A — all execution via Claude Code CLI
+
+**Files (already implemented, Sprint 8):**
+- `packages/sprint-core/src/features/bmad-orchestration/domain/ports/BMADCommandPort.ts`
+- `packages/sprint-core/src/features/bmad-orchestration/infrastructure/ClaudeCliAdapter.ts`
+- `packages/sprint-core/src/features/bmad-orchestration/application/BMADCommandStep.ts`
+- `packages/sprint-core/src/features/bmad-orchestration/application/BMADDevStoryStep.ts`
+- `packages/sprint-core/src/features/bmad-orchestration/application/BMADReviewStep.ts`
+- `packages/sprint-core/src/features/bmad-orchestration/domain/StoryContextBuilder.ts`
 
 ---
 

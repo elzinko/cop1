@@ -61,7 +61,8 @@ classification:
 
 ### Technical Success
 
-- Orchestration multi-LLM avec gestion des ressources machine (pas de swap, pas d'OOM)
+- BMAD command orchestration via `BMADCommandPort` Strategy pattern (LocalCliAdapter → future ContainerAdapter/RemoteAdapter) *(Phase A pivot)*
+- Orchestration multi-LLM avec gestion des ressources machine (pas de swap, pas d'OOM) *(Phase B)*
 - Stratégie adaptative implémentée et configurable : dev → grooming → archi → research → test 2 options
 - Intégration **Telegram** pour communication async (envoi de message si blocage critique en journée)
 - Comportement fail-safe la nuit : si bloqué sans réponse → pivot automatique vers activité alternative
@@ -234,8 +235,8 @@ Thomas peut continuer à travailler sur autre chose pendant que la feature avanc
 
 | Système | Usage | Phase |
 |---|---|---|
-| **Ollama / LMStudio** | LLMs locaux (Llama, Mistral, Qwen) | MVP |
-| **Anthropic API / Claude Code** | Orchestrateur + déblocage tâches complexes | MVP |
+| **Ollama / LMStudio** | LLMs locaux (Llama, Mistral, Qwen) | **Phase B** *(moved from MVP — Phase A pivot)* |
+| **Anthropic API / Claude Code** | Orchestrateur + BMAD command execution (dev-story, code-review, QA, retro) | MVP |
 | **BMAD workflows** | Format stories, sprint-status.yaml | MVP |
 | **GitHub API** | Statut PR, merge, issues, branches | Growth |
 | **Telegram Bot API** | Notifications, questions async | Growth |
@@ -367,13 +368,13 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 | 1 | Daemon Fastify + Web UI de monitoring | Contrôle et observabilité — sans ça, la nuit c'est une boîte noire |
 | 2 | Lecture du backlog (markdown stories BMAD) | Point d'entrée de tout le workflow |
 | 3 | Resource Guard (RAM/CPU monitoring) | Sécurité — éviter de bloquer la machine |
-| 4 | LLM Routing vers 2 LLMs minimum | Différenciateur clé — prouve le concept multi-LLM |
+| 4 | BMAD Command Orchestration (dev-story, code-review, QA) | Différenciateur clé — battle-tested BMAD workflows > naive LLM prompts *(Phase A pivot: replaces "LLM Routing vers 2 LLMs minimum")* |
 | 5 | Workflow Dev Agent → Reviewer Agent (séquentiel) | Circuit complet "production de code" |
 | 6 | PM Agent (questions bloquantes → fichier décision) | Débloquage autonome sans input humain la nuit |
 | 7 | Morning Report (markdown) | Visibilité sur ce qui s'est passé |
 | 8 | Adaptive Strategy L1 (retry avec autre LLM si échec) | Résilience de base, évite les boucles infinies |
 | 9 | Git Worktrees (branches isolées par story) | Évite les conflits, git propre |
-| 10 | Docker LLM Stack (Ollama + LiteLLM + Claude API) | Infrastructure LLM complète et isolée |
+| 10 | Claude API Budget Tracking & Alerts | Contrôle des coûts Claude API avec alertes et auto-pause *(Phase A pivot: replaces "Docker LLM Stack")* |
 
 ### Journeys couvertes par le MVP
 
