@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { COP1_VERSION } from '../features/daemon/domain/DaemonState.js';
 import { healthCommand } from './commands/health.js';
 import { initCommand } from './commands/init.js';
+import { initBmadBridgeCommand } from './commands/init-bmad-bridge.js';
 import { sprintRunCommand } from './commands/sprint-run.js';
 import { sprintStatusCommand } from './commands/sprint-status.js';
 import { startCommand } from './commands/start.js';
@@ -36,6 +37,11 @@ program
   .option('--project-key <key>', 'Override auto-detected project key')
   .option('--project-name <name>', 'Override auto-detected project name')
   .action(initCommand);
+
+program
+  .command('init-bmad-bridge')
+  .description('Configure BMAD agents to load iamthelaw governance rules')
+  .action(initBmadBridgeCommand);
 
 const sprint = program.command('sprint').description('Sprint management commands');
 
