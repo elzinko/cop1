@@ -127,7 +127,11 @@ export { SprintEndReportService } from './features/sprint-end-report/application
 
 // iamthelaw
 export { IamTheLawLoader } from './features/iamthelaw/application/IamTheLawLoader.js';
+export { SidecarSyncService } from './features/iamthelaw/application/SidecarSyncService.js';
+export { FileSidecarAdapter } from './features/iamthelaw/infrastructure/FileSidecarAdapter.js';
 export type { Rule, RuleSet } from './features/iamthelaw/domain/RuleSet.js';
+export type { RuleLoaderPort } from './features/iamthelaw/domain/ports/RuleLoaderPort.js';
+export type { SidecarSyncPort } from './features/iamthelaw/domain/ports/SidecarSyncPort.js';
 
 // DoD Validator
 export { DoDService } from './features/dod-validator/application/DoDService.js';

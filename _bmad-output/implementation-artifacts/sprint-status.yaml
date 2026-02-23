@@ -259,7 +259,7 @@ development_status:
 
   # --- Epic EA5 — BMAD Sidecar Sync (Sprint 9) ---
   epic-ea5: in-progress
-  EA5-S1: ready-for-dev  # Sidecar sync service — Sprint 9
+  EA5-S1: done  # Sidecar sync service — Sprint 9
   EA5-S2: ready-for-dev  # BMAD customize.yaml setup — Sprint 9
   EA5-S3: ready-for-dev  # Auto-sync on rule change — Sprint 9
   epic-ea5-retrospective: optional
