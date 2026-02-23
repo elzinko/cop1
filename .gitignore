@@ -13,11 +13,25 @@ build/
 .env.local
 .env.*.local
 
-# IDE
+# IDE & AI tools (machine-specific)
 .vscode/
 .idea/
+.claude/
+.codex/
+.cursor/
+.gemini/
 *.swp
 *.swo
+
+# cop1 runtime data (execution artifacts, not source code)
+.cop1/
+
+# BMAD framework (reinstallable via bmad install, version in _bmad/_config/manifest.yaml)
+_bmad/core/
+_bmad/bmm/
+_bmad/bmb/
+_bmad/tea/
+# Keep _bmad/_config/ and _bmad/_memory/ tracked (project-specific customizations)
 
 # OS
 .DS_Store
