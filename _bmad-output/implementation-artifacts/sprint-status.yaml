@@ -228,7 +228,7 @@ development_status:
 
   # --- Epic EA2 — Budget & Consumption Tracking (Sprint 9-12) ---
   epic-ea2: in-progress
-  EA2-S1: ready-for-dev  # TokenBudgetService — Sprint 9
+  EA2-S1: done  # TokenBudgetService — Sprint 9
   EA2-S2: ready-for-dev  # Budget config — Sprint 9
   EA2-S3: backlog    # Budget alert system — Sprint 10
   EA2-S4: backlog    # Pre-call budget check — Sprint 10

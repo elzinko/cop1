@@ -195,3 +195,10 @@ export { BMADDevStoryStep } from './features/bmad-orchestration/application/BMAD
 export { BMADReviewStep } from './features/bmad-orchestration/application/BMADReviewStep.js';
 export { StoryContextBuilder } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
 export type { StoryContext } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
+
+// Budget
+export { TokenBudgetService } from './features/budget/application/TokenBudgetService.js';
+export { YamlBudgetStore } from './features/budget/infrastructure/YamlBudgetStore.js';
+export type { BudgetStatus } from './features/budget/domain/BudgetStatus.js';
+export type { TokenConsumption } from './features/budget/domain/TokenConsumption.js';
+export type { BudgetStorePort, BudgetData } from './features/budget/domain/ports/BudgetStorePort.js';
