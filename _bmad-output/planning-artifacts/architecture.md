@@ -838,9 +838,66 @@ web  ← importe shared-kernel + app via HTTP uniquement
 
 ---
 
+### ADR-007 — Intégration BMAD / cop1 / iamthelaw : Zones de fichiers et sidecar mémoire
+
+> Added 2026-02-22. Condensé depuis le document d'idéation original. Certains éléments (PromptComposer, exécution LLM locale, Module BMAD Option C) ont été remplacés ou dépriorisés — voir ADR-008 et ADR-005 (suspended).
+
+**Contexte :** cop1, BMAD et iamthelaw cohabitent dans le même repository. Un contrat de propriété des fichiers est nécessaire pour garantir que cop1 ne modifie jamais les fichiers BMAD core, et que les deux systèmes partagent les données de gouvernance sans adhérence forte.
+
+**Décision 1 — Zones de fichiers : Contrat de lecture/écriture**
+
+| Zone | cop1 lit | cop1 écrit | BMAD lit | BMAD écrit | Propriétaire |
+|------|----------|------------|----------|------------|-------------|
+| `_bmad/core/`, `_bmad/bmm/`, `_bmad/bmb/`, `_bmad/tea/` | Non | **JAMAIS** | Oui | Non (installeur) | BMAD |
+| `_bmad/_config/agents/*.customize.yaml` | Oui | Oui (sync rules) | Oui | Oui (humain) | Partagé |
+| `_bmad/_memory/iamthelaw-sidecar/` | Oui | Oui | Oui | Oui (via agent) | cop1 |
+| `_bmad-output/project-context.md` | Oui | Non | Oui | Oui (workflow) | BMAD |
+| `_bmad-output/planning-artifacts/stories/` | Oui (lecture seule) | **JAMAIS** | Oui | Oui | BMAD |
+| `_bmad-output/implementation-artifacts/` | Oui | Oui (sprint-status) | Oui | Oui | Partagé |
+| `.cop1/rules/` | Oui | Oui | Non | Non | cop1 |
+| `.cop1/sprint-log-*.jsonl` | Oui | Oui | Non | Non | cop1 |
+| `cop1.config.yaml` | Oui | Non | Non | Non | Humain |
+
+**Décision 2 — Sidecar Memory : Pont iamthelaw → BMAD**
+
+L'intégration repose sur un sidecar mémoire BMAD contrôlé par cop1 :
+
+```
+_bmad/_memory/iamthelaw-sidecar/
+└── rules.md              # Règles de gouvernance (format LLM-friendly markdown)
+```
+
+Synchronisation (implémentée dans `SidecarSyncService` + `FileSidecarAdapter`) :
+1. cop1 maintient ses règles dans `.cop1/rules/` (format machine YAML)
+2. Après chaque rétro auto, `SidecarSyncService` convertit et synchronise vers `rules.md` (format markdown)
+3. Les customize.yaml des agents BMAD chargent le sidecar via `critical_actions`
+4. Les agents BMAD bénéficient des règles évolutives sans modification BMAD core
+
+Injection dans les agents BMAD (exemple) :
+```yaml
+# _bmad/_config/agents/bmm-dev.customize.yaml
+critical_actions:
+  - "MANDATORY: Load {project-root}/_bmad/_memory/iamthelaw-sidecar/rules.md"
+  - "Verify ALL planned changes comply with active rules before implementing"
+```
+
+**Décision 3 — Escalade budgétaire : Seuils TokenBudgetService**
+
+Le `TokenBudgetService` applique des seuils d'alerte progressifs sur la consommation de tokens :
+
+| Seuil | Action |
+|-------|--------|
+| 50% | Log (info) |
+| 80% | Notification (dashboard / Telegram) |
+| 95% | Pause et demande d'approbation PO |
+
+**Rationale :** Zéro adhérence avec BMAD core (cop1 ne modifie jamais `_bmad/core/`). Les customize.yaml et `_memory/` sont dans les zones safe de BMAD et survivent aux mises à jour. Le double format (YAML machine + markdown LLM) est le coût de la cohabitation.
+
+---
+
 ### ADR-008 — BMAD Execution Gateway : cop1 Orchestrator / BMAD Executor (Phase A)
 
-> Added 2026-02-22. Sprint Change Proposal approved. See [Phase A Course Correction Brief](phase-a-course-correction-brief.md).
+> Added 2026-02-22. Sprint Change Proposal approved. See [Phase A Course Correction Brief](historical/phase-a-course-correction-brief.md).
 
 **Context:** After Sprints 0-7, a global retrospective revealed that cop1's custom LLM prompts (14-line DevAgent, 25-char ReviewerAgent) were inferior to BMAD's battle-tested workflows (10-step dev-story, 50+ check code-review). cop1 should orchestrate BMAD commands, not replicate them.
 
