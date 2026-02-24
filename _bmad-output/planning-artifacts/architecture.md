@@ -852,8 +852,8 @@ web  ← importe shared-kernel + app via HTTP uniquement
 | `_bmad/_config/agents/*.customize.yaml` | Oui | Oui (sync rules) | Oui | Oui (humain) | Partagé |
 | `_bmad/_memory/iamthelaw-sidecar/` | Oui | Oui | Oui | Oui (via agent) | cop1 |
 | `_bmad-output/project-context.md` | Oui | Non | Oui | Oui (workflow) | BMAD |
-| `_bmad-output/planning-artifacts/stories/` | Oui (lecture seule) | **JAMAIS** | Oui | Oui | BMAD |
-| `_bmad-output/implementation-artifacts/` | Oui | Oui (sprint-status) | Oui | Oui | Partagé |
+| `_bmad-output/planning-artifacts/` | Oui (lecture seule) | **JAMAIS** | Oui | Oui | BMAD |
+| `_bmad-output/implementation-artifacts/` | Oui | Oui (sprint-status, stories) | Oui | Oui (stories, retro) | Partagé |
 | `.cop1/rules/` | Oui | Oui | Non | Non | cop1 |
 | `.cop1/sprint-log-*.jsonl` | Oui | Oui | Non | Non | cop1 |
 | `cop1.config.yaml` | Oui | Non | Non | Non | Humain |
