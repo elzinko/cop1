@@ -18,6 +18,7 @@ function createMockConfigPort(overrides: Partial<Cop1Config> = {}): ConfigPort {
     git: { auto_merge: false },
     blocage_rules: {},
     schedule: { auto_start: [] },
+    workflow: { useBMAD: true },
     ...overrides,
   };
   return { get: () => defaultConfig };
@@ -67,6 +68,7 @@ describe('LLMRouter', () => {
         git: { auto_merge: false },
         blocage_rules: {},
         schedule: { auto_start: [] },
+        workflow: { useBMAD: true },
       }),
     };
     const router = new LLMRouter(configPort);

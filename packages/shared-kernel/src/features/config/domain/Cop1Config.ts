@@ -20,6 +20,9 @@ export interface Cop1Config {
   git: {
     auto_merge: boolean;
   };
+  workflow: {
+    useBMAD: boolean;
+  };
   blocage_rules: Record<string, string>;
   schedule: {
     auto_start: string[];

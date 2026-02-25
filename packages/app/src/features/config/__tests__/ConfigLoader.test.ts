@@ -210,4 +210,33 @@ llm_fallback:
     const config = loader.load(testDir);
     expect(config.llm_fallback.dev).toBe('backup-model');
   });
+
+  describe('workflow config', () => {
+    it('should default useBMAD to true when workflow section is absent', () => {
+      const config = loader.load(testDir);
+      expect(config.workflow.useBMAD).toBe(true);
+    });
+
+    it('should respect explicit useBMAD: false from config file', () => {
+      const yaml = `
+workflow:
+  useBMAD: false
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+
+      const config = loader.load(testDir);
+      expect(config.workflow.useBMAD).toBe(false);
+    });
+
+    it('should respect explicit useBMAD: true from config file', () => {
+      const yaml = `
+workflow:
+  useBMAD: true
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+
+      const config = loader.load(testDir);
+      expect(config.workflow.useBMAD).toBe(true);
+    });
+  });
 });

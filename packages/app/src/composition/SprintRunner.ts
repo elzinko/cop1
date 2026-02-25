@@ -1,14 +1,6 @@
 import { execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  LLMCodeGenerator,
-  LLMGateway,
-  LLMReviewer,
-  LLMRouter,
-  OllamaAdapter,
-  TokensPerSecMonitor,
-} from '@cop1/llm-intelligence';
 import { LoggerBridge, StructuredLogger } from '@cop1/observability';
 import { QualityGateService } from '@cop1/quality-intelligence';
 import { EventBus } from '@cop1/shared-kernel';
@@ -16,10 +8,6 @@ import {
   BMADReader,
   CheckpointPhase,
   CheckpointService,
-  DevAgent,
-  PMAgentWorkflowStep,
-  QAAgent,
-  ReviewerAgent,
   SprintSessionService,
   type StepResult,
   type StoryMetadata,
@@ -30,6 +18,14 @@ import {
   YamlStatusStore,
 } from '@cop1/sprint-core';
 import { ConfigLoader } from '../features/config/application/ConfigLoader.js';
+import { PipelineStepFactory } from './PipelineStepFactory.js';
+
+export interface SprintRunnerDeps {
+  projectPath: string;
+  eventBus?: EventBus;
+  steps?: WorkflowStep[];
+  stepFactory?: PipelineStepFactory;
+}
 
 export interface SprintRunOptions {
   filter?: string;
@@ -52,11 +48,13 @@ export class SprintRunner {
   readonly eventBus: EventBus;
   private readonly projectPath: string;
   private readonly customSteps?: WorkflowStep[];
+  private readonly stepFactory?: PipelineStepFactory;
 
-  constructor(projectPath: string, eventBus?: EventBus, steps?: WorkflowStep[]) {
-    this.projectPath = projectPath;
-    this.eventBus = eventBus ?? new EventBus();
-    this.customSteps = steps;
+  constructor(deps: SprintRunnerDeps) {
+    this.projectPath = deps.projectPath;
+    this.eventBus = deps.eventBus ?? new EventBus();
+    this.customSteps = deps.steps;
+    this.stepFactory = deps.stepFactory;
   }
 
   async run(options: SprintRunOptions = {}): Promise<SprintRunResult> {
@@ -127,7 +125,10 @@ export class SprintRunner {
     }
 
     // Build workflow steps
-    const steps = this.customSteps ?? this.buildRealSteps(configLoader);
+    if (!this.customSteps && !this.stepFactory) {
+      throw new Error('SprintRunner requires either steps or stepFactory');
+    }
+    const steps = this.customSteps ?? this.stepFactory!.build(config, configLoader);
 
     let done = 0;
     let failed = 0;
@@ -204,6 +205,18 @@ export class SprintRunner {
     return runResult;
   }
 
+  listEligible(filter?: string): Array<{ id: string; title: string; status: string }> {
+    const bmadReader = new BMADReader();
+    const allStories = bmadReader.listStories(this.projectPath);
+    const statusStore = new YamlStatusStore(this.projectPath);
+    const tracker = new StoryStatusTracker(statusStore);
+    const eligible = this.filterEligible(allStories, tracker, filter);
+    return eligible.map((s) => {
+      const entry = tracker.getStatus(s.id);
+      return { id: s.id, title: s.title, status: entry?.status ?? 'new' };
+    });
+  }
+
   private createSimulateWorktree(): string {
     const timestamp = Date.now();
     const worktreeName = `simulate-${timestamp}`;
@@ -227,27 +240,6 @@ export class SprintRunner {
     this.eventBus.emit('simulate.worktree.created', { path: worktreePath });
 
     return worktreePath;
-  }
-
-  private buildRealSteps(configLoader: ConfigLoader): WorkflowStep[] {
-    const ollama = new OllamaAdapter();
-    const gateway = new LLMGateway(ollama, this.eventBus).withRouter(new LLMRouter(configLoader));
-    const codeGenerator = new LLMCodeGenerator(gateway);
-    const reviewer = new LLMReviewer(gateway);
-
-    // Wire tokens-per-second monitor
-    const tpsMonitor = new TokensPerSecMonitor();
-    this.eventBus.on('llm.call.completed', (payload: unknown) => {
-      const p = payload as { agentType: string; tokenCount: number; durationMs: number };
-      tpsMonitor.record(p.agentType, p.tokenCount, p.durationMs);
-    });
-
-    return [
-      new DevAgent(codeGenerator),
-      new ReviewerAgent(reviewer),
-      new QAAgent(),
-      new PMAgentWorkflowStep(),
-    ];
   }
 
   private filterEligible(

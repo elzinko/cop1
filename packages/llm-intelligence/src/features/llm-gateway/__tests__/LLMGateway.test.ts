@@ -112,6 +112,7 @@ describe('LLMGateway', () => {
         git: { auto_merge: false },
         blocage_rules: {},
         schedule: { auto_start: [] },
+        workflow: { useBMAD: true },
       }),
     };
     const gateway = new LLMGateway(createMockProvider(chunks), eventBus).withRouter(

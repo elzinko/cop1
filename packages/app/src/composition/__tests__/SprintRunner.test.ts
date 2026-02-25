@@ -67,7 +67,7 @@ describe('SprintRunner', () => {
   });
 
   it('should run all eligible stories through the workflow', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const result = await runner.run();
 
     expect(result.dryRun).toBe(false);
@@ -84,7 +84,7 @@ describe('SprintRunner', () => {
     entries.set('E1-S1', { status: 'done', updatedAt: new Date().toISOString() });
     store.write(entries);
 
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const result = await runner.run();
 
     expect(result.storiesDone).toBe(2);
@@ -92,7 +92,7 @@ describe('SprintRunner', () => {
   });
 
   it('should support dry-run mode without changing anything', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const result = await runner.run({ dryRun: true });
 
     expect(result.dryRun).toBe(true);
@@ -106,7 +106,7 @@ describe('SprintRunner', () => {
   });
 
   it('should filter stories by pattern', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const result = await runner.run({ filter: 'E1-*' });
 
     expect(result.storiesDone).toBe(2);
@@ -114,7 +114,7 @@ describe('SprintRunner', () => {
   });
 
   it('should emit sprint events', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const events: string[] = [];
 
     runner.eventBus.on('sprint.starting', () => events.push('starting'));
@@ -127,7 +127,7 @@ describe('SprintRunner', () => {
   });
 
   it('should transition stories through all status steps', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     await runner.run({ filter: 'E1-S1' });
 
     const store = new YamlStatusStore(projectPath);
@@ -139,7 +139,7 @@ describe('SprintRunner', () => {
   });
 
   it('should reject dry-run and simulate together', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
 
     await expect(runner.run({ dryRun: true, simulate: true })).rejects.toThrow(
       '--dry-run and --simulate are mutually exclusive',
@@ -176,7 +176,7 @@ describe('SprintRunner simulate mode', () => {
   });
 
   it('should create a worktree and execute sprint inside it', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const result = await runner.run({ simulate: true });
 
     expect(result.simulate).toBe(true);
@@ -189,7 +189,7 @@ describe('SprintRunner simulate mode', () => {
   });
 
   it('should not modify main project status in simulate mode', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const result = await runner.run({ simulate: true, filter: 'E1-S1' });
 
     // Main project tracker is untouched
@@ -204,7 +204,7 @@ describe('SprintRunner simulate mode', () => {
   });
 
   it('should support simulate with filter', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const result = await runner.run({ simulate: true, filter: 'E2-*' });
 
     expect(result.simulate).toBe(true);
@@ -213,7 +213,7 @@ describe('SprintRunner simulate mode', () => {
   });
 
   it('should emit simulate worktree events', async () => {
-    const runner = new SprintRunner(projectPath, undefined, stubSteps);
+    const runner = new SprintRunner({ projectPath, steps: stubSteps });
     const events: string[] = [];
 
     runner.eventBus.on('simulate.worktree.creating', () => events.push('creating'));

@@ -23,6 +23,7 @@ const mockConfig: ConfigPort = {
     git: { auto_merge: false },
     blocage_rules: {},
     schedule: { auto_start: [] },
+    workflow: { useBMAD: true },
   }),
 };
 

@@ -29,6 +29,7 @@ function makeContext(overrides: Partial<WorkflowContext> = {}): WorkflowContext 
       git: { auto_merge: false },
       blocage_rules: {},
       schedule: { auto_start: [] },
+      workflow: { useBMAD: true },
     } satisfies Cop1Config,
     ...overrides,
   };

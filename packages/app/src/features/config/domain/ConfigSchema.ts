@@ -38,6 +38,11 @@ export const ConfigSchema = z
         auto_merge: z.boolean().default(false),
       })
       .default({ auto_merge: false }),
+    workflow: z
+      .object({
+        useBMAD: z.boolean().default(true),
+      })
+      .default({ useBMAD: true }),
     blocage_rules: z.record(z.string(), z.string()).default({}),
     schedule: z
       .object({

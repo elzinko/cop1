@@ -87,6 +87,7 @@ describe('SystemResourceAdapter', () => {
       git: { auto_merge: false },
       blocage_rules: {},
       schedule: { auto_start: [] },
+      workflow: { useBMAD: true },
     };
     const configPort: ConfigPort = { get: () => mockConfig };
     const adapterWithConfig = new SystemResourceAdapter(eventBus, configPort);
