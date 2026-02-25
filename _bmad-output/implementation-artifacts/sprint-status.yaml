@@ -219,7 +219,7 @@ development_status:
   EA1-S1: done       # BMADCommandPort + ClaudeCliAdapter (commit 4dbe595)
   EA1-S2: done       # BMADDevStoryStep (commit 4dbe595)
   EA1-S3: done       # BMADReviewStep (commit 4dbe595)
-  EA1-S4: ready-for-dev  # BMADQAStep — Sprint 9
+  EA1-S4: done  # BMADQAStep — Sprint 9
   EA1-S5: ready-for-dev  # SprintRunner BMAD wiring — Sprint 9
   EA1-S6: done       # Story context preparation (commit 4dbe595)
   EA1-S7: ready-for-dev  # Error handling & retry — Sprint 9

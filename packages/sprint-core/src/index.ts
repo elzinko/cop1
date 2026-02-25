@@ -193,6 +193,7 @@ export type {
 export { BMADCommandStep } from './features/bmad-orchestration/application/BMADCommandStep.js';
 export { BMADDevStoryStep } from './features/bmad-orchestration/application/BMADDevStoryStep.js';
 export { BMADReviewStep } from './features/bmad-orchestration/application/BMADReviewStep.js';
+export { BMADQAStep } from './features/bmad-orchestration/application/BMADQAStep.js';
 export { StoryContextBuilder } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
 export type { StoryContext } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
 
