@@ -211,6 +211,147 @@ llm_fallback:
     expect(config.llm_fallback.dev).toBe('backup-model');
   });
 
+  describe('budget config', () => {
+    it('should apply budget defaults when budget section is absent', () => {
+      const config = loader.load(testDir);
+      expect(config.budget).toBeDefined();
+      expect(config.budget.sprint_max_tokens).toBe(1_000_000);
+      expect(config.budget.alert_thresholds).toEqual([50, 80, 95]);
+      expect(config.budget.auto_pause).toBe(true);
+    });
+
+    it('should parse explicit budget config from yaml', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 500000
+  alert_thresholds: [25, 50, 75, 90]
+  auto_pause: false
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+
+      const config = loader.load(testDir);
+      expect(config.budget.sprint_max_tokens).toBe(500_000);
+      expect(config.budget.alert_thresholds).toEqual([25, 50, 75, 90]);
+      expect(config.budget.auto_pause).toBe(false);
+    });
+
+    it('should reject non-positive sprint_max_tokens', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 0
+  alert_thresholds: [50, 80, 95]
+  auto_pause: true
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+      expect(() => loader.load(testDir)).toThrow(ConfigValidationError);
+    });
+
+    it('should reject negative sprint_max_tokens', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: -100
+  alert_thresholds: [50, 80, 95]
+  auto_pause: true
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+      expect(() => loader.load(testDir)).toThrow(ConfigValidationError);
+    });
+
+    it('should reject non-integer sprint_max_tokens', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 1000.5
+  alert_thresholds: [50, 80, 95]
+  auto_pause: true
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+      expect(() => loader.load(testDir)).toThrow(ConfigValidationError);
+    });
+
+    it('should reject alert_thresholds with values above 100', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 1000000
+  alert_thresholds: [50, 80, 120]
+  auto_pause: true
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+      expect(() => loader.load(testDir)).toThrow(ConfigValidationError);
+    });
+
+    it('should reject alert_thresholds with values below 0', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 1000000
+  alert_thresholds: [-10, 50, 80]
+  auto_pause: true
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+      expect(() => loader.load(testDir)).toThrow(ConfigValidationError);
+    });
+
+    it('should reject alert_thresholds not sorted ascending', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 1000000
+  alert_thresholds: [80, 50, 95]
+  auto_pause: true
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+      expect(() => loader.load(testDir)).toThrow(ConfigValidationError);
+    });
+
+    it('should accept empty alert_thresholds array', () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 1000000
+  alert_thresholds: []
+  auto_pause: false
+`;
+      writeFileSync(join(testDir, 'cop1.config.yaml'), yaml);
+      const config = loader.load(testDir);
+      expect(config.budget.alert_thresholds).toEqual([]);
+    });
+
+    it('should hot-reload budget config changes', async () => {
+      const yaml = `
+budget:
+  sprint_max_tokens: 1000000
+  alert_thresholds: [50, 80, 95]
+  auto_pause: true
+`;
+      const configPath = join(testDir, 'cop1.config.yaml');
+      writeFileSync(configPath, yaml);
+      loader.load(testDir);
+
+      const reloaded = vi.fn();
+      loader.watch(testDir, reloaded);
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      const updatedYaml = `
+budget:
+  sprint_max_tokens: 2000000
+  alert_thresholds: [60, 90]
+  auto_pause: false
+`;
+      writeFileSync(configPath, updatedYaml);
+
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline && !reloaded.mock.calls.length) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      expect(reloaded).toHaveBeenCalled();
+      const newConfig = reloaded.mock.calls[0]?.[0] as {
+        budget: { sprint_max_tokens: number; alert_thresholds: number[]; auto_pause: boolean };
+      };
+      expect(newConfig.budget.sprint_max_tokens).toBe(2_000_000);
+      expect(newConfig.budget.alert_thresholds).toEqual([60, 90]);
+      expect(newConfig.budget.auto_pause).toBe(false);
+    });
+  });
+
   describe('workflow config', () => {
     it('should default useBMAD to true when workflow section is absent', () => {
       const config = loader.load(testDir);

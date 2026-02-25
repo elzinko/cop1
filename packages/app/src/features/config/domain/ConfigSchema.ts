@@ -49,6 +49,21 @@ export const ConfigSchema = z
         auto_start: z.array(z.string()).default([]),
       })
       .default({ auto_start: [] }),
+    budget: z
+      .object({
+        sprint_max_tokens: z.number().int().positive(),
+        alert_thresholds: z
+          .array(z.number().min(0).max(100))
+          .refine((arr) => arr.every((v, i) => i === 0 || v > (arr[i - 1] ?? -1)), {
+            message: 'alert_thresholds must be sorted in ascending order with no duplicates',
+          }),
+        auto_pause: z.boolean(),
+      })
+      .default({
+        sprint_max_tokens: 1_000_000,
+        alert_thresholds: [50, 80, 95],
+        auto_pause: true,
+      }),
   })
   .refine(
     (data) => {

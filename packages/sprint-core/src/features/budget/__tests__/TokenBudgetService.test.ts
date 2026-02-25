@@ -146,6 +146,37 @@ describe('TokenBudgetService', () => {
     expect(status.consumed).toBe(5000);
   });
 
+  it('should dynamically update maxTokens via updateMaxTokens()', () => {
+    const service = new TokenBudgetService(eventBus, store, {
+      maxTokens: 100_000,
+      currentDate: '2026-02-23',
+    });
+
+    emitLlmCall(eventBus, { tokenCount: 60_000 });
+    expect(service.getBudgetStatus().remaining).toBe(40_000);
+    expect(service.getBudgetStatus().percentage).toBe(60);
+
+    // Simulate config hot-reload: increase budget
+    service.updateMaxTokens(200_000);
+    expect(service.getBudgetStatus().remaining).toBe(140_000);
+    expect(service.getBudgetStatus().percentage).toBe(30);
+  });
+
+  it('should reject invalid values in updateMaxTokens()', () => {
+    const service = new TokenBudgetService(eventBus, store, {
+      maxTokens: 100_000,
+      currentDate: '2026-02-23',
+    });
+
+    expect(() => service.updateMaxTokens(0)).toThrow('maxTokens must be a positive integer');
+    expect(() => service.updateMaxTokens(-1)).toThrow('maxTokens must be a positive integer');
+    expect(() => service.updateMaxTokens(1.5)).toThrow('maxTokens must be a positive integer');
+    expect(() => service.updateMaxTokens(NaN)).toThrow('maxTokens must be a positive integer');
+
+    // Original value should be unchanged after rejected updates
+    expect(service.getBudgetStatus().remaining).toBe(100_000);
+  });
+
   it('should reset budget on new day', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-02-23T14:00:00Z'));

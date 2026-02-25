@@ -22,7 +22,7 @@ export class TokenBudgetService {
   private readonly breakdownByAgent: Record<string, number> = {};
   private readonly events: TokenConsumption[] = [];
   private currentDate: string;
-  private readonly maxTokens: number;
+  private maxTokens: number;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -33,6 +33,14 @@ export class TokenBudgetService {
     this.currentDate = options?.currentDate ?? TokenBudgetService.todayString();
     this.restoreFromStore();
     this.eventBus.on('llm.call.completed', (payload: unknown) => this.handleLlmCallCompleted(payload));
+  }
+
+  /** Update the maximum token budget (e.g. after config hot-reload). */
+  updateMaxTokens(newMax: number): void {
+    if (!Number.isInteger(newMax) || newMax <= 0) {
+      throw new Error(`maxTokens must be a positive integer, got ${newMax}`);
+    }
+    this.maxTokens = newMax;
   }
 
   /** Return current budget consumption status. */

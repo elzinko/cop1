@@ -1,3 +1,9 @@
+export interface BudgetConfig {
+  sprint_max_tokens: number;
+  alert_thresholds: number[];
+  auto_pause: boolean;
+}
+
 export interface Cop1Config {
   project: {
     name: string;
@@ -27,4 +33,5 @@ export interface Cop1Config {
   schedule: {
     auto_start: string[];
   };
+  budget: BudgetConfig;
 }
