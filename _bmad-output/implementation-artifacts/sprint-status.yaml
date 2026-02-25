@@ -154,12 +154,12 @@ development_status:
   epic-8-retrospective: done
 
   # --- Epic 9 — iamthelaw Rules Engine ---
-  epic-9: in-progress   # E9-S5 still in backlog
+  epic-9: done          # All stories E9-S1 to E9-S9 completed
   E9-S1: done       # iamthelaw Core
   E9-S2: done       # DoD Definition & Validation
   E9-S3: done       # DoD Rejection Limiter
   E9-S4: done       # Rule Proposal Workflow
-  E9-S5: ready-for-dev  # Rule Approval UI — replanned to Sprint 9 with EA5
+  E9-S5: done    # Rule Approval UI — replanned to Sprint 9 with EA5
   E9-S6: done       # Quality Tool Binding
   E9-S7: done       # Auto-Rule Suggestions
   E9-S8: done       # RuleApplicationService

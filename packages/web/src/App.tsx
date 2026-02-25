@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { RuleProposalsView } from './RuleProposalsView.js';
 
 interface Project {
   id: string;
@@ -26,7 +27,7 @@ interface Task {
   createdAt: string;
 }
 
-type Tab = 'projects' | 'agents' | 'tasks';
+type Tab = 'projects' | 'agents' | 'tasks' | 'rules';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('projects');
@@ -41,6 +42,11 @@ function App() {
   }, [activeTab]);
 
   const fetchData = async () => {
+    if (activeTab === 'rules') {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -162,6 +168,12 @@ function App() {
           >
             Tasks
           </button>
+          <button
+            className={`tab ${activeTab === 'rules' ? 'active' : ''}`}
+            onClick={() => setActiveTab('rules')}
+          >
+            Rules
+          </button>
         </div>
 
         {error && (
@@ -177,6 +189,7 @@ function App() {
             {activeTab === 'projects' && renderProjects()}
             {activeTab === 'agents' && renderAgents()}
             {activeTab === 'tasks' && renderTasks()}
+            {activeTab === 'rules' && <RuleProposalsView />}
           </>
         )}
       </div>

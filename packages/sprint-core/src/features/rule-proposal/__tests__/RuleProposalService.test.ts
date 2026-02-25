@@ -72,4 +72,62 @@ describe('RuleProposalService', () => {
     const payload = handler.mock.calls[0]?.[0] as { ruleId: string };
     expect(payload.ruleId).toBe('RULE-001');
   });
+
+  it('should emit rule.applied event when status updated to approved', () => {
+    const handler = vi.fn();
+    eventBus.on('rule.applied', handler);
+
+    service.submit(validSubmission);
+    service.updateStatus('RULE-001', 'approved');
+
+    expect(handler).toHaveBeenCalledOnce();
+    const payload = handler.mock.calls[0]?.[0] as { ruleId: string; status: string };
+    expect(payload.ruleId).toBe('RULE-001');
+    expect(payload.status).toBe('approved');
+  });
+
+  it('should emit rule.rejected event when status updated to rejected', () => {
+    const handler = vi.fn();
+    eventBus.on('rule.rejected', handler);
+
+    service.submit(validSubmission);
+    service.updateStatus('RULE-001', 'rejected');
+
+    expect(handler).toHaveBeenCalledOnce();
+    const payload = handler.mock.calls[0]?.[0] as { ruleId: string; status: string };
+    expect(payload.ruleId).toBe('RULE-001');
+    expect(payload.status).toBe('rejected');
+  });
+
+  it('should emit rule.proposal.debated event when status updated to debated', () => {
+    const handler = vi.fn();
+    eventBus.on('rule.proposal.debated', handler);
+
+    service.submit(validSubmission);
+    service.updateStatus('RULE-001', 'debated');
+
+    expect(handler).toHaveBeenCalledOnce();
+    const payload = handler.mock.calls[0]?.[0] as { ruleId: string; status: string };
+    expect(payload.ruleId).toBe('RULE-001');
+    expect(payload.status).toBe('debated');
+  });
+
+  it('should store rejection reason when provided', () => {
+    service.submit(validSubmission);
+
+    const updated = service.updateStatus('RULE-001', 'rejected', 'Not aligned with goals');
+    expect(updated.status).toBe('rejected');
+    expect(updated.rejectionReason).toBe('Not aligned with goals');
+
+    const fetched = service.getById('RULE-001');
+    expect(fetched?.rejectionReason).toBe('Not aligned with goals');
+  });
+
+  it('should not overwrite rejection reason when not provided', () => {
+    service.submit(validSubmission);
+
+    service.updateStatus('RULE-001', 'rejected', 'Initial reason');
+    const updated = service.updateStatus('RULE-001', 'debated');
+    expect(updated.rejectionReason).toBe('Initial reason');
+  });
 });

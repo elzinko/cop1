@@ -36,14 +36,27 @@ export class RuleProposalService {
     return this.proposals.get(ruleId);
   }
 
-  updateStatus(ruleId: string, status: RuleProposalRecord['status']): RuleProposalRecord {
+  updateStatus(ruleId: string, status: RuleProposalRecord['status'], reason?: string): RuleProposalRecord {
     const record = this.proposals.get(ruleId);
     if (!record) {
       throw new Error(`Rule proposal not found: ${ruleId}`);
     }
 
     record.status = status;
+    if (reason !== undefined) {
+      record.rejectionReason = reason;
+    }
     this.proposals.set(ruleId, record);
+
+    const eventMap: Record<string, string> = {
+      approved: 'rule.applied',
+      rejected: 'rule.rejected',
+      debated: 'rule.proposal.debated',
+    };
+    const eventType = eventMap[status];
+    if (eventType) {
+      this.eventBus.emit(eventType, record);
+    }
 
     return record;
   }

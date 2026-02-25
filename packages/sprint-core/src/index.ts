@@ -152,6 +152,8 @@ export { PMDecisionService } from './features/pm-decision/application/PMDecision
 
 // Rule Proposal
 export { RuleProposalService } from './features/rule-proposal/application/RuleProposalService.js';
+export type { RuleProposalRecord, RuleProposalSubmission, RuleProposalStatus } from './features/rule-proposal/domain/RuleProposalTypes.js';
+export { VALID_RULE_PROPOSAL_STATUSES } from './features/rule-proposal/domain/RuleProposalTypes.js';
 
 // Quality Binding
 export { QualityBindingService } from './features/quality-binding/application/QualityBindingService.js';
