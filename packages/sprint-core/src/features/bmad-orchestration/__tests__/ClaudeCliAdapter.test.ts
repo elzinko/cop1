@@ -97,12 +97,12 @@ describe('ClaudeCliAdapter', () => {
     expect(completedPayload.responseLength).toBe(6); // 'output'.length
   });
 
-  it('emits events even on failure', async () => {
+  it('emits llm.call.failed event on failure', async () => {
     const eventBus = new EventBus();
     const events: string[] = [];
 
     eventBus.on('llm.call.started', () => events.push('started'));
-    eventBus.on('llm.call.completed', () => events.push('completed'));
+    eventBus.on('llm.call.failed', () => events.push('failed'));
 
     const { spawner } = createMockSpawner(1, '', 'error');
     const adapter = new ClaudeCliAdapter(eventBus, undefined, spawner);
@@ -111,7 +111,59 @@ describe('ClaudeCliAdapter', () => {
 
     expect(result.success).toBe(false);
     expect(events).toContain('started');
-    expect(events).toContain('completed');
+    expect(events).toContain('failed');
+  });
+
+  it('emits llm.call.failed with reason timeout on timeout', async () => {
+    const eventBus = new EventBus();
+    let failedPayload: Record<string, unknown> | undefined;
+
+    eventBus.on('llm.call.failed', (payload) => {
+      failedPayload = payload as Record<string, unknown>;
+    });
+
+    const spawner: ProcessSpawner = () => {
+      const emitter = new EventEmitter();
+      const stdoutEmitter = new EventEmitter();
+      const stderrEmitter = new EventEmitter();
+
+      const child = emitter as unknown as ChildProcess;
+      child.stdout = stdoutEmitter as ChildProcess['stdout'];
+      child.stderr = stderrEmitter as ChildProcess['stderr'];
+      child.kill = vi.fn().mockReturnValue(true);
+      Object.defineProperty(child, 'pid', { value: 99 });
+
+      return child;
+    };
+
+    const adapter = new ClaudeCliAdapter(
+      eventBus,
+      { timeoutMs: 30, gracefulShutdownMs: 30 },
+      spawner,
+    );
+    await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(failedPayload).toBeDefined();
+    expect(failedPayload?.reason).toBe('timeout');
+    expect(failedPayload?.model).toBe('claude-cli');
+    expect(failedPayload?.agentType).toBe('bmad');
+  });
+
+  it('emits llm.call.failed with reason error on non-timeout failures', async () => {
+    const eventBus = new EventBus();
+    let failedPayload: Record<string, unknown> | undefined;
+
+    eventBus.on('llm.call.failed', (payload) => {
+      failedPayload = payload as Record<string, unknown>;
+    });
+
+    const { spawner } = createMockSpawner(1, '', 'some error');
+    const adapter = new ClaudeCliAdapter(eventBus, undefined, spawner);
+
+    await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(failedPayload).toBeDefined();
+    expect(failedPayload?.reason).toBe('error');
   });
 
   it('builds prompt with context entries, excluding projectPath', () => {
@@ -164,7 +216,80 @@ describe('ClaudeCliAdapter', () => {
     expect(result.output).toContain('ENOENT');
   });
 
-  it('kills process on timeout', async () => {
+  it('sets retryable=true on timeout errors', async () => {
+    const spawner: ProcessSpawner = () => {
+      const emitter = new EventEmitter();
+      const stdoutEmitter = new EventEmitter();
+      const stderrEmitter = new EventEmitter();
+
+      const child = emitter as unknown as ChildProcess;
+      child.stdout = stdoutEmitter as ChildProcess['stdout'];
+      child.stderr = stderrEmitter as ChildProcess['stderr'];
+      child.kill = vi.fn().mockImplementation((signal: string) => {
+        if (signal === 'SIGTERM') {
+          setTimeout(() => emitter.emit('close', null), 5);
+        }
+        return true;
+      });
+      Object.defineProperty(child, 'pid', { value: 99 });
+
+      return child;
+    };
+
+    const adapter = new ClaudeCliAdapter(undefined, { timeoutMs: 30 }, spawner);
+    const result = await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(true);
+  });
+
+  it('sets retryable=false on spawn errors (binary not found)', async () => {
+    const spawner: ProcessSpawner = () => {
+      const emitter = new EventEmitter();
+      const stdoutEmitter = new EventEmitter();
+      const stderrEmitter = new EventEmitter();
+
+      const child = emitter as unknown as ChildProcess;
+      child.stdout = stdoutEmitter as ChildProcess['stdout'];
+      child.stderr = stderrEmitter as ChildProcess['stderr'];
+      child.kill = vi.fn().mockReturnValue(true);
+      Object.defineProperty(child, 'pid', { value: 0 });
+
+      setTimeout(() => {
+        emitter.emit('error', new Error('ENOENT: claude not found'));
+      }, 5);
+
+      return child;
+    };
+
+    const adapter = new ClaudeCliAdapter(undefined, undefined, spawner);
+    const result = await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+  });
+
+  it('sets retryable=true on crash exit codes', async () => {
+    const { spawner } = createMockSpawner(137, '', '');
+    const adapter = new ClaudeCliAdapter(undefined, undefined, spawner);
+
+    const result = await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(true);
+  });
+
+  it('sets retryable=false on normal non-zero exit', async () => {
+    const { spawner } = createMockSpawner(1, '', 'error');
+    const adapter = new ClaudeCliAdapter(undefined, undefined, spawner);
+
+    const result = await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+  });
+
+  it('sends SIGTERM then SIGKILL when process does not respond to SIGTERM', async () => {
     let killRef: ReturnType<typeof vi.fn> | undefined;
 
     const spawner: ProcessSpawner = () => {
@@ -179,7 +304,79 @@ describe('ClaudeCliAdapter', () => {
       child.kill = killRef;
       Object.defineProperty(child, 'pid', { value: 99 });
 
-      // Never emit close — simulates a hanging process
+      // Never emit close — simulates a completely hanging process
+      return child;
+    };
+
+    const adapter = new ClaudeCliAdapter(
+      undefined,
+      { timeoutMs: 30, gracefulShutdownMs: 30 },
+      spawner,
+    );
+    const result = await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(result.success).toBe(false);
+    expect(result.output).toContain('timed out');
+    expect(killRef).toBeDefined();
+    expect(killRef).toHaveBeenCalledWith('SIGTERM');
+    expect(killRef).toHaveBeenCalledWith('SIGKILL');
+  });
+
+  it('sends only SIGTERM when process closes after graceful signal', async () => {
+    let killRef: ReturnType<typeof vi.fn> | undefined;
+
+    const spawner: ProcessSpawner = () => {
+      const emitter = new EventEmitter();
+      const stdoutEmitter = new EventEmitter();
+      const stderrEmitter = new EventEmitter();
+
+      const child = emitter as unknown as ChildProcess;
+      child.stdout = stdoutEmitter as ChildProcess['stdout'];
+      child.stderr = stderrEmitter as ChildProcess['stderr'];
+      killRef = vi.fn().mockImplementation((signal: string) => {
+        if (signal === 'SIGTERM') {
+          // Process responds to SIGTERM by closing
+          setTimeout(() => emitter.emit('close', null), 5);
+        }
+        return true;
+      });
+      child.kill = killRef;
+      Object.defineProperty(child, 'pid', { value: 99 });
+
+      return child;
+    };
+
+    const adapter = new ClaudeCliAdapter(
+      undefined,
+      { timeoutMs: 30, gracefulShutdownMs: 200 },
+      spawner,
+    );
+    const result = await adapter.execute('/test', { projectPath: '/tmp' });
+
+    expect(result.success).toBe(false);
+    expect(result.output).toContain('timed out');
+    expect(killRef).toBeDefined();
+    expect(killRef).toHaveBeenCalledWith('SIGTERM');
+    expect(killRef).not.toHaveBeenCalledWith('SIGKILL');
+  });
+
+  it('returns BMADTimeoutError details in output on timeout', async () => {
+    const spawner: ProcessSpawner = () => {
+      const emitter = new EventEmitter();
+      const stdoutEmitter = new EventEmitter();
+      const stderrEmitter = new EventEmitter();
+
+      const child = emitter as unknown as ChildProcess;
+      child.stdout = stdoutEmitter as ChildProcess['stdout'];
+      child.stderr = stderrEmitter as ChildProcess['stderr'];
+      child.kill = vi.fn().mockImplementation((signal: string) => {
+        if (signal === 'SIGTERM') {
+          setTimeout(() => emitter.emit('close', null), 5);
+        }
+        return true;
+      });
+      Object.defineProperty(child, 'pid', { value: 99 });
+
       return child;
     };
 
@@ -187,9 +384,7 @@ describe('ClaudeCliAdapter', () => {
     const result = await adapter.execute('/test', { projectPath: '/tmp' });
 
     expect(result.success).toBe(false);
-    expect(result.output).toContain('timed out');
-    expect(killRef).toBeDefined();
-    expect(killRef).toHaveBeenCalledWith('SIGTERM');
+    expect(result.output).toContain('timed out after 50ms');
   });
 
   it('parses token count from JSON output with usage field', async () => {

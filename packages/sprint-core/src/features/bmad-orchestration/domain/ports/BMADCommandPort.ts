@@ -3,6 +3,8 @@ export interface BMADCommandResult {
   output: string;
   tokensUsed?: number;
   durationMs: number;
+  /** Hint from the adapter: true if the error is transient and worth retrying. */
+  retryable?: boolean;
 }
 
 export interface BMADCommandPort {

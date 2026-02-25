@@ -1,9 +1,12 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import type { EventBus } from '@cop1/shared-kernel';
+import { BMADTimeoutError } from '../domain/errors/BMADTimeoutError.js';
 import type { BMADCommandPort, BMADCommandResult } from '../domain/ports/BMADCommandPort.js';
 
 export interface ClaudeCliAdapterOptions {
   timeoutMs?: number;
+  /** Grace period after SIGTERM before sending SIGKILL (default 10_000ms) */
+  gracefulShutdownMs?: number;
 }
 
 export type ProcessSpawner = (
@@ -17,11 +20,13 @@ const defaultSpawner: ProcessSpawner = (cmd, args, opts) => spawn(cmd, args, opt
 export class ClaudeCliAdapter implements BMADCommandPort {
   private readonly eventBus?: EventBus;
   private readonly defaultTimeoutMs: number;
+  private readonly gracefulShutdownMs: number;
   private readonly spawner: ProcessSpawner;
 
   constructor(eventBus?: EventBus, options?: ClaudeCliAdapterOptions, spawner?: ProcessSpawner) {
     this.eventBus = eventBus;
-    this.defaultTimeoutMs = options?.timeoutMs ?? 600_000;
+    this.defaultTimeoutMs = options?.timeoutMs ?? 300_000;
+    this.gracefulShutdownMs = options?.gracefulShutdownMs ?? 10_000;
     this.spawner = spawner ?? defaultSpawner;
   }
 
@@ -59,17 +64,19 @@ export class ClaudeCliAdapter implements BMADCommandPort {
     } catch (error) {
       const durationMs = Date.now() - startTime;
       const message = error instanceof Error ? error.message : String(error);
+      const reason = error instanceof BMADTimeoutError ? 'timeout' : 'error';
+      const retryable = this.isRetryableError(error);
 
-      this.eventBus?.emit('llm.call.completed', {
+      this.eventBus?.emit('llm.call.failed', {
         model: 'claude-cli',
         agentType: 'bmad',
         promptLength: prompt.length,
-        responseLength: 0,
         durationMs,
-        tokenCount: 0,
+        reason,
+        error: message,
       });
 
-      return { success: false, output: message, durationMs };
+      return { success: false, output: message, durationMs, retryable };
     }
   }
 
@@ -98,9 +105,24 @@ export class ClaudeCliAdapter implements BMADCommandPort {
     return undefined;
   }
 
+  private isRetryableError(error: unknown): boolean {
+    if (error instanceof BMADTimeoutError) return true;
+    if (error instanceof Error) {
+      // Spawn errors (e.g., ENOENT — binary not found) are permanent
+      if (error.message.includes('spawn error')) return false;
+      // Crash exit codes (SIGINT, SIGKILL, SIGSEGV, SIGABRT, SIGTERM) are transient
+      if (/exited with code (?:130|137|139|134|143)\b/.test(error.message)) return true;
+    }
+    return false;
+  }
+
   private runProcess(prompt: string, cwd?: string): Promise<string> {
     return new Promise((resolve, reject) => {
       let settled = false;
+      let timedOut = false;
+      let killTimer: ReturnType<typeof setTimeout> | undefined;
+      let forceTimer: ReturnType<typeof setTimeout> | undefined;
+
       const args = ['-p', prompt, '--output-format', 'json', '--permission-mode', 'acceptEdits'];
 
       const child = this.spawner('claude', args, {
@@ -111,11 +133,31 @@ export class ClaudeCliAdapter implements BMADCommandPort {
       let stdout = '';
       let stderr = '';
 
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (killTimer) clearTimeout(killTimer);
+        if (forceTimer) clearTimeout(forceTimer);
+      };
+
       const timer = setTimeout(() => {
         if (!settled) {
-          settled = true;
+          timedOut = true;
           child.kill('SIGTERM');
-          reject(new Error(`Claude CLI timed out after ${this.defaultTimeoutMs}ms`));
+
+          // Schedule SIGKILL if process doesn't respond to SIGTERM
+          killTimer = setTimeout(() => {
+            if (!settled) {
+              child.kill('SIGKILL');
+              // Force-settle if process ignores SIGKILL too
+              forceTimer = setTimeout(() => {
+                if (!settled) {
+                  settled = true;
+                  cleanup();
+                  reject(new BMADTimeoutError(this.defaultTimeoutMs));
+                }
+              }, 2_000);
+            }
+          }, this.gracefulShutdownMs);
         }
       }, this.defaultTimeoutMs);
 
@@ -130,7 +172,7 @@ export class ClaudeCliAdapter implements BMADCommandPort {
       child.on('error', (error: Error) => {
         if (!settled) {
           settled = true;
-          clearTimeout(timer);
+          cleanup();
           reject(new Error(`Claude CLI spawn error: ${error.message}`));
         }
       });
@@ -138,8 +180,10 @@ export class ClaudeCliAdapter implements BMADCommandPort {
       child.on('close', (code: number | null) => {
         if (!settled) {
           settled = true;
-          clearTimeout(timer);
-          if (code === 0) {
+          cleanup();
+          if (timedOut) {
+            reject(new BMADTimeoutError(this.defaultTimeoutMs));
+          } else if (code === 0) {
             resolve(stdout);
           } else {
             reject(new Error(`Claude CLI exited with code ${code}: ${stderr || stdout}`));

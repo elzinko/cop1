@@ -222,7 +222,7 @@ development_status:
   EA1-S4: done  # BMADQAStep — Sprint 9
   EA1-S5: done  # SprintRunner BMAD wiring — Sprint 9
   EA1-S6: done       # Story context preparation (commit 4dbe595)
-  EA1-S7: ready-for-dev  # Error handling & retry — Sprint 9
+  EA1-S7: done  # Error handling & retry — Sprint 9
   EA1-S8: backlog    # Integration test — Sprint 10
   epic-ea1-retrospective: optional
 

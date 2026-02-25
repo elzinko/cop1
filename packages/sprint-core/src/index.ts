@@ -191,11 +191,17 @@ export type {
   ProcessSpawner,
 } from './features/bmad-orchestration/infrastructure/ClaudeCliAdapter.js';
 export { BMADCommandStep } from './features/bmad-orchestration/application/BMADCommandStep.js';
+export type { BMADCommandStepOptions, BudgetChecker } from './features/bmad-orchestration/application/BMADCommandStep.js';
 export { BMADDevStoryStep } from './features/bmad-orchestration/application/BMADDevStoryStep.js';
 export { BMADReviewStep } from './features/bmad-orchestration/application/BMADReviewStep.js';
 export { BMADQAStep } from './features/bmad-orchestration/application/BMADQAStep.js';
 export { StoryContextBuilder } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
 export type { StoryContext } from './features/bmad-orchestration/domain/StoryContextBuilder.js';
+export { RetryPolicy } from './features/bmad-orchestration/domain/RetryPolicy.js';
+export type { RetryPolicyOptions } from './features/bmad-orchestration/domain/RetryPolicy.js';
+export { BMADTimeoutError } from './features/bmad-orchestration/domain/errors/BMADTimeoutError.js';
+export { BMADRetryExhaustedError } from './features/bmad-orchestration/domain/errors/BMADRetryExhaustedError.js';
+export { BudgetExhaustedError } from './features/bmad-orchestration/domain/errors/BudgetExhaustedError.js';
 
 // Budget
 export { TokenBudgetService } from './features/budget/application/TokenBudgetService.js';
