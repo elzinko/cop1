@@ -105,7 +105,7 @@ export class ClaudeCliAdapter implements BMADCommandPort {
     return undefined;
   }
 
-  private isRetryableError(error: unknown): boolean {
+  private isRetryableError(error: unknown): boolean | undefined {
     if (error instanceof BMADTimeoutError) return true;
     if (error instanceof Error) {
       // Spawn errors (e.g., ENOENT — binary not found) are permanent
@@ -113,7 +113,8 @@ export class ClaudeCliAdapter implements BMADCommandPort {
       // Crash exit codes (SIGINT, SIGKILL, SIGSEGV, SIGABRT, SIGTERM) are transient
       if (/exited with code (?:130|137|139|134|143)\b/.test(error.message)) return true;
     }
-    return false;
+    // Unclassified errors: let the step's RetryPolicy decide via pattern matching
+    return undefined;
   }
 
   private runProcess(prompt: string, cwd?: string): Promise<string> {

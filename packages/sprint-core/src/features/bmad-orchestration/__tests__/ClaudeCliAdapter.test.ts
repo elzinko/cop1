@@ -279,14 +279,14 @@ describe('ClaudeCliAdapter', () => {
     expect(result.retryable).toBe(true);
   });
 
-  it('sets retryable=false on normal non-zero exit', async () => {
+  it('leaves retryable undefined on normal non-zero exit (let step decide)', async () => {
     const { spawner } = createMockSpawner(1, '', 'error');
     const adapter = new ClaudeCliAdapter(undefined, undefined, spawner);
 
     const result = await adapter.execute('/test', { projectPath: '/tmp' });
 
     expect(result.success).toBe(false);
-    expect(result.retryable).toBe(false);
+    expect(result.retryable).toBeUndefined();
   });
 
   it('sends SIGTERM then SIGKILL when process does not respond to SIGTERM', async () => {
