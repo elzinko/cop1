@@ -1,7 +1,7 @@
 import type { EventBus } from '@cop1/shared-kernel';
 import type { BudgetStatus } from '../domain/BudgetStatus.js';
 import type { TokenConsumption } from '../domain/TokenConsumption.js';
-import type { BudgetStorePort, BudgetData } from '../domain/ports/BudgetStorePort.js';
+import type { BudgetData, BudgetStorePort } from '../domain/ports/BudgetStorePort.js';
 
 /** Payload shape emitted by ClaudeCliAdapter on llm.call.completed. */
 interface LlmCallCompletedPayload {
@@ -32,7 +32,9 @@ export class TokenBudgetService {
     this.maxTokens = options?.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.currentDate = options?.currentDate ?? TokenBudgetService.todayString();
     this.restoreFromStore();
-    this.eventBus.on('llm.call.completed', (payload: unknown) => this.handleLlmCallCompleted(payload));
+    this.eventBus.on('llm.call.completed', (payload: unknown) =>
+      this.handleLlmCallCompleted(payload),
+    );
   }
 
   /** Update the maximum token budget (e.g. after config hot-reload). */

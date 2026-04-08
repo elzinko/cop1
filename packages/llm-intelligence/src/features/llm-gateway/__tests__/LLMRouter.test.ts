@@ -19,6 +19,7 @@ function createMockConfigPort(overrides: Partial<Cop1Config> = {}): ConfigPort {
     blocage_rules: {},
     schedule: { auto_start: [] },
     workflow: { useBMAD: true },
+    budget: { sprint_max_tokens: 0, alert_thresholds: [], auto_pause: false },
     ...overrides,
   };
   return { get: () => defaultConfig };
@@ -69,6 +70,7 @@ describe('LLMRouter', () => {
         blocage_rules: {},
         schedule: { auto_start: [] },
         workflow: { useBMAD: true },
+        budget: { sprint_max_tokens: 0, alert_thresholds: [], auto_pause: false },
       }),
     };
     const router = new LLMRouter(configPort);

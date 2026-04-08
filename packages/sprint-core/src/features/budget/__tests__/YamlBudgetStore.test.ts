@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { YamlBudgetStore } from '../infrastructure/YamlBudgetStore.js';
 import type { BudgetData } from '../domain/ports/BudgetStorePort.js';
+import { YamlBudgetStore } from '../infrastructure/YamlBudgetStore.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'yaml-budget-store-test');
 const COP1_DIR = join(TEST_DIR, '.cop1');
@@ -32,9 +32,24 @@ describe('YamlBudgetStore', () => {
       breakdownByCommand: { 'claude-cli': 10000, ollama: 5000 },
       breakdownByAgent: { 'bmad-dev': 12000, 'bmad-reviewer': 3000 },
       events: [
-        { commandType: 'claude-cli', agentType: 'bmad-dev', tokens: 10000, timestamp: '2026-02-23T10:00:00Z' },
-        { commandType: 'ollama', agentType: 'bmad-dev', tokens: 2000, timestamp: '2026-02-23T11:00:00Z' },
-        { commandType: 'ollama', agentType: 'bmad-reviewer', tokens: 3000, timestamp: '2026-02-23T12:00:00Z' },
+        {
+          commandType: 'claude-cli',
+          agentType: 'bmad-dev',
+          tokens: 10000,
+          timestamp: '2026-02-23T10:00:00Z',
+        },
+        {
+          commandType: 'ollama',
+          agentType: 'bmad-dev',
+          tokens: 2000,
+          timestamp: '2026-02-23T11:00:00Z',
+        },
+        {
+          commandType: 'ollama',
+          agentType: 'bmad-reviewer',
+          tokens: 3000,
+          timestamp: '2026-02-23T12:00:00Z',
+        },
       ],
     };
 

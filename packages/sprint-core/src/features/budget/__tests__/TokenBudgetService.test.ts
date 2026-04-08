@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventBus } from '@cop1/shared-kernel';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TokenBudgetService } from '../application/TokenBudgetService.js';
-import type { BudgetStorePort, BudgetData } from '../domain/ports/BudgetStorePort.js';
+import type { BudgetData, BudgetStorePort } from '../domain/ports/BudgetStorePort.js';
 
 function createMockStore(): BudgetStorePort & { saved: BudgetData | undefined } {
   return {
@@ -61,7 +61,7 @@ describe('TokenBudgetService', () => {
     expect(status.consumed).toBe(6000);
     expect(status.breakdownByCommand).toEqual({
       'claude-cli': 5000,
-      'ollama': 1000,
+      ollama: 1000,
     });
     expect(status.breakdownByAgent).toEqual({
       'bmad-dev': 4000,
@@ -100,11 +100,21 @@ describe('TokenBudgetService', () => {
       totalConsumed: 10000,
       breakdownByCommand: { 'claude-cli': 10000 },
       breakdownByAgent: { bmad: 10000 },
-      events: [{ commandType: 'claude-cli', agentType: 'bmad', tokens: 10000, timestamp: '2026-02-23T10:00:00Z' }],
+      events: [
+        {
+          commandType: 'claude-cli',
+          agentType: 'bmad',
+          tokens: 10000,
+          timestamp: '2026-02-23T10:00:00Z',
+        },
+      ],
     };
     (store.load as ReturnType<typeof vi.fn>).mockReturnValue(existingData);
 
-    const service = new TokenBudgetService(eventBus, store, { currentDate: '2026-02-23', maxTokens: 50000 });
+    const service = new TokenBudgetService(eventBus, store, {
+      currentDate: '2026-02-23',
+      maxTokens: 50000,
+    });
 
     const status = service.getBudgetStatus();
     expect(status.consumed).toBe(10000);
@@ -171,7 +181,9 @@ describe('TokenBudgetService', () => {
     expect(() => service.updateMaxTokens(0)).toThrow('maxTokens must be a positive integer');
     expect(() => service.updateMaxTokens(-1)).toThrow('maxTokens must be a positive integer');
     expect(() => service.updateMaxTokens(1.5)).toThrow('maxTokens must be a positive integer');
-    expect(() => service.updateMaxTokens(NaN)).toThrow('maxTokens must be a positive integer');
+    expect(() => service.updateMaxTokens(Number.NaN)).toThrow(
+      'maxTokens must be a positive integer',
+    );
 
     // Original value should be unchanged after rejected updates
     expect(service.getBudgetStatus().remaining).toBe(100_000);
