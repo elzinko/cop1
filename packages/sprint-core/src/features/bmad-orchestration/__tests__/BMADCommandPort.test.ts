@@ -1,5 +1,5 @@
 import { type Cop1Config, EventBus } from '@cop1/shared-kernel';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { WorkflowContext } from '../../workflow/domain/WorkflowContext.js';
 import { BMADCommandStep, type BudgetChecker } from '../application/BMADCommandStep.js';
 import { RetryPolicy } from '../domain/RetryPolicy.js';
@@ -33,6 +33,7 @@ function makeContext(overrides: Partial<WorkflowContext> = {}): WorkflowContext 
       blocage_rules: {},
       schedule: { auto_start: [] },
       workflow: { useBMAD: true },
+      budget: { sprint_max_tokens: 0, alert_thresholds: [], auto_pause: false },
     } satisfies Cop1Config,
     ...overrides,
   };
@@ -212,7 +213,11 @@ describe('BMADCommandStep', () => {
         execute: async () => {
           attempt++;
           if (attempt === 1) {
-            return { success: false, output: 'Claude CLI timed out after 600000ms', durationMs: 600000 };
+            return {
+              success: false,
+              output: 'Claude CLI timed out after 600000ms',
+              durationMs: 600000,
+            };
           }
           return { success: true, output: 'success', durationMs: 100 };
         },
@@ -234,7 +239,12 @@ describe('BMADCommandStep', () => {
         execute: async () => {
           attempt++;
           // Output looks transient by string matching, but retryable=false overrides
-          return { success: false, output: 'HTTP 503 Service Unavailable', durationMs: 50, retryable: false };
+          return {
+            success: false,
+            output: 'HTTP 503 Service Unavailable',
+            durationMs: 50,
+            retryable: false,
+          };
         },
       };
 

@@ -39,15 +39,25 @@ export class BmadBridgeService {
       const doc = parseDocument(content);
       const actions = doc.get('critical_actions', true);
 
-      if (actions && 'items' in actions) {
+      if (actions && typeof actions === 'object' && 'items' in actions) {
         const items = (actions as { items: Array<{ value?: string }> }).items;
-        if (items.some((item) => typeof item.value === 'string' && item.value.includes('iamthelaw-sidecar/rules.md'))) {
+        if (
+          items.some(
+            (item) =>
+              typeof item.value === 'string' && item.value.includes('iamthelaw-sidecar/rules.md'),
+          )
+        ) {
           result.skipped.push(agent);
           continue;
         }
       }
 
-      if (actions && typeof actions.add === 'function') {
+      if (
+        actions &&
+        typeof actions === 'object' &&
+        'add' in actions &&
+        typeof (actions as { add: unknown }).add === 'function'
+      ) {
         (actions as { add: (v: string) => void }).add(SIDECAR_ACTION);
       } else {
         doc.set('critical_actions', [SIDECAR_ACTION]);

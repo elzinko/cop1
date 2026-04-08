@@ -23,7 +23,8 @@ export interface BMADCommandStepOptions {
   delayFn?: (ms: number) => Promise<void>;
 }
 
-const defaultDelay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const defaultDelay = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 export abstract class BMADCommandStep implements WorkflowStep {
   abstract readonly name: string;
@@ -94,9 +95,7 @@ export abstract class BMADCommandStep implements WorkflowStep {
     }
   }
 
-  private async executeWithRetry(
-    bmadContext: Record<string, string>,
-  ): Promise<BMADCommandResult> {
+  private async executeWithRetry(bmadContext: Record<string, string>): Promise<BMADCommandResult> {
     let lastResult: BMADCommandResult | undefined;
     let lastError: Error | undefined;
 
@@ -132,7 +131,8 @@ export abstract class BMADCommandStep implements WorkflowStep {
 
       // Check if this is a transient error worth retrying
       // Prefer adapter-provided classification, fallback to string matching
-      const isTransient = lastResult.retryable ?? this.retryPolicy.isTransientError(lastResult.output);
+      const isTransient =
+        lastResult.retryable ?? this.retryPolicy.isTransientError(lastResult.output);
       if (!isTransient) {
         return lastResult; // Permanent error — don't retry
       }

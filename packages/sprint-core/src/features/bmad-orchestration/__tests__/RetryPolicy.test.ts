@@ -22,9 +22,9 @@ describe('RetryPolicy', () => {
     it('computes exponential backoff delays', () => {
       const policy = new RetryPolicy({ baseDelayMs: 1000, backoffMultiplier: 2 });
 
-      expect(policy.getDelayMs(0)).toBe(1000);  // 1000 * 2^0
-      expect(policy.getDelayMs(1)).toBe(2000);  // 1000 * 2^1
-      expect(policy.getDelayMs(2)).toBe(4000);  // 1000 * 2^2
+      expect(policy.getDelayMs(0)).toBe(1000); // 1000 * 2^0
+      expect(policy.getDelayMs(1)).toBe(2000); // 1000 * 2^1
+      expect(policy.getDelayMs(2)).toBe(4000); // 1000 * 2^2
     });
   });
 
@@ -62,7 +62,9 @@ describe('RetryPolicy', () => {
     });
 
     it('returns false for normal exit code 1', () => {
-      expect(new RetryPolicy().isTransientError('Claude CLI exited with code 1: error')).toBe(false);
+      expect(new RetryPolicy().isTransientError('Claude CLI exited with code 1: error')).toBe(
+        false,
+      );
     });
   });
 });

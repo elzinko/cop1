@@ -24,13 +24,7 @@ describe('BmadBridgeService', () => {
   it('should add sidecar critical_action to fresh customize.yaml', () => {
     writeFileSync(
       join(testDir, '_bmad', '_config', 'agents', 'bmm-dev.customize.yaml'),
-      [
-        'agent:',
-        '  metadata:',
-        '    name: ""',
-        'critical_actions: []',
-        'memories: []',
-      ].join('\n'),
+      ['agent:', '  metadata:', '    name: ""', 'critical_actions: []', 'memories: []'].join('\n'),
     );
 
     const result = service.initBridge();
@@ -136,11 +130,9 @@ describe('BmadBridgeService', () => {
   it('should handle customize.yaml with existing critical_actions entries', () => {
     writeFileSync(
       join(testDir, '_bmad', '_config', 'agents', 'bmm-sm.customize.yaml'),
-      [
-        'critical_actions:',
-        '  - "Existing action that should be preserved"',
-        'memories: []',
-      ].join('\n'),
+      ['critical_actions:', '  - "Existing action that should be preserved"', 'memories: []'].join(
+        '\n',
+      ),
     );
 
     service.initBridge();
