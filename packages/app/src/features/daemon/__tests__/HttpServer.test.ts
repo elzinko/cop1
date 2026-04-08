@@ -188,7 +188,11 @@ describe('HttpServer', () => {
       });
       expect(res.status).toBe(200);
 
-      const data = (await res.json()) as { ruleId: string; status: string; rejectionReason?: string };
+      const data = (await res.json()) as {
+        ruleId: string;
+        status: string;
+        rejectionReason?: string;
+      };
       expect(data.status).toBe('rejected');
       expect(data.rejectionReason).toBe('Not aligned with goals');
     });

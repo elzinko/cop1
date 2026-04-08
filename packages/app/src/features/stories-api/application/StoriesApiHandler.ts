@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { StoryStatusTracker } from '@cop1/sprint-core';
+import type { SprintStatusReaderPort } from '@cop1/sprint-core';
 
 export class StoriesApiHandler {
-  constructor(private readonly tracker: StoryStatusTracker) {}
+  constructor(private readonly statusReader: SprintStatusReaderPort) {}
 
   handle(req: IncomingMessage, res: ServerResponse): boolean {
     const urlMatch = req.url?.match(/^\/api\/stories\/([^/]+)$/);
@@ -22,9 +22,9 @@ export class StoriesApiHandler {
   }
 
   private handlePut(storyId: string, res: ServerResponse): boolean {
-    const status = this.tracker.getStatus(storyId);
+    const status = this.statusReader.getStoryStatus(storyId);
 
-    if (status?.status === 'in-progress') {
+    if (status === 'in-progress') {
       res.writeHead(409, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'story_locked', reason: 'in-progress' }));
       return true;
@@ -36,10 +36,10 @@ export class StoriesApiHandler {
   }
 
   private handleGet(storyId: string, res: ServerResponse): boolean {
-    const status = this.tracker.getStatus(storyId);
+    const status = this.statusReader.getStoryStatus(storyId);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ storyId, status: status?.status ?? 'unknown' }));
+    res.end(JSON.stringify({ storyId, status: status ?? 'unknown' }));
     return true;
   }
 }

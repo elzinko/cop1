@@ -1,10 +1,9 @@
 import { OllamaManagementAdapter } from '@cop1/llm-intelligence';
-import { SprintSessionService, StoryStatusTracker, YamlStatusStore } from '@cop1/sprint-core';
+import { BmadStatusReader, SprintSessionService } from '@cop1/sprint-core';
 
 export async function sprintStatusCommand(): Promise<void> {
   const projectPath = process.cwd();
-  const statusStore = new YamlStatusStore(projectPath);
-  const tracker = new StoryStatusTracker(statusStore);
+  const reader = new BmadStatusReader(projectPath);
   const sessionService = new SprintSessionService(projectPath);
 
   // Session info
@@ -19,16 +18,16 @@ export async function sprintStatusCommand(): Promise<void> {
   }
 
   // Story statuses
-  const statuses = tracker.getAllStatuses();
+  const statuses = reader.getAllStatuses();
   if (statuses.size === 0) {
     console.log('\nNo story statuses tracked yet.');
   } else {
     const byStatus: Record<string, string[]> = {};
-    for (const [storyId, entry] of statuses) {
-      if (!byStatus[entry.status]) {
-        byStatus[entry.status] = [];
+    for (const [storyId, status] of statuses) {
+      if (!byStatus[status]) {
+        byStatus[status] = [];
       }
-      byStatus[entry.status]?.push(storyId);
+      byStatus[status]?.push(storyId);
     }
 
     console.log(`\nStories: ${statuses.size} total`);

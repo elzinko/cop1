@@ -1,9 +1,6 @@
-import { mkdirSync, rmSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { StoryStatusTracker, YamlStatusStore } from '@cop1/sprint-core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryStatusReader } from '@cop1/sprint-core';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { StoriesApiHandler } from '../application/StoriesApiHandler.js';
 
 function createMockRes() {
@@ -27,25 +24,16 @@ function createMockReq(method: string, url: string) {
 }
 
 describe('StoriesApiHandler', () => {
-  let testDir: string;
-  let tracker: StoryStatusTracker;
+  let statusReader: InMemoryStatusReader;
   let handler: StoriesApiHandler;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `cop1-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(testDir, { recursive: true });
-    const store = new YamlStatusStore(testDir);
-    tracker = new StoryStatusTracker(store);
-    handler = new StoriesApiHandler(tracker);
-  });
-
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
+    statusReader = new InMemoryStatusReader();
+    handler = new StoriesApiHandler(statusReader);
   });
 
   it('should return 409 when trying to edit in-progress story', () => {
-    tracker.setStatus('E1-S1', 'ready');
-    tracker.setStatus('E1-S1', 'in-progress');
+    statusReader.setStatus('E1-S1', 'in-progress');
 
     const req = createMockReq('PUT', '/api/stories/E1-S1');
     const res = createMockRes();
@@ -58,7 +46,7 @@ describe('StoriesApiHandler', () => {
   });
 
   it('should allow editing stories not in-progress', () => {
-    tracker.setStatus('E1-S1', 'ready');
+    statusReader.setStatus('E1-S1', 'ready-for-dev');
 
     const req = createMockReq('PUT', '/api/stories/E1-S1');
     const res = createMockRes();
@@ -73,6 +61,32 @@ describe('StoriesApiHandler', () => {
     handler.handle(req, res);
 
     expect(res.getStatusCode()).toBe(200);
+  });
+
+  it('should return status for GET /api/stories/:id with known story', () => {
+    statusReader.setStatus('E1-S1', 'done');
+
+    const req = createMockReq('GET', '/api/stories/E1-S1');
+    const res = createMockRes();
+    const handled = handler.handle(req, res);
+
+    expect(handled).toBe(true);
+    expect(res.getStatusCode()).toBe(200);
+    const body = JSON.parse(res.getBody());
+    expect(body.storyId).toBe('E1-S1');
+    expect(body.status).toBe('done');
+  });
+
+  it('should return unknown status for GET /api/stories/:id with unknown story', () => {
+    const req = createMockReq('GET', '/api/stories/UNKNOWN');
+    const res = createMockRes();
+    const handled = handler.handle(req, res);
+
+    expect(handled).toBe(true);
+    expect(res.getStatusCode()).toBe(200);
+    const body = JSON.parse(res.getBody());
+    expect(body.storyId).toBe('UNKNOWN');
+    expect(body.status).toBe('unknown');
   });
 
   it('should return false for non-matching URLs', () => {
