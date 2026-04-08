@@ -204,6 +204,19 @@ export type { RetryPolicyOptions } from './features/bmad-orchestration/domain/Re
 export { BMADTimeoutError } from './features/bmad-orchestration/domain/errors/BMADTimeoutError.js';
 export { BMADRetryExhaustedError } from './features/bmad-orchestration/domain/errors/BMADRetryExhaustedError.js';
 export { BudgetExhaustedError } from './features/bmad-orchestration/domain/errors/BudgetExhaustedError.js';
+export type {
+  BMADSessionPort,
+  BMADSessionContext,
+  SessionHandle,
+  SessionTurnResult,
+  QuestionHandler,
+} from './features/bmad-orchestration/domain/ports/BMADSessionPort.js';
+export { AgentSdkSessionAdapter } from './features/bmad-orchestration/infrastructure/AgentSdkSessionAdapter.js';
+export type {
+  AgentSdkSessionAdapterOptions,
+  QueryFunction as SessionQueryFunction,
+} from './features/bmad-orchestration/infrastructure/AgentSdkSessionAdapter.js';
+export { InMemorySessionAdapter } from './features/bmad-orchestration/infrastructure/InMemorySessionAdapter.js';
 
 // Budget
 export { TokenBudgetService } from './features/budget/application/TokenBudgetService.js';
