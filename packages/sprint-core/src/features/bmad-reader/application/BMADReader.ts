@@ -5,7 +5,9 @@ import type { StoryMetadata } from '../domain/StoryMetadata.js';
 import { IntegrityError } from '../domain/errors/IntegrityError.js';
 import type { BMADReaderPort } from '../domain/ports/BMADReaderPort.js';
 
-const STORIES_DIR = '_bmad-output/planning-artifacts/stories';
+// BMAD standard layout: stories live flat under implementation_artifacts.
+// Confirmed by _bmad/bmm/config.yaml + create-story workflow.yaml (story_dir).
+const STORIES_DIR = '_bmad-output/implementation-artifacts';
 
 export class BMADReader implements BMADReaderPort {
   private checksums: Map<string, { checksum: string; filePath: string }> = new Map();
@@ -17,21 +19,21 @@ export class BMADReader implements BMADReaderPort {
     }
 
     const stories: StoryMetadata[] = [];
-    const sprintDirs = readdirSync(storiesRoot, { withFileTypes: true });
+    const entries = readdirSync(storiesRoot, { withFileTypes: true });
 
-    for (const dir of sprintDirs) {
-      if (!dir.isDirectory()) continue;
-      const sprintPath = join(storiesRoot, dir.name);
-      const files = readdirSync(sprintPath).filter((f) => f.endsWith('.md'));
-
-      for (const file of files) {
-        const filePath = join(sprintPath, file);
-        const content = readFileSync(filePath, 'utf-8');
-        const metadata = this.parseStoryMetadata(content, filePath, file);
-        if (metadata) {
-          stories.push(metadata);
-          this.checksums.set(metadata.id, { checksum: metadata.checksum, filePath });
-        }
+    // Stories are .md files at the root of implementation-artifacts.
+    // Skip directories, sprint-status.yaml, and any non-story markdown
+    // (project-context.md, retros, SCPs, etc.) by matching the story filename
+    // pattern in parseStoryMetadata.
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!entry.name.endsWith('.md')) continue;
+      const filePath = join(storiesRoot, entry.name);
+      const content = readFileSync(filePath, 'utf-8');
+      const metadata = this.parseStoryMetadata(content, filePath, entry.name);
+      if (metadata) {
+        stories.push(metadata);
+        this.checksums.set(metadata.id, { checksum: metadata.checksum, filePath });
       }
     }
 
@@ -61,9 +63,15 @@ export class BMADReader implements BMADReaderPort {
     const statusMatch = content.match(/^Status:\s*(.+)$/m);
     const status = statusMatch?.[1]?.trim() ?? 'unknown';
 
-    // Extract ID from filename (e.g., E1-S1-monorepo-setup.md → E1-S1)
-    const idMatch = filename.match(/^(E\d+-S\d+)/);
-    const id = idMatch?.[1] ?? filename.replace('.md', '');
+    // Extract ID from filename. Supports both Phase 1 (E1-S1, E10-S9) and
+    // Phase A (EA1-S1, EA9-S6, EA2-S0b) story IDs. Files that don't match
+    // the story-ID pattern (e.g. project-context.md, retros, SCPs) are
+    // filtered out by returning null.
+    const idMatch = filename.match(/^(E[A]?\d+-S\d+[a-z]?)/);
+    if (!idMatch) {
+      return null;
+    }
+    const id = idMatch[1] as string;
 
     const checksum = this.computeChecksum(content);
 
