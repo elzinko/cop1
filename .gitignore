@@ -55,6 +55,7 @@ temp/
 
 # Sprint simulation workspace
 .worktree/
+agent/simulate-*/
 
 # Local config (may contain machine-specific paths/models)
 cop1.config.yaml
