@@ -1,11 +1,13 @@
-import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   AgentSdkSessionAdapter,
   AgentSdkSupervisorAdapter,
+  ClaudeResumeSessionAdapter,
   SessionLogger,
   SupervisorService,
+  type BMADSessionPort,
 } from '@cop1/sprint-core';
+import { StructuredLogger } from '@cop1/observability';
 import { PipelineStepFactory } from '../../composition/PipelineStepFactory.js';
 import { SprintRunner } from '../../composition/SprintRunner.js';
 import { SprintFormatter } from '../formatters/SprintFormatter.js';
@@ -33,7 +35,22 @@ export async function sprintRunCommand(options: {
   const supervisorService = new SupervisorService(supervisorAdapter, sessionLogger);
   const questionHandler = supervisorService.createQuestionHandler();
 
-  const sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
+  // ADR-012 §10 D4 / EA9-S6: opt-in fallback adapter via env var. Default V1 path
+  // (SDK) stays unchanged; `COP1_BMAD_ADAPTER=resume` swaps to the fallback that
+  // spawns `claude --resume` per turn for hosts where the SDK is unusable.
+  const adapterChoice = (process.env.COP1_BMAD_ADAPTER ?? '').trim();
+  let sessionPort: BMADSessionPort;
+  if (adapterChoice === 'resume') {
+    console.log('BMAD adapter: claude --resume fallback (COP1_BMAD_ADAPTER=resume)');
+    sessionPort = new ClaudeResumeSessionAdapter(eventBus, { questionHandler });
+  } else {
+    if (adapterChoice && adapterChoice !== 'sdk') {
+      console.warn(
+        `Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`,
+      );
+    }
+    sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
+  }
 
   const stepFactory = new PipelineStepFactory(eventBus, { sessionPort, supervisorService });
   const runner = new SprintRunner({ projectPath, eventBus, stepFactory });

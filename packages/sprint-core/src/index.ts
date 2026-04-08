@@ -219,6 +219,11 @@ export type {
   QueryFunction as SessionQueryFunction,
 } from './features/bmad-orchestration/infrastructure/AgentSdkSessionAdapter.js';
 export { InMemorySessionAdapter } from './features/bmad-orchestration/infrastructure/InMemorySessionAdapter.js';
+export { ClaudeResumeSessionAdapter } from './features/bmad-orchestration/infrastructure/ClaudeResumeSessionAdapter.js';
+export type {
+  ClaudeResumeSessionAdapterOptions,
+  ProcessSpawner as ClaudeResumeProcessSpawner,
+} from './features/bmad-orchestration/infrastructure/ClaudeResumeSessionAdapter.js';
 export type {
   SupervisorLLMPort,
   SupervisorQuestion,
