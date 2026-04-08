@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventBus } from '@cop1/shared-kernel';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidecarSyncListener } from '../application/SidecarSyncListener.js';
 import type { Syncable } from '../application/SidecarSyncListener.js';
 

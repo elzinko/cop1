@@ -2,8 +2,8 @@
 import { Command } from 'commander';
 import { COP1_VERSION } from '../features/daemon/domain/DaemonState.js';
 import { healthCommand } from './commands/health.js';
-import { initCommand } from './commands/init.js';
 import { initBmadBridgeCommand } from './commands/init-bmad-bridge.js';
+import { initCommand } from './commands/init.js';
 import { sprintRunCommand } from './commands/sprint-run.js';
 import { sprintStatusCommand } from './commands/sprint-status.js';
 import { startCommand } from './commands/start.js';

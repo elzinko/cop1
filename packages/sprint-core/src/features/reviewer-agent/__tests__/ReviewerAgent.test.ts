@@ -25,6 +25,7 @@ function createContext(): WorkflowContext {
       blocage_rules: {},
       schedule: { auto_start: [] },
       workflow: { useBMAD: true },
+      budget: { sprint_max_tokens: 0, alert_thresholds: [], auto_pause: false },
     } satisfies Cop1Config,
   };
 }

@@ -88,6 +88,7 @@ describe('SystemResourceAdapter', () => {
       blocage_rules: {},
       schedule: { auto_start: [] },
       workflow: { useBMAD: true },
+      budget: { sprint_max_tokens: 0, alert_thresholds: [], auto_pause: false },
     };
     const configPort: ConfigPort = { get: () => mockConfig };
     const adapterWithConfig = new SystemResourceAdapter(eventBus, configPort);

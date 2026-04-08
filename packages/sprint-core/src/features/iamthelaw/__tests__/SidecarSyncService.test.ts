@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SidecarSyncService } from '../application/SidecarSyncService.js';
 import type { RuleSet } from '../domain/RuleSet.js';
 import type { RuleLoaderPort } from '../domain/ports/RuleLoaderPort.js';
 import type { SidecarSyncPort } from '../domain/ports/SidecarSyncPort.js';
-import { SidecarSyncService } from '../application/SidecarSyncService.js';
 
 function createMockPort(): SidecarSyncPort {
   return {
@@ -21,20 +21,14 @@ const fullRuleSet: RuleSet = {
     { id: 'G1', description: 'No force push to main', source: 'team-retro' },
     { id: 'G2', description: 'All PRs need review', source: 'team-retro' },
   ],
-  scrum: [
-    { id: 'S1', description: 'Daily async standup required', source: 'sm-decision' },
-  ],
+  scrum: [{ id: 'S1', description: 'Daily async standup required', source: 'sm-decision' }],
   architecture: [
     { id: 'A1', description: 'Hexagonal architecture mandatory', source: 'architect' },
     { id: 'A2', description: 'No direct DB access from domain', source: 'architect' },
   ],
   agents: {
-    'dev-agent': [
-      { id: 'D1', description: 'Write tests before code', source: 'quality-review' },
-    ],
-    'qa-agent': [
-      { id: 'Q1', description: 'Cover edge cases', source: 'quality-review' },
-    ],
+    'dev-agent': [{ id: 'D1', description: 'Write tests before code', source: 'quality-review' }],
+    'qa-agent': [{ id: 'Q1', description: 'Cover edge cases', source: 'quality-review' }],
   },
 };
 

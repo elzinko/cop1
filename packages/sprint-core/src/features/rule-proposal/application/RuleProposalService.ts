@@ -36,7 +36,11 @@ export class RuleProposalService {
     return this.proposals.get(ruleId);
   }
 
-  updateStatus(ruleId: string, status: RuleProposalRecord['status'], reason?: string): RuleProposalRecord {
+  updateStatus(
+    ruleId: string,
+    status: RuleProposalRecord['status'],
+    reason?: string,
+  ): RuleProposalRecord {
     const record = this.proposals.get(ruleId);
     if (!record) {
       throw new Error(`Rule proposal not found: ${ruleId}`);
