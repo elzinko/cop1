@@ -217,6 +217,21 @@ export type {
   QueryFunction as SessionQueryFunction,
 } from './features/bmad-orchestration/infrastructure/AgentSdkSessionAdapter.js';
 export { InMemorySessionAdapter } from './features/bmad-orchestration/infrastructure/InMemorySessionAdapter.js';
+export type {
+  SupervisorLLMPort,
+  SupervisorQuestion,
+  SupervisorResponse,
+  SupervisorContext,
+} from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
+export { SupervisorTimeoutError } from './features/bmad-orchestration/domain/errors/SupervisorTimeoutError.js';
+export { SupervisorRateLimitError } from './features/bmad-orchestration/domain/errors/SupervisorRateLimitError.js';
+export { AgentSdkSupervisorAdapter } from './features/bmad-orchestration/infrastructure/AgentSdkSupervisorAdapter.js';
+export type {
+  SupervisorQueryFunction,
+  SupervisorQueryMessage,
+  SupervisorQueryOptions,
+} from './features/bmad-orchestration/infrastructure/AgentSdkSupervisorAdapter.js';
+export { InMemorySupervisorAdapter } from './features/bmad-orchestration/infrastructure/InMemorySupervisorAdapter.js';
 
 // Budget
 export { TokenBudgetService } from './features/budget/application/TokenBudgetService.js';
