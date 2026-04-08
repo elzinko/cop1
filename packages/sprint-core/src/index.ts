@@ -232,6 +232,16 @@ export type {
   SupervisorQueryOptions,
 } from './features/bmad-orchestration/infrastructure/AgentSdkSupervisorAdapter.js';
 export { InMemorySupervisorAdapter } from './features/bmad-orchestration/infrastructure/InMemorySupervisorAdapter.js';
+export { buildSupervisorPrompt } from './features/bmad-orchestration/domain/SupervisorPromptBuilder.js';
+export {
+  SessionLogger,
+  deriveEpicId,
+} from './features/bmad-orchestration/application/SessionLogger.js';
+export type { SessionInteraction } from './features/bmad-orchestration/application/SessionLogger.js';
+export { SessionHistoryReader } from './features/bmad-orchestration/application/SessionHistoryReader.js';
+export type { SessionHistoryFilter } from './features/bmad-orchestration/application/SessionHistoryReader.js';
+export { SupervisorService } from './features/bmad-orchestration/application/SupervisorService.js';
+export type { DeterministicPattern } from './features/bmad-orchestration/application/SupervisorService.js';
 
 // Budget
 export { TokenBudgetService } from './features/budget/application/TokenBudgetService.js';
