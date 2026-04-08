@@ -21,7 +21,8 @@ describe.runIf(process.env.RUN_E2E === 'true')('BMAD E2E Smoke Test (real Claude
 
     const result = await adapter.execute('/bmad-bmm-dev-story', {
       projectPath: process.cwd(),
-      story: '# Smoke Test Story\n\nThis is a minimal smoke test. Respond with a brief acknowledgment.',
+      story:
+        '# Smoke Test Story\n\nThis is a minimal smoke test. Respond with a brief acknowledgment.',
     });
 
     // We only validate the result conforms to BMADCommandResult schema

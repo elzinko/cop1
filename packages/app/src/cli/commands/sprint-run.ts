@@ -1,5 +1,11 @@
+import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
-import { ClaudeCliAdapter } from '@cop1/sprint-core';
+import {
+  AgentSdkSessionAdapter,
+  AgentSdkSupervisorAdapter,
+  SessionLogger,
+  SupervisorService,
+} from '@cop1/sprint-core';
 import { PipelineStepFactory } from '../../composition/PipelineStepFactory.js';
 import { SprintRunner } from '../../composition/SprintRunner.js';
 import { SprintFormatter } from '../formatters/SprintFormatter.js';
@@ -17,8 +23,19 @@ export async function sprintRunCommand(options: {
 
   const projectPath = process.cwd();
   const eventBus = new EventBus();
-  const commandPort = new ClaudeCliAdapter(eventBus);
-  const stepFactory = new PipelineStepFactory(eventBus, commandPort);
+
+  // BMAD multi-turn wiring (ADR-012, EA9-S5): single AgentSdkSessionAdapter +
+  // SupervisorService shared by all three BMADSessionStep instances. Both
+  // adapters lazy-load the Agent SDK internally — no SDK import needed here.
+  const structuredLogger = new StructuredLogger(projectPath);
+  const sessionLogger = new SessionLogger(structuredLogger, eventBus);
+  const supervisorAdapter = new AgentSdkSupervisorAdapter();
+  const supervisorService = new SupervisorService(supervisorAdapter, sessionLogger);
+  const questionHandler = supervisorService.createQuestionHandler();
+
+  const sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
+
+  const stepFactory = new PipelineStepFactory(eventBus, { sessionPort, supervisorService });
   const runner = new SprintRunner({ projectPath, eventBus, stepFactory });
   const formatter = new SprintFormatter();
   formatter.attach(runner.eventBus);

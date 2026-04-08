@@ -1,16 +1,3 @@
-import type { Cop1Config } from '@cop1/shared-kernel';
-import type { EventBus } from '@cop1/shared-kernel';
-import {
-  BMADDevStoryStep,
-  BMADQAStep,
-  BMADReviewStep,
-  DevAgent,
-  PMAgentWorkflowStep,
-  QAAgent,
-  ReviewerAgent,
-  type BMADCommandPort,
-  type WorkflowStep,
-} from '@cop1/sprint-core';
 import {
   LLMCodeGenerator,
   LLMGateway,
@@ -19,15 +6,37 @@ import {
   OllamaAdapter,
   TokensPerSecMonitor,
 } from '@cop1/llm-intelligence';
+import type { Cop1Config } from '@cop1/shared-kernel';
+import type { EventBus } from '@cop1/shared-kernel';
+import {
+  type BMADSessionPort,
+  BMADSessionStep,
+  DevAgent,
+  PMAgentWorkflowStep,
+  QAAgent,
+  ReviewerAgent,
+  type SupervisorService,
+  type WorkflowStep,
+} from '@cop1/sprint-core';
 import type { ConfigLoader } from '../features/config/application/ConfigLoader.js';
+
+export interface PipelineStepFactoryOptions {
+  sessionPort?: BMADSessionPort;
+  supervisorService?: SupervisorService;
+}
 
 export class PipelineStepFactory {
   private tpsListenerRegistered = false;
+  private readonly sessionPort?: BMADSessionPort;
+  private readonly supervisorService?: SupervisorService;
 
   constructor(
     private readonly eventBus: EventBus,
-    private readonly commandPort?: BMADCommandPort,
-  ) {}
+    options: PipelineStepFactoryOptions = {},
+  ) {
+    this.sessionPort = options.sessionPort;
+    this.supervisorService = options.supervisorService;
+  }
 
   build(config: Cop1Config, configLoader?: ConfigLoader): WorkflowStep[] {
     if (config.workflow.useBMAD) {
@@ -37,16 +46,35 @@ export class PipelineStepFactory {
   }
 
   private buildBMADSteps(): WorkflowStep[] {
-    if (!this.commandPort) {
-      throw new Error('BMADCommandPort is required when workflow.useBMAD is true');
+    if (!this.sessionPort || !this.supervisorService) {
+      throw new Error(
+        'BMADSessionPort and SupervisorService are required when workflow.useBMAD is true',
+      );
     }
-    // BMAD pipeline: 3 steps (dev, review, qa).
-    // PM validation is handled internally by BMAD workflows,
-    // unlike the legacy pipeline which has an explicit PMAgentWorkflowStep.
+    const sessionPort = this.sessionPort;
+    const supervisorService = this.supervisorService;
+    const eventBus = this.eventBus;
+    // BMAD pipeline: 3 BMADSessionStep instances sharing the same sessionPort +
+    // supervisorService (ADR-012). PM validation is handled internally by BMAD.
     return [
-      new BMADDevStoryStep(this.commandPort),
-      new BMADReviewStep(this.commandPort),
-      new BMADQAStep(this.commandPort),
+      new BMADSessionStep(sessionPort, supervisorService, {
+        name: 'bmad-dev',
+        command: '/bmad-bmm-dev-story',
+        errorPrefix: 'BMAD dev-story failed',
+        eventBus,
+      }),
+      new BMADSessionStep(sessionPort, supervisorService, {
+        name: 'bmad-review',
+        command: '/bmad-bmm-code-review',
+        errorPrefix: 'BMAD code-review failed',
+        eventBus,
+      }),
+      new BMADSessionStep(sessionPort, supervisorService, {
+        name: 'bmad-qa',
+        command: '/bmad-bmm-qa-automate',
+        errorPrefix: 'BMAD QA validation failed',
+        eventBus,
+      }),
     ];
   }
 

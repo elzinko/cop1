@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   DevAgentStep,
+  InMemoryStatusReader,
   PMAgentStep,
   QAAgentStep,
   ReviewerAgentStep,
-  YamlStatusStore,
 } from '@cop1/sprint-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SprintRunner } from '../SprintRunner.js';
@@ -67,7 +67,14 @@ describe('SprintRunner', () => {
   });
 
   it('should run all eligible stories through the workflow', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+    const statusReader = new InMemoryStatusReader(
+      new Map([
+        ['E1-S1', 'ready-for-dev'],
+        ['E1-S2', 'ready-for-dev'],
+        ['E2-S1', 'ready-for-dev'],
+      ]),
+    );
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const result = await runner.run();
 
     expect(result.dryRun).toBe(false);
@@ -77,14 +84,15 @@ describe('SprintRunner', () => {
     expect(result.durationMs).toBeGreaterThan(0);
   });
 
-  it('should not process stories already done in tracker', async () => {
-    // Pre-set E1-S1 as done
-    const store = new YamlStatusStore(projectPath);
-    const entries = store.readAll();
-    entries.set('E1-S1', { status: 'done', updatedAt: new Date().toISOString() });
-    store.write(entries);
-
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+  it('should not process stories already done in reader', async () => {
+    const statusReader = new InMemoryStatusReader(
+      new Map([
+        ['E1-S1', 'done'],
+        ['E1-S2', 'ready-for-dev'],
+        ['E2-S1', 'ready-for-dev'],
+      ]),
+    );
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const result = await runner.run();
 
     expect(result.storiesDone).toBe(2);
@@ -92,50 +100,72 @@ describe('SprintRunner', () => {
   });
 
   it('should support dry-run mode without changing anything', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+    const statusReader = new InMemoryStatusReader(
+      new Map([
+        ['E1-S1', 'ready-for-dev'],
+        ['E1-S2', 'ready-for-dev'],
+        ['E2-S1', 'ready-for-dev'],
+      ]),
+    );
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const result = await runner.run({ dryRun: true });
 
     expect(result.dryRun).toBe(true);
     expect(result.storiesProcessed).toBe(0);
     expect(result.storiesDone).toBe(0);
-
-    // Verify no status was changed
-    const store = new YamlStatusStore(projectPath);
-    const entries = store.readAll();
-    expect(entries.size).toBe(0);
   });
 
   it('should filter stories by pattern', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+    const statusReader = new InMemoryStatusReader(
+      new Map([
+        ['E1-S1', 'ready-for-dev'],
+        ['E1-S2', 'ready-for-dev'],
+        ['E2-S1', 'ready-for-dev'],
+      ]),
+    );
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const result = await runner.run({ filter: 'E1-*' });
 
     expect(result.storiesDone).toBe(2);
     expect(result.storiesProcessed).toBe(2);
   });
 
-  it('should emit sprint events', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+  it('should emit sprint and story.completed events', async () => {
+    const statusReader = new InMemoryStatusReader(
+      new Map([
+        ['E1-S1', 'ready-for-dev'],
+        ['E1-S2', 'ready-for-dev'],
+        ['E2-S1', 'ready-for-dev'],
+      ]),
+    );
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const events: string[] = [];
+    const completedStories: string[] = [];
 
     runner.eventBus.on('sprint.starting', () => events.push('starting'));
     runner.eventBus.on('sprint.completed', () => events.push('completed'));
+    runner.eventBus.on('story.completed', (p: unknown) => {
+      completedStories.push((p as { storyId: string }).storyId);
+    });
 
     await runner.run();
 
     expect(events).toContain('starting');
     expect(events).toContain('completed');
+    expect(completedStories).toHaveLength(3);
   });
 
-  it('should transition stories through all status steps', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+  it('should emit story.completed for each done story', async () => {
+    const statusReader = new InMemoryStatusReader(new Map([['E1-S1', 'ready-for-dev']]));
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
+    const completedStories: string[] = [];
+    runner.eventBus.on('story.completed', (p: unknown) => {
+      completedStories.push((p as { storyId: string }).storyId);
+    });
+
     await runner.run({ filter: 'E1-S1' });
 
-    const store = new YamlStatusStore(projectPath);
-    const entries = store.readAll();
-    const status = entries.get('E1-S1');
-
-    expect(status).toBeDefined();
-    expect(status?.status).toBe('done');
+    expect(completedStories).toEqual(['E1-S1']);
   });
 
   it('should reject dry-run and simulate together', async () => {
@@ -176,7 +206,14 @@ describe('SprintRunner simulate mode', () => {
   });
 
   it('should create a worktree and execute sprint inside it', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+    const statusReader = new InMemoryStatusReader(
+      new Map([
+        ['E1-S1', 'ready-for-dev'],
+        ['E1-S2', 'ready-for-dev'],
+        ['E2-S1', 'ready-for-dev'],
+      ]),
+    );
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const result = await runner.run({ simulate: true });
 
     expect(result.simulate).toBe(true);
@@ -188,23 +225,18 @@ describe('SprintRunner simulate mode', () => {
     expect(existsSync(result.worktreePath!)).toBe(true);
   });
 
-  it('should not modify main project status in simulate mode', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+  it('should not modify main project in simulate mode', async () => {
+    const statusReader = new InMemoryStatusReader(new Map([['E1-S1', 'ready-for-dev']]));
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const result = await runner.run({ simulate: true, filter: 'E1-S1' });
 
-    // Main project tracker is untouched
-    const mainStore = new YamlStatusStore(projectPath);
-    const mainEntries = mainStore.readAll();
-    expect(mainEntries.has('E1-S1')).toBe(false);
-
-    // Worktree tracker has the status
-    const wtStore = new YamlStatusStore(result.worktreePath!);
-    const wtEntries = wtStore.readAll();
-    expect(wtEntries.get('E1-S1')?.status).toBe('done');
+    expect(result.simulate).toBe(true);
+    expect(result.storiesDone).toBe(1);
   });
 
   it('should support simulate with filter', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+    const statusReader = new InMemoryStatusReader(new Map([['E2-S1', 'ready-for-dev']]));
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const result = await runner.run({ simulate: true, filter: 'E2-*' });
 
     expect(result.simulate).toBe(true);
@@ -213,7 +245,8 @@ describe('SprintRunner simulate mode', () => {
   });
 
   it('should emit simulate worktree events', async () => {
-    const runner = new SprintRunner({ projectPath, steps: stubSteps });
+    const statusReader = new InMemoryStatusReader(new Map([['E1-S1', 'ready-for-dev']]));
+    const runner = new SprintRunner({ projectPath, steps: stubSteps, statusReader });
     const events: string[] = [];
 
     runner.eventBus.on('simulate.worktree.creating', () => events.push('creating'));

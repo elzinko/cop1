@@ -6,25 +6,25 @@ import { QualityGateService } from '@cop1/quality-intelligence';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   BMADReader,
+  BmadStatusReader,
   CheckpointPhase,
   CheckpointService,
   SprintSessionService,
+  type SprintStatusReaderPort,
   type StepResult,
   type StoryMetadata,
-  StoryStatus,
-  StoryStatusTracker,
   WorkflowEngine,
   type WorkflowStep,
-  YamlStatusStore,
 } from '@cop1/sprint-core';
 import { ConfigLoader } from '../features/config/application/ConfigLoader.js';
-import { PipelineStepFactory } from './PipelineStepFactory.js';
+import type { PipelineStepFactory } from './PipelineStepFactory.js';
 
 export interface SprintRunnerDeps {
   projectPath: string;
   eventBus?: EventBus;
   steps?: WorkflowStep[];
   stepFactory?: PipelineStepFactory;
+  statusReader?: SprintStatusReaderPort;
 }
 
 export interface SprintRunOptions {
@@ -49,12 +49,14 @@ export class SprintRunner {
   private readonly projectPath: string;
   private readonly customSteps?: WorkflowStep[];
   private readonly stepFactory?: PipelineStepFactory;
+  private readonly statusReader: SprintStatusReaderPort;
 
   constructor(deps: SprintRunnerDeps) {
     this.projectPath = deps.projectPath;
     this.eventBus = deps.eventBus ?? new EventBus();
     this.customSteps = deps.steps;
     this.stepFactory = deps.stepFactory;
+    this.statusReader = deps.statusReader ?? new BmadStatusReader(deps.projectPath);
   }
 
   async run(options: SprintRunOptions = {}): Promise<SprintRunResult> {
@@ -77,10 +79,9 @@ export class SprintRunner {
     const bmadReader = new BMADReader();
     const allStories = bmadReader.listStories(this.projectPath);
 
-    // Tracker from the real project (for filtering eligibility)
-    const statusStore = new YamlStatusStore(this.projectPath);
-    const tracker = new StoryStatusTracker(statusStore);
-    const eligibleStories = this.filterEligible(allStories, tracker, options.filter);
+    // Filter eligible stories using read-only status reader (single file read)
+    const allStatuses = this.statusReader.getAllStatuses();
+    const eligibleStories = this.filterEligibleFromMap(allStories, allStatuses, options.filter);
 
     this.eventBus.emit('sprint.starting', {
       totalStories: allStories.length,
@@ -105,8 +106,6 @@ export class SprintRunner {
     const executionPath = options.simulate ? this.createSimulateWorktree() : this.projectPath;
 
     // Initialize services in execution path
-    const execStatusStore = new YamlStatusStore(executionPath);
-    const execTracker = new StoryStatusTracker(execStatusStore);
     const sessionService = new SprintSessionService(executionPath);
     const checkpointService = new CheckpointService(executionPath);
     const qualityGate = new QualityGateService();
@@ -138,9 +137,6 @@ export class SprintRunner {
         this.eventBus.emit('sprint.expired', { storyId: story.id });
         break;
       }
-
-      // Transition: backlog → ready → in-progress
-      this.transitionToInProgress(execTracker, story.id);
 
       // Save checkpoint
       checkpointService.save({
@@ -177,9 +173,7 @@ export class SprintRunner {
       }
 
       if (result.status === 'ok') {
-        // in-progress → review → done
-        execTracker.setStatus(story.id, StoryStatus.REVIEW);
-        execTracker.setStatus(story.id, StoryStatus.DONE);
+        this.eventBus.emit('story.completed', { storyId: story.id });
         done++;
       } else {
         failed++;
@@ -208,12 +202,11 @@ export class SprintRunner {
   listEligible(filter?: string): Array<{ id: string; title: string; status: string }> {
     const bmadReader = new BMADReader();
     const allStories = bmadReader.listStories(this.projectPath);
-    const statusStore = new YamlStatusStore(this.projectPath);
-    const tracker = new StoryStatusTracker(statusStore);
-    const eligible = this.filterEligible(allStories, tracker, filter);
+    const allStatuses = this.statusReader.getAllStatuses();
+    const eligible = this.filterEligibleFromMap(allStories, allStatuses, filter);
     return eligible.map((s) => {
-      const entry = tracker.getStatus(s.id);
-      return { id: s.id, title: s.title, status: entry?.status ?? 'new' };
+      const status = allStatuses.get(s.id);
+      return { id: s.id, title: s.title, status: status ?? 'new' };
     });
   }
 
@@ -242,15 +235,15 @@ export class SprintRunner {
     return worktreePath;
   }
 
-  private filterEligible(
+  private filterEligibleFromMap(
     stories: StoryMetadata[],
-    tracker: StoryStatusTracker,
+    allStatuses: Map<string, string>,
     filter?: string,
   ): StoryMetadata[] {
     let eligible = stories.filter((s) => {
-      const entry = tracker.getStatus(s.id);
-      if (!entry) return true; // No tracker entry = new story
-      return entry.status === StoryStatus.BACKLOG || entry.status === StoryStatus.READY;
+      const status = allStatuses.get(s.id) ?? null;
+      if (!status) return true; // No status entry = new story
+      return status === 'backlog' || status === 'ready' || status === 'ready-for-dev';
     });
 
     if (filter) {
@@ -260,17 +253,5 @@ export class SprintRunner {
     }
 
     return eligible;
-  }
-
-  private transitionToInProgress(tracker: StoryStatusTracker, storyId: string): void {
-    const entry = tracker.getStatus(storyId);
-    const currentStatus = entry?.status ?? StoryStatus.BACKLOG;
-
-    if (currentStatus === StoryStatus.BACKLOG) {
-      tracker.setStatus(storyId, StoryStatus.READY);
-      tracker.setStatus(storyId, StoryStatus.IN_PROGRESS);
-    } else if (currentStatus === StoryStatus.READY) {
-      tracker.setStatus(storyId, StoryStatus.IN_PROGRESS);
-    }
   }
 }
