@@ -3,10 +3,12 @@ stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-13'
+lastUpdated: '2026-03-19'
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/project-context.md'
   - '_bmad-output/planning-artifacts/implementation-readiness-report-2026-02-13.md'
+  - '_bmad-output/planning-artifacts/adr-012-multi-turn-bmad-interaction.md'
 workflowType: 'architecture'
 project_name: 'cop1'
 user_name: 'elzinko'
@@ -954,10 +956,11 @@ interface BMADCommandResult {
 4. **Retro** — structured retrospective with action items
 5. **Sprint-status transitions** — `ready-for-dev → in-progress → review` (Steps 4 & 9 of dev-story)
 
-**sprint-status.yaml ownership:**
-- **BMAD** manages transitions (dev-story Steps 4 & 9)
-- **cop1** reads from `_bmad-output/implementation-artifacts/sprint-status.yaml` (read-only `SprintStatusReader`)
+**sprint-status.yaml ownership:** → See **ADR-009** for full specification
+- **BMAD** manages all transitions (dev-story Steps 4 & 9, create-story, sprint-planning, retro)
+- **cop1** reads from `_bmad-output/implementation-artifacts/sprint-status.yaml` via `SprintStatusReaderPort` (read-only)
 - cop1 writes only its own execution history to `.cop1/sprint-log-*.jsonl`
+- cop1 **NEVER** writes to `sprint-status.yaml` — no `setStatus()` in SprintRunner
 
 **Rationale:**
 - BMAD workflows are battle-tested (10-step dev-story > 14-line DevAgent prompt)
@@ -969,9 +972,162 @@ interface BMADCommandResult {
 - `packages/sprint-core/src/features/bmad-orchestration/domain/ports/BMADCommandPort.ts`
 - `packages/sprint-core/src/features/bmad-orchestration/infrastructure/ClaudeCliAdapter.ts`
 - `packages/sprint-core/src/features/bmad-orchestration/application/BMADCommandStep.ts`
-- `packages/sprint-core/src/features/bmad-orchestration/application/BMADDevStoryStep.ts`
-- `packages/sprint-core/src/features/bmad-orchestration/application/BMADReviewStep.ts`
+- `packages/sprint-core/src/features/bmad-orchestration/application/BMADSessionStep.ts` (since EA9-S5: replaces deleted `BMADDevStoryStep` / `BMADReviewStep` / `BMADQAStep`. The BMAD branch of `PipelineStepFactory` returns three `BMADSessionStep` instances sharing a single `AgentSdkSessionAdapter` + `SupervisorService`, completing the ADR-012 multi-turn migration.)
 - `packages/sprint-core/src/features/bmad-orchestration/domain/StoryContextBuilder.ts`
+
+---
+
+### ADR-009 — sprint-status.yaml : BMAD Source de Vérité, cop1 Read-Only
+
+> Added 2026-03-08. Résout le finding de la retro EA1 (2026-03-07) et la dette identifiée en retro E1-E12 (2026-02-22). Complète ADR-008 section "sprint-status.yaml ownership".
+
+**Context:** Depuis le BMAD Pivot (2026-02-22), le fichier `sprint-status.yaml` a été migré physiquement de `.cop1/sprint-status.yaml` vers `_bmad-output/implementation-artifacts/sprint-status.yaml`. Les workflows BMAD (sprint-planning, create-story, dev-story, retrospective) sont les producteurs légitimes des transitions de status. Cependant, `YamlStatusStore` dans sprint-core pointe encore vers `.cop1/sprint-status.yaml` et `SprintRunner` appelle `setStatus()` pour effectuer des transitions (backlog → ready → in-progress → review → done), dupliquant le travail de BMAD.
+
+**Décision:** BMAD est le **seul writer** de `sprint-status.yaml`. cop1 est **strictement read-only** sur ce fichier. cop1 écrit son historique d'exécution exclusivement dans `.cop1/sprint-log-*.jsonl`.
+
+**Nouveau port read-only :**
+
+```typescript
+// packages/sprint-core/src/features/story-tracker/domain/ports/SprintStatusReaderPort.ts
+interface SprintStatusReaderPort {
+  getStoryStatus(storyId: string): string | null
+  getAllStatuses(): Map<string, string>
+}
+```
+
+**Implémentation BMAD :**
+
+```typescript
+// packages/sprint-core/src/features/story-tracker/infrastructure/BmadStatusReader.ts
+// Lit _bmad-output/implementation-artifacts/sprint-status.yaml
+// Parse le format BMAD hiérarchique : development_status.{storyId}: {status}
+// Read-only — aucune méthode d'écriture exposée
+class BmadStatusReader implements SprintStatusReaderPort { ... }
+```
+
+**Implémentation InMemory (tests) :**
+
+```typescript
+// packages/sprint-core/src/features/story-tracker/infrastructure/InMemoryStatusReader.ts
+class InMemoryStatusReader implements SprintStatusReaderPort { ... }
+```
+
+**Impact sur SprintRunner :**
+
+Avant (dual-write — incorrect) :
+```
+SprintRunner → YamlStatusStore.readAll() → filtre eligible
+SprintRunner → execTracker.setStatus(backlog → ready → in-progress)  ← SUPPRIMÉ
+SprintRunner → engine.run() → BMAD execute dev-story
+SprintRunner → execTracker.setStatus(review → done)                  ← SUPPRIMÉ
+```
+
+Après (read-only — correct) :
+```
+SprintRunner → BmadStatusReader.getAllStatuses() → filtre eligible
+SprintRunner → engine.run() → BMAD execute dev-story (BMAD gère les transitions)
+SprintRunner → BmadStatusReader.getStoryStatus(id) → vérifie résultat
+SprintRunner → eventBus.emit('story.completed') → log dans .cop1/
+```
+
+**Composants impactés et actions :**
+
+| Composant | Usage actuel | Action |
+|-----------|-------------|--------|
+| `SprintRunner` (composition) | Read + Write via `YamlStatusStore` | Remplacer par `BmadStatusReader` (read-only). Supprimer `transitionToInProgress()` et les appels `setStatus()` |
+| `DaemonService` | Read-only via `YamlStatusStore` | Remplacer par `BmadStatusReader` |
+| `sprint-status` CLI | Read-only via `YamlStatusStore` | Remplacer par `BmadStatusReader` |
+| `bmad-pipeline-e2e.test.ts` | Read + Write via `YamlStatusStore` | Adapter au path BMAD + `InMemoryStatusReader` pour les assertions |
+| `StoriesApiHandler.test.ts` | Mock `YamlStatusStore` | Remplacer par mock `SprintStatusReaderPort` |
+
+**Format BMAD vs format cop1 :**
+
+```yaml
+# Format BMAD (sprint-status.yaml) — lu par BmadStatusReader
+development_status:
+  EA1-S1: done
+  EA2-S3: backlog
+
+# Format cop1 (.cop1/sprint-log-*.jsonl) — écrit par StructuredLogger
+{"event":"story.started","storyId":"EA2-S3","timestamp":"2026-03-08T22:05:00Z"}
+{"event":"story.completed","storyId":"EA2-S3","timestamp":"2026-03-08T23:15:00Z","durationMs":4200000}
+```
+
+**Devenir de `YamlStatusStore` :**
+- Déprécié pour le chemin SprintRunner
+- Conservé temporairement pour les tests unitaires existants de `StoryStatusTracker`
+- Supprimable quand tous les tests migrent vers `InMemoryStatusReader` + `SprintStatusReaderPort`
+
+**Rationale:**
+- Un seul writer (BMAD) élimine tout risque de désynchronisation
+- Aligné avec ADR-008 : cop1 = Orchestrator, BMAD = Executor
+- Supprimer du code d'écriture réduit la surface de bugs
+- Le port hexagonal `SprintStatusReaderPort` permet de tester sans filesystem
+- Le format BMAD (`storyId: status`) est plus simple que le format cop1 (`{ status, updatedAt }`) — pas besoin de `updatedAt` côté cop1, c'est dans le JSONL
+
+---
+
+### ADR-012 — Multi-Turn BMAD Interaction: Agent SDK + LLM Supervisor
+
+> Added 2026-03-19. Résout le problème critique de l'interaction multi-turn entre cop1 et les workflows BMAD interactifs. Étend ADR-008 (BMAD Execution Gateway) et ADR-011 (Distribution & Orchestration). Voir document complet : `adr-012-multi-turn-bmad-interaction.md`.
+
+**Context:** Le `ClaudeCliAdapter` actuel utilise le mode single-shot (`claude -p`). Or les workflows BMAD posent des questions interactives auxquelles cop1 doit répondre automatiquement. De plus, le mode headless `-p` n'a **pas accès au skill resolver** — les slash commands BMAD ne sont pas résolues, le LLM reçoit le texte brut.
+
+**Décision:** Adopter le **Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`) avec un **LLM Supervisor** :
+
+1. **Agent SDK** pour l'exécution multi-turn : `settingSources: ["project"]` charge les skills BMAD nativement, `canUseTool` intercepte les `AskUserQuestion` de façon structurée
+2. **SupervisorService** pour répondre aux questions : déterministe (lookup table) → LLM (décisions complexes) → escalade (hors mandat)
+3. **Nouveau port `BMADSessionPort`** (complète `BMADCommandPort`, ne le remplace pas) avec adapters `AgentSdkSessionAdapter` (V1) et `ClaudeResumeSessionAdapter` (fallback)
+
+**Nouveaux ports :**
+
+```typescript
+interface BMADSessionPort {
+  startSession(command: string, context: BMADSessionContext): Promise<SessionHandle>
+  continueSession(sessionId: string, message: string): Promise<SessionTurnResult>
+}
+
+interface SupervisorLLMPort {
+  generateResponse(question: SupervisorQuestion, context: SupervisorContext): Promise<SupervisorResponse>
+}
+```
+
+**Impact sur les composants existants :**
+
+| Composant | Action |
+|-----------|--------|
+| `BMADCommandPort` / `ClaudeCliAdapter` | Conservés intacts (single-shot toujours utile) |
+| `BMADDevStoryStep` / `BMADReviewStep` / `BMADQAStep` | **Supprimés en EA9-S5.** Remplacés par `BMADSessionStep` (générique, configurable par workflow) |
+| `PipelineStepFactory` | Instancie `BMADSessionStep` + `AgentSdkSessionAdapter` + `SupervisorService` |
+| `ClaudeResumeSessionAdapter` | **EA9-S6 V0 fallback** `BMADSessionPort` impl. Spawne `claude --resume` par tour avec heuristiques de détection de questions. Opt-in via `COP1_BMAD_ADAPTER=resume`. Voir ADR-012 §4.1 / §6.2 / §10 D4. |
+
+Depuis EA9-S6, `BMADSessionPort` a deux implémentations infrastructure : `AgentSdkSessionAdapter` (V1, in-process via `@anthropic-ai/claude-agent-sdk`) et `ClaudeResumeSessionAdapter` (V0 fallback, spawne `claude --resume` par tour avec détection heuristique des questions). Les deux sont swap-compatibles depuis le composition root `sprint-run.ts` (env var `COP1_BMAD_ADAPTER=resume`). Le fallback est volontairement moins robuste — voir ADR-012 §3 Option A pour les limitations connues (résolveur de skill absent en mode headless, heuristiques fragiles).
+| `SprintRunner` / `WorkflowEngine` | Aucun changement (consomment des `WorkflowStep`) |
+
+**Évolution :**
+- V1 : Agent SDK + Supervisor (Claude)
+- V2 : Multi-LLM (Ollama local pour questions simples)
+- V3 : cop1 comme MCP Server + Agent Teams
+- V4 : Terminal Manager (R&D tmux/screen)
+
+**Rationale:**
+- Le SDK offre l'interception structurée des questions (`AskUserQuestion`) — pas d'heuristiques fragiles
+- Les skills BMAD sont accessibles nativement via `settingSources` — pas de chargement manuel des fichiers workflow
+- ~2-3x moins cher que `--resume` (pas de re-chargement de contexte entre tours)
+- Architecture hexagonale préservée : le domain ne sait pas que le SDK existe
+- Fallback CLI disponible (`ClaudeResumeSessionAdapter`) si le SDK pose problème
+
+---
+
+### ADR-013 — Supervisor Orchestrator vs SprintRunner Separation (EA10)
+
+> Status: **Draft stub** — full content to be written during EA10-S2 (Sprint 13). Placeholder created 2026-04-07 by SCP.
+
+**Context:** EA10 introduces a new `OrchestratorService` that drives inter-command BMAD sequencing (create-story → dev-story → code-review → retrospective) from a markdown playbook. This raises the question of how it relates to the existing `SprintRunner`, which orchestrates intra-command pipeline steps (`BMADSessionStep`, etc.).
+
+**Decision (to be finalized in EA10-S2):** The `OrchestratorService` **calls** `SprintRunner` for each BMAD command rather than replacing it. Playbook format = markdown standard; if more expressive power becomes necessary, switch to BMAD `workflow.xml` format rather than extending the markdown parser.
+
+**Consequences:** TBD during EA10-S2.
 
 ---
 
@@ -1302,6 +1458,7 @@ fi
 | ADR-003 (callbacks in-process) | sprint-core/agent-execution + sprint-lifecycle | ✅ même package, cohérent |
 | ADR-005 (LLM tiers) | llm-intelligence/llm-routing + iamthelaw/agents/*.yaml | ✅ config YAML → runtime grant |
 | ADR-006 (Feature First) | Tous les packages | ✅ graphe acyclique vérifié |
+| ADR-012 (Agent SDK multi-turn) | ADR-008 (BMAD Gateway) + sprint-core/bmad-orchestration | ✅ `BMADSessionPort` complète `BMADCommandPort`, hexagonal préservé |
 | Feature First + ESM NodeNext | Barrel index.ts + imports `.js` | ✅ cohérents |
 | Result<T> + AppCriticalError | safeAppend() + use cases | ✅ deux niveaux d'erreur distincts |
 | iamthelaw centralisé | hot reload (IamTheLawWatcherPort) + Web UI viewer | ✅ flux complet défini |
@@ -1378,6 +1535,7 @@ fi
 - [x] ADR-003 — Agent Protocol : file-centric + callbacks
 - [x] ADR-005 — LLM Routing : Config YAML + PM Agent + domain interface
 - [x] ADR-006 — Structure : Feature First Hexagonal, 6 packages thématiques
+- [x] ADR-012 — Multi-Turn BMAD Interaction : Agent SDK + LLM Supervisor
 
 **✅ Implementation Patterns**
 - [x] Naming : kebab-case fichiers, PascalCase types, branded types + helpers

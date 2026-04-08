@@ -1,4 +1,4 @@
-# generated: 2026-02-23
+# generated: 2026-04-06
 # project: cop1
 # project_key: NOKEY
 # tracking_system: file-system
@@ -39,7 +39,7 @@
 # Phase 1 (E1-E12): 102 done, 4 backlog. Phase A (EA1-EA5): 4 done (Sprint 8), 26 backlog.
 # See sprint-change-proposal-2026-02-22.md for pivot rationale.
 
-generated: 2026-02-23
+generated: 2026-04-06
 project: cop1
 project_key: NOKEY
 tracking_system: file-system
@@ -167,7 +167,7 @@ development_status:
   epic-9-retrospective: optional
 
   # --- Epic 10 — Quality Intelligence ---
-  epic-10: in-progress  # E10-S9 deferred to Phase B
+  epic-10: done         # 8/9 done, E10-S9 deferred Phase B (SCP 2026-04-06)
   E10-S1: done      # Quality Config Templates
   E10-S2: done      # Coverage Gate
   E10-S3: done      # Static Analysis Gate
@@ -180,7 +180,7 @@ development_status:
   epic-10-retrospective: optional
 
   # --- Epic 11 — Monitoring & Reporting ---
-  epic-11: in-progress  # E11-S10 to verify coverage by EA3
+  epic-11: done         # 12/13 done, E11-S10 subsumed by EA3 (SCP 2026-04-06)
   E11-S1: done      # SSE Daemon Stream
   E11-S2: done      # Sprint Dashboard
   E11-S3: done      # Session Report Generator
@@ -197,7 +197,7 @@ development_status:
   epic-11-retrospective: optional
 
   # --- Epic 12 — Continuous Improvement Review ---
-  epic-12: in-progress  # E12-S6b to verify coverage by EA4
+  epic-12: done         # 8/9 done, E12-S6b subsumed by EA4 (SCP 2026-04-06)
   E12-S1: done      # Retrospective Outputs Mandatory
   E12-S2: done      # Agent Self-Assessment
   E12-S3: done      # Improvement Persistence
@@ -207,7 +207,7 @@ development_status:
   E12-S6b: backlog  # Team Debate Button — verify coverage by EA4
   E12-S7: done      # Rule Auto-Application
   E12-S8: done      # Improvement KPI Tracking
-  epic-12-retrospective: optional
+  epic-12-retrospective: done
 
   # ============================================================
   # PHASE A — BMAD Pivot Epics EA1-EA5 (Sprints 8-12)
@@ -215,7 +215,7 @@ development_status:
   # ============================================================
 
   # --- Epic EA1 — BMAD Command Orchestration (Sprint 8-10) ---
-  epic-ea1: in-progress  # 7 done (Sprint 8-9), 1 remaining (EA1-S8)
+  epic-ea1: done  # 8/8 stories done (Sprint 8-10), retro done
   EA1-S1: done       # BMADCommandPort + ClaudeCliAdapter (commit 4dbe595)
   EA1-S2: done       # BMADDevStoryStep (commit 4dbe595)
   EA1-S3: done       # BMADReviewStep (commit 4dbe595)
@@ -224,37 +224,43 @@ development_status:
   EA1-S6: done       # Story context preparation (commit 4dbe595)
   EA1-S7: done  # Error handling & retry — Sprint 9
   EA1-S8: done      # Integration test — Sprint 10
-  epic-ea1-retrospective: optional
+  epic-ea1-retrospective: done
 
   # --- Epic EA2 — Budget & Consumption Tracking (Sprint 9-12) ---
   epic-ea2: in-progress
+  EA2-S0: done              # Update epic-ea1 status to done — Sprint 10 (SCP 2026-03-09)
+  EA2-S0b: done              # ADR-009 BmadStatusReader refactoring — Sprint 10 (SCP 2026-03-09, BLOCKER)
+  EA2-S0c: done              # Consultation iamthelaw integration — Sprint 10 (SCP 2026-03-09, SCP 2026-03-11)
   EA2-S1: done  # TokenBudgetService — Sprint 9
   EA2-S2: done  # Budget config — Sprint 9
-  EA2-S3: backlog    # Budget alert system — Sprint 10
-  EA2-S4: backlog    # Pre-call budget check — Sprint 10
-  EA2-S5: backlog    # Budget CLI — Sprint 10
-  EA2-S6: backlog    # Claude usage API adapter — Sprint 12
+  EA2-S3: backlog    # Budget alert system — Sprint 15 (deprioritized SCP 2026-04-06)
+  EA2-S4: backlog    # Pre-call budget check — Sprint 15 (deprioritized SCP 2026-04-06)
+  EA2-S5: backlog    # Budget CLI — Sprint 15 (deprioritized SCP 2026-04-06)
+  EA2-S6: backlog    # Claude usage API adapter — Future (pas critique V1) — SCP 2026-03-16
   epic-ea2-retrospective: optional
 
-  # --- Epic EA3 — Enhanced Dashboard (Sprint 10-11) ---
+  # --- Epic EA3 — Enhanced Dashboard (Sprint 16) ---
+  # Resequenced from Sprint 15 to Sprint 16 — SCP 2026-04-06
   epic-ea3: backlog
-  EA3-S1: backlog    # Sprint Replay Engine — Sprint 10
-  EA3-S2: backlog    # Sprint Replay UI — Sprint 10
-  EA3-S3: backlog    # Sprint Overview & KPI scorecard — Sprint 11
-  EA3-S4: backlog    # Scrum Metrics View — Sprint 11
-  EA3-S5: backlog    # Budget View — Sprint 11
-  EA3-S6: backlog    # Ceremony Reports View — Sprint 11
-  EA3-S7: backlog    # UX Preview — Sprint 11
+  EA3-S1: backlog    # Sprint Replay Engine — Sprint 16
+  EA3-S2: backlog    # Sprint Replay UI — Sprint 16
+  EA3-S3: backlog    # Sprint Overview & KPI scorecard — Sprint 16
+  EA3-S4: backlog    # Scrum Metrics View — Sprint 16
+  EA3-S5: backlog    # Budget View — Sprint 16
+  EA3-S6: backlog    # Ceremony Reports View — Sprint 16
+  EA3-S7: backlog    # UX Preview — Sprint 16
   epic-ea3-retrospective: optional
 
-  # --- Epic EA4 — Auto-Retro & Scrum Reconciliation (Sprint 11-12) ---
+  # --- Epic EA4 — Auto-Retro & Scrum Reconciliation (Sprint 17) ---
+  # Resequenced from Sprint 16 to Sprint 17 — SCP 2026-04-06
+  # EA4-S6 depends on EA7-S2 (API REST) and EA7-S5 (workflow retro-to-rules)
   epic-ea4: backlog
-  EA4-S1: backlog    # DoR Gate — Sprint 11
-  EA4-S2: backlog    # Smart Story Abandonment — Sprint 12
-  EA4-S3: backlog    # BMAD Retro Step — Sprint 12
-  EA4-S4: backlog    # Retro metrics injection — Sprint 12
-  EA4-S5: backlog    # Retro output processing — Sprint 12
-  EA4-S6: backlog    # Retro-to-rules loop — Sprint 12
+  EA4-S1: backlog    # DoR Gate — Sprint 17
+  EA4-S2: backlog    # Smart Story Abandonment — Sprint 17
+  EA4-S3: backlog    # BMAD Retro Step — Sprint 17
+  EA4-S4: backlog    # Retro metrics injection — Sprint 17
+  EA4-S5: backlog    # Retro output processing — Sprint 17
+  EA4-S6: backlog    # Retro-to-rules loop — Sprint 17 (depends: EA7-S2, EA7-S5)
   epic-ea4-retrospective: optional
 
   # --- Epic EA5 — BMAD Sidecar Sync (Sprint 9) ---
@@ -263,3 +269,61 @@ development_status:
   EA5-S2: done  # BMAD customize.yaml setup — Sprint 9
   EA5-S3: done  # Auto-sync on rule change — Sprint 9
   epic-ea5-retrospective: optional
+
+  # --- Epic EA6 — cop1 Acceptance Test Harness (Sprint 12) ---
+  # Added 2026-03-09 — Resequenced to Sprint 12 (SCP 2026-04-06)
+  epic-ea6: backlog
+  EA6-S1: backlog    # Acceptance test fixtures & scaffold — Sprint 12
+  EA6-S2: backlog    # Test runner & scoring matrix — Sprint 12
+  EA6-S3: backlog    # Regression detection & comparison — Sprint 12
+  EA6-S4: backlog    # Cobaye enrichment (optional) — Sprint 12
+  epic-ea6-retrospective: optional
+
+  # --- Epic EA7 — iamthelaw Module BMAD & API REST (Sprint 14-15) ---
+  # Added 2026-03-11 — Resequenced to Sprint 14-15 (SCP 2026-04-06)
+  # Two-component architecture: BMAD module (standalone) + cop1 API REST
+  epic-ea7: backlog
+  EA7-S1: backlog    # Enrich Rule model (level MUST/SHOULD/MAY) — Sprint 15
+  EA7-S2: backlog    # RulesApiHandler (API REST /api/rules) — Sprint 15
+  EA7-S3: backlog    # Module BMAD — scaffold (module.yaml, README) — Sprint 15
+  EA7-S4: backlog    # Module BMAD — Agent Judge Dredd — Sprint 15
+  EA7-S5: backlog    # Module BMAD — Workflow retro-to-rules — Sprint 15
+  EA7-S6: backlog    # Module BMAD — Workflow export/import — Sprint 15
+  EA7-S7: backlog    # Create initial rules R1-R5 + sidecar activation — Sprint 14
+  epic-ea7-retrospective: optional
+
+  # --- Epic EA8 — Distribution & Dogfooding cop1 (Sprint 14-15, resequenced SCP 2026-04-07) ---
+  # Added 2026-03-16 — Sprint Change Proposal approved
+  # Two-component: BMAD module cop1-method + CLI @cop1/cli (ADR-011)
+  epic-ea8: backlog
+  EA8-S1: backlog    # Pre-flight checks (BMAD, cop1-method, claude CLI) — Sprint 14
+  EA8-S2: backlog    # Worktree → PR creation flow (gh CLI) — Sprint 14
+  EA8-S3: backlog    # Module BMAD cop1-method scaffold (config.yaml, module-help.csv) — Sprint 14
+  EA8-S4: backlog    # Graceful shutdown + checkpoint (DaemonService SIGTERM) — Sprint 15
+  EA8-S5: backlog    # Mode step-by-step intra-command — Sprint 15 (complements EA10-S4)
+  # EA8-S6 removed — subsumed by EA10 (SCP 2026-04-07)
+  epic-ea8-retrospective: optional
+
+  # --- Epic EA9 — Multi-Turn BMAD Interaction (Sprint 11) ---
+  # Added 2026-04-06 — Sprint Change Proposal approved
+  # ADR-012: Agent SDK + LLM Supervisor — BLOCKING for automated sprints
+  epic-ea9: in-progress
+  EA9-S1: done      # BMADSessionPort + AgentSdkSessionAdapter — Sprint 11
+  EA9-S2: done    # SupervisorLLMPort + AgentSdkSupervisorAdapter — Sprint 11
+  EA9-S3: done      # SupervisorService + Session Logging & History — Sprint 11 (depends: EA9-S1, EA9-S2)
+  EA9-S4: done      # BMADSessionStep — Sprint 11 (depends: EA9-S3)
+  EA9-S5: done      # PipelineStepFactory migration — Sprint 11 (depends: EA9-S4)
+  EA9-S6: done      # ClaudeResumeSessionAdapter fallback — Sprint 11 (depends: EA9-S1)
+  epic-ea9-retrospective: optional
+
+  # --- Epic EA10 — Supervisor Orchestrator (Sprint 13) ---
+  # Added 2026-04-07 — Sprint Change Proposal approved
+  # Subsumes EA8-S6. BLOCKING for V1 DoD "autonomous sprint".
+  epic-ea10: backlog
+  EA10-S1: backlog   # SupervisorPlaybookLoader (markdown parser) — Sprint 13
+  EA10-S2: backlog   # OrchestratorService (main loop) — Sprint 13 (depends: EA10-S1, EA9-S1, EA9-S3)
+  EA10-S3: backlog   # Auto-decision policies — Sprint 13 (depends: EA10-S2, EA9-S2) — RISK #1
+  EA10-S4: backlog   # Mode --step-by-step inter-command — Sprint 13 (depends: EA10-S2)
+  EA10-S5: backlog   # CLI cop1 orchestrator run — Sprint 13 (depends: EA10-S2, EA10-S4)
+  EA10-S6: backlog   # Integration test end-to-end on EA6 cobaye fixture — Sprint 13 (depends: EA10-S1..S5, EA6)
+  epic-ea10-retrospective: optional
