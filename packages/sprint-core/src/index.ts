@@ -25,7 +25,11 @@ export { StoryStatusTracker } from './features/story-tracker/application/StorySt
 export { StoryStatus } from './features/story-tracker/domain/StoryStatus.js';
 export type { StoryStatusValue } from './features/story-tracker/domain/StoryStatus.js';
 export { InvalidTransitionError } from './features/story-tracker/domain/errors/InvalidTransitionError.js';
+/** @deprecated Use BmadStatusReader + SprintStatusReaderPort instead */
 export { YamlStatusStore } from './features/story-tracker/infrastructure/YamlStatusStore.js';
+export type { SprintStatusReaderPort } from './features/story-tracker/domain/ports/SprintStatusReaderPort.js';
+export { BmadStatusReader } from './features/story-tracker/infrastructure/BmadStatusReader.js';
+export { InMemoryStatusReader } from './features/story-tracker/infrastructure/InMemoryStatusReader.js';
 
 // Snapshot
 export { SnapshotService } from './features/story-snapshot/application/SnapshotService.js';
@@ -152,7 +156,11 @@ export { PMDecisionService } from './features/pm-decision/application/PMDecision
 
 // Rule Proposal
 export { RuleProposalService } from './features/rule-proposal/application/RuleProposalService.js';
-export type { RuleProposalRecord, RuleProposalSubmission, RuleProposalStatus } from './features/rule-proposal/domain/RuleProposalTypes.js';
+export type {
+  RuleProposalRecord,
+  RuleProposalSubmission,
+  RuleProposalStatus,
+} from './features/rule-proposal/domain/RuleProposalTypes.js';
 export { VALID_RULE_PROPOSAL_STATUSES } from './features/rule-proposal/domain/RuleProposalTypes.js';
 
 // Quality Binding
@@ -207,12 +215,28 @@ export { BMADTimeoutError } from './features/bmad-orchestration/domain/errors/BM
 export { BMADRetryExhaustedError } from './features/bmad-orchestration/domain/errors/BMADRetryExhaustedError.js';
 export { BudgetExhaustedError } from './features/bmad-orchestration/domain/errors/BudgetExhaustedError.js';
 export type {
+  SupervisorLLMPort,
+  SupervisorQuestion,
+  SupervisorResponse,
+  SupervisorContext,
+} from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
+export { buildSupervisorPrompt } from './features/bmad-orchestration/domain/SupervisorPromptBuilder.js';
+export { SupervisorTimeoutError } from './features/bmad-orchestration/domain/errors/SupervisorTimeoutError.js';
+export type {
   BMADSessionPort,
   BMADSessionContext,
   SessionHandle,
   SessionTurnResult,
   QuestionHandler,
 } from './features/bmad-orchestration/domain/ports/BMADSessionPort.js';
+export { SupervisorRateLimitError } from './features/bmad-orchestration/domain/errors/SupervisorRateLimitError.js';
+export { AgentSdkSupervisorAdapter } from './features/bmad-orchestration/infrastructure/AgentSdkSupervisorAdapter.js';
+export type {
+  SupervisorQueryFunction,
+  SupervisorQueryMessage,
+  SupervisorQueryOptions,
+} from './features/bmad-orchestration/infrastructure/AgentSdkSupervisorAdapter.js';
+export { InMemorySupervisorAdapter } from './features/bmad-orchestration/infrastructure/InMemorySupervisorAdapter.js';
 export { AgentSdkSessionAdapter } from './features/bmad-orchestration/infrastructure/AgentSdkSessionAdapter.js';
 export type {
   AgentSdkSessionAdapterOptions,
@@ -224,22 +248,6 @@ export type {
   ClaudeResumeSessionAdapterOptions,
   ProcessSpawner as ClaudeResumeProcessSpawner,
 } from './features/bmad-orchestration/infrastructure/ClaudeResumeSessionAdapter.js';
-export type {
-  SupervisorLLMPort,
-  SupervisorQuestion,
-  SupervisorResponse,
-  SupervisorContext,
-} from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
-export { SupervisorTimeoutError } from './features/bmad-orchestration/domain/errors/SupervisorTimeoutError.js';
-export { SupervisorRateLimitError } from './features/bmad-orchestration/domain/errors/SupervisorRateLimitError.js';
-export { AgentSdkSupervisorAdapter } from './features/bmad-orchestration/infrastructure/AgentSdkSupervisorAdapter.js';
-export type {
-  SupervisorQueryFunction,
-  SupervisorQueryMessage,
-  SupervisorQueryOptions,
-} from './features/bmad-orchestration/infrastructure/AgentSdkSupervisorAdapter.js';
-export { InMemorySupervisorAdapter } from './features/bmad-orchestration/infrastructure/InMemorySupervisorAdapter.js';
-export { buildSupervisorPrompt } from './features/bmad-orchestration/domain/SupervisorPromptBuilder.js';
 export {
   SessionLogger,
   deriveEpicId,
@@ -255,4 +263,7 @@ export { TokenBudgetService } from './features/budget/application/TokenBudgetSer
 export { YamlBudgetStore } from './features/budget/infrastructure/YamlBudgetStore.js';
 export type { BudgetStatus } from './features/budget/domain/BudgetStatus.js';
 export type { TokenConsumption } from './features/budget/domain/TokenConsumption.js';
-export type { BudgetStorePort, BudgetData } from './features/budget/domain/ports/BudgetStorePort.js';
+export type {
+  BudgetStorePort,
+  BudgetData,
+} from './features/budget/domain/ports/BudgetStorePort.js';
