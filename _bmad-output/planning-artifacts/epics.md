@@ -1067,48 +1067,115 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 ---
 
-### Epic EA10 — Supervisor Orchestrator
+### Epic EA10 — Supervisor Orchestrator (RESTRUCTURED)
 
-> Added 2026-04-07 — Sprint Change Proposal approved. Subsumes the placeholder EA8-S6. BLOCKING for V1 DoD "autonomous sprint": no other planned epic provides inter-command BMAD orchestration.
+> Added 2026-04-07 — Sprint Change Proposal approved.
+> **Restructured 2026-04-11** — SCP 2026-04-11 approved. Expanded from 6 to 9 stories. Scope reduced to "automate 1 epic" for V1-light MVP (sprint-planning and retrospective deferred to V1.1). Original EA10-S3 "advanced auto-decision policies" DEFERRED to V1.1. New stories S2/S3/S7/S8 added.
+> Subsumes the placeholder EA8-S6. BLOCKING for V1-light DoD "automate 1 epic end-to-end with readable transcript and step-by-step mode".
 
-**User Value:** "cop1 executes a complete sprint end-to-end (sprint-planning → for each story: create-story → dev-story → code-review → retrospective) without human intervention, driven by an editable markdown playbook."
+**User Value (V1-light):** "cop1 drives a full 1-epic loop (create-story → dev-story → code-review for each story of a target epic) without human intervention, in step-by-step mode if requested, with a human-readable transcript of every multi-turn exchange."
 
 **Technical approach:**
 - New feature module `packages/app/src/features/orchestrator/`
 - `SupervisorPlaybookLoader` parses a markdown playbook (`supervisor-playbook.md`) describing the canonical BMAD command sequence
-- `OrchestratorService` is the main loop: reads playbook, drives BMAD sessions sequentially via `BMADSessionPort` (EA9-S1), reuses `SupervisorService` (EA9-S3) for intra-session question handling
-- Auto-decision policies (plan validation, elicitation selection, response validation) backed by `SupervisorLLMPort` (EA9-S2)
+- **Playbook format** specified as a dedicated deliverable (EA10-S2) — required sections: BMAD version preamble, help command pointer, process sequence, epic/story restrictions, worktree hooks, step-by-step hooks, decision policy
+- `OrchestratorService` (EA10-S4) is the main loop: reads playbook, drives BMAD sessions sequentially via `BMADSessionPort`, delegates to `SprintRunner` for each BMAD command per ADR-013
+- **Supervisor multi-agent capability** (EA10-S7, EA10-S8) — the LLM supervisor can consult external agents (nature decided by ADR-014) when blocked, follow a multi-step resolution loop (pattern → LLM → consult → synthesize → escalate)
+- Auto-decision policies kept minimal at V1-light (basic prompt-matching + LLM response), advanced policies deferred
 - Modes `--step-by-step` (transition-level pause between BMAD commands) and `--abort-on-escalation` (clean stop on supervisor escalation)
 - All automatic decisions logged with structured event level `auto-decision` in `.cop1/sprint-log-*.jsonl`
-- ADR-013 documents Orchestrator vs SprintRunner separation and the playbook format decision
+- Supervisor history captured at the same level as agent/command history (first-class observability)
 
 **Package principal:** `@cop1/app` (feature `orchestrator`)
 
-**Dependencies:** EA9 complete (BMADSessionPort, SupervisorService, SupervisorLLMPort), EA6 (acceptance test harness for EA10-S6)
+**Dependencies:**
+- **EA11 complete** (all 7 stories) — deprecations, services extraction, ADR-013, ADR-014, SupervisorContext loader, transcript generator
+- **EA9 complete** (done) — BMADSessionPort, SupervisorService, SupervisorLLMPort
+- **EA6** — acceptance test harness for EA10-S9 validation
 
 **Stories:**
 
-- **EA10-S1** : SupervisorPlaybookLoader — Markdown parser for `supervisor-playbook.md`. H2 sections = phases, ordered lists = commands. Validates references to BMAD commands. Unit tests with sample playbooks. (Sprint 13, Small)
-- **EA10-S2** : OrchestratorService — Main loop reading playbook and driving BMAD sessions sequentially via `BMADSessionPort`. Wires `SupervisorService` for intra-session questions. State persistence to `sprint-status.yaml` on each transition. Unit tests with mocked session port. **AC: ADR-013 drafted and committed before PR is merged.** Depends: EA10-S1, EA9-S1, EA9-S3. (Sprint 13, Medium)
-- **EA10-S3** : Auto-decision policies — Plan validation policy (single-plan auto-validate), elicitation selection policy (LLM picks top-3 most relevant via `SupervisorLLMPort`), response validation policy. Structured `auto-decision` log events with inputs/outputs/justification. **Risk #1 story** — mitigation: build a standalone LLM-judge harness (input: plan proposal or elicitation list; output: decision + justification), validated against 10-20 hand-labeled BMAD outputs, before wiring into OrchestratorService. Depends: EA10-S2, EA9-S2. (Sprint 13, Large)
-- **EA10-S4** : Mode `--step-by-step` — Transition-level pause between BMAD commands (distinct from the EA8-S5 intra-command step-level pause to be delivered in Sprint 15). Persists pending state, allows manual approval. Depends: EA10-S2. (Sprint 13, Small)
-- **EA10-S5** : CLI `cop1 orchestrator run` — New CLI entrypoint with flags `--playbook <path>`, `--step-by-step`, `--abort-on-escalation`. Wires composition root. Depends: EA10-S2, EA10-S4. (Sprint 13, Small)
-- **EA10-S6** : Integration test end-to-end — Runs the orchestrator on at least one fixture story from the EA6 cobaye project (not a cop1-on-cop1 run, to avoid circular fragility during EA10 bring-up) from `create-story` through `retrospective` without human intervention. Uses EA6 acceptance test harness as the test runner. Validates DoD criterion #2. Depends: EA10-S1..S5, EA6. (Sprint 13, Medium)
+- **EA10-S1** — `SupervisorPlaybookLoader`. Markdown parser for `supervisor-playbook.md`. H2 sections = phases, ordered lists = commands. Validates references to BMAD commands. Unit tests with sample playbooks. Depends: EA9-S1, EA9-S3. (Sprint 13, Small)
+- **EA10-S2** — **NEW** Playbook format specification + reference example. Documents required sections (BMAD version preamble, `/bmad-help` pointer, process sequence, epic/story restrictions, worktree hooks, step-by-step hooks, decision policy) and produces an example reference playbook. Depends: EA10-S1. (Sprint 13, Small)
+- **EA10-S3** — **NEW** cop1 minimal playbook. The real markdown file that drives a single epic: `create-story → dev-story → code-review` in loop for each story of the target epic. No sprint-planning, no retrospective. Depends: EA10-S2. (Sprint 13, Small) *(Replaces original EA10-S3 "advanced auto-decision policies" which is DEFERRED to V1.1.)*
+- **EA10-S4** — `OrchestratorService` main loop, **1-epic scope**. Reads playbook, drives BMAD sessions sequentially via `BMADSessionPort`, delegates to `SprintRunner` for each BMAD command per ADR-013. State persistence to `sprint-status.yaml` on each transition. Unit tests with mocked session port. Depends: EA10-S3, EA11-S3 (technical services), EA11-S4 (ADR-013), EA11-S5 (ADR-014). (Sprint 13, Medium) *(Was original EA10-S2.)*
+- **EA10-S5** — Mode `--step-by-step` inter-command. Transition-level pause between BMAD commands (distinct from intra-command step-level pause in EA8-S5). Persists pending state, allows manual approval. Depends: EA10-S4. (Sprint 13, Small) *(Was original EA10-S4.)*
+- **EA10-S6** — CLI `cop1 orchestrator run --epic <id>`. New CLI entrypoint with flags `--playbook <path>`, `--epic <id>`, `--step-by-step`, `--abort-on-escalation`. Wires composition root. Depends: EA10-S4, EA10-S5. (Sprint 13, Small) *(Was original EA10-S5.)*
+- **EA10-S7** — **NEW** Multi-agent advisory capability for supervisor. Implements the decision from ADR-014 (MCP server / Agent SDK tools / sidecar — TBD). Enables the supervisor to call external agents or services (worktree, checkpoint, history, advisory agents) to resolve blocked states. Includes **Task 0: real Agent SDK integration spike** (EA9 retro lesson). Depends: EA11-S5 (ADR-014). (Sprint 13, Medium) **Risk #1 mitigation.**
+- **EA10-S8** — **NEW** Supervisor multi-step resolution loop. Extends `SupervisorService` from the current 3-tier cascade (deterministic → LLM → terminal escalation) to a multi-step loop: deterministic → LLM → consult agents via EA10-S7 → synthesize consensus → escalate if all fail. State machine with `blocked` state. Depends: EA10-S7, EA11-S6 (SupervisorContext enriched). (Sprint 13, Medium)
+- **EA10-S9** — Integration test end-to-end. Runs the orchestrator on at least one fixture story from the EA6 cobaye project (not a cop1-on-cop1 run, to avoid circular fragility during bring-up) from `create-story` through `code-review` without human intervention. Uses EA6 acceptance test harness as the test runner. Validates V1-light DoD. Depends: EA10-S1..S8, EA6. (Sprint 13, Medium) *(Was original EA10-S6.)*
 
-**Definition of Done:**
-- A `supervisor-playbook.md` file at the project root describes the canonical BMAD command sequence
-- The orchestrator executes `create-story → dev-story → code-review → retrospective` end-to-end on **at least one fixture story from the EA6 cobaye project** without human intervention (validated via EA10-S6)
-- All automatic decisions (plan, elicitations, response validation) are logged in `.cop1/sprint-log-*.jsonl` with structured `auto-decision` events including inputs, outputs, and LLM justification
-- `--step-by-step` mode pauses the orchestrator before each transition for manual validation
-- `--abort-on-escalation` mode: when `SupervisorService` raises an escalation, the orchestrator stops cleanly, persists state, and notifies
-- ADR-013 documents Orchestrator vs SprintRunner separation and the playbook format decision (markdown standard, no custom DSL — fall back to BMAD `workflow.xml` if more expressive power is needed)
+**Definition of Done (V1-light):**
+- A `supervisor-playbook.md` file at the project root describes the canonical BMAD command sequence for a 1-epic loop
+- The orchestrator executes `create-story → dev-story → code-review` end-to-end on **at least one fixture story from the EA6 cobaye project** without human intervention (validated via EA10-S9)
+- All automatic decisions logged in `.cop1/sprint-log-*.jsonl` with structured `auto-decision` events including inputs, outputs, and LLM justification
+- All supervisor exchanges captured in the same log stream (first-class observability)
+- `--step-by-step` mode pauses the orchestrator before each BMAD command transition for manual validation
+- `--abort-on-escalation` mode: when `SupervisorService` escalates after exhausting its multi-step loop, the orchestrator stops cleanly, persists state, and notifies
+- Supervisor can call external agents/services via the mechanism decided in ADR-014 (EA10-S7)
+- A human-readable markdown transcript (via EA11-S7) is produced for every orchestrator run
+- ADR-013 and ADR-014 both committed before coding starts (EA11 prerequisite)
 
-**ADR Reference:** ADR-013 (to be drafted during EA10-S2)
+**ADR References:** ADR-013 (via EA11-S4), ADR-014 (via EA11-S5)
 
 **Risks identified upfront:**
-1. **Auto-decision policies (EA10-S3)** = risk #1. Mitigation: standalone LLM-judge prototype before integration, mandatory `--step-by-step` testing in CI before nightly runs.
-2. **Playbook format drift** toward custom DSL. Mitigation: hard rule "if more expressive power is needed, switch to BMAD workflow.xml format, do not extend the markdown parser".
-3. **Fragile e2e test**: EA10-S6 must run on an EA6 fixture story. Mitigation: EA6 harness must be delivered before EA10 starts (dependency resolved by Sprint 12 → Sprint 13 sequencing).
+1. **ADR-014 quality (EA11-S5)** = risk #1. Mitigation: mandatory architect session with user, Q1–Q6 prepared, no orchestrator code before approval.
+2. **Auto-decision loop robustness (EA10-S8)**. Mitigation: start with very conservative LLM prompts, `--step-by-step` mandatory in early runs, escalation easy.
+3. **Playbook format drift** toward custom DSL. Mitigation: hard rule "if more expressive power is needed, switch to BMAD `workflow.xml` format, do not extend the markdown parser".
+4. **Agent SDK integration fragility (EA10-S7)**. Mitigation: real SDK spike as Task 0 (EA9 retro lesson).
+
+**Deferred to V1.1:**
+- Advanced auto-decision policies (original EA10-S3 scope — plan validation, elicitation selection, response validation with LLM-judge harness)
+- Sprint-planning ceremony in the playbook
+- Retrospective ceremony in the playbook
+
+---
+
+### Epic EA11 — Orchestrator Foundation
+
+> **Added 2026-04-11 — SCP 2026-04-11 approved.**
+> Parallelized with EA6 in Sprint 12. Prepares the plumbing required by EA10: cleanup of legacy agent classes, extraction of technical services, two architectural ADRs, SupervisorContext enrichment, and session transcript generation.
+> **BLOCKING for EA10** — all 7 stories must complete before EA10-S4, S7, S8.
+
+**User Value:** "Before I can automate BMAD for 1 epic, I need solid foundations: dead code clearly deprecated, technical services cleanly extracted and exposable, architectural decisions documented, and a readable transcript of every multi-turn session."
+
+**Technical approach:**
+- **Deprecation (not deletion)** of legacy cop1 agent classes (DevAgent, ReviewerAgent, QAAgent, PMAgent + their *Step wrappers) and the `config.workflow.useBMAD=false` path. Preserves a fallback.
+- **Technical services extraction**: refactor the technical concerns currently scattered in SprintRunner/DevAgent into dedicated classes with clean interfaces (`WorktreeService`, `HistoryService`, `StepByStepController`). Keeps existing `CheckpointService`. Prepares for tool exposition.
+- **ADR-013**: formal separation between `OrchestratorService` (inter-command) and `SprintRunner` (intra-command). Straightforward separation doc based on existing code.
+- **ADR-014**: **architect session with user** to decide how the LLM supervisor invokes cop1 technical services — MCP server, Agent SDK in-process tools, BMAD sidecar, or hybrid. Also answers Q2 (access scope: supervisor-only or shared with BMAD internal agents), Q3 (LLM provider abstraction for multi-provider future), Q4 (code vs LLM frontier), Q5 (playbook format), Q6 (supervisor history channel).
+- **SupervisorContext bootstrap loader**: at sprint start, read PRD, architecture doc, and project metadata from the filesystem and inject them into supervisor sessions. The `iamthelaw` field is reserved but populated empty until EA7 follow-up.
+- **Session transcript generator**: convert `NarrativeLog` JSONL multi-turn events into human-readable markdown (`.cop1/transcripts/session-{id}.md`). Foundational observability capability needed before any orchestrator validation.
+
+**Package principal:** `@cop1/sprint-core` (services extraction, SupervisorContext loader) + `@cop1/observability` (transcript generator)
+
+**Dependencies:** EA9 complete (done)
+
+**Stories:**
+
+- **EA11-S1** — Deprecate legacy cop1 agent classes. Add `@deprecated` JSDoc to `DevAgent`, `ReviewerAgent`, `QAAgent`, `PMAgent`, `PMAgentWorkflowStep`, and the four `*Step` stubs. No deletion. Update package barrel exports to keep imports working. (Sprint 12, XS)
+- **EA11-S2** — Deprecate legacy `workflow.useBMAD=false` path. Add runtime warning when the flag is set to false. Legacy PipelineStepFactory path preserved as safety net. (Sprint 12, XS)
+- **EA11-S3** — Extract technical services. Refactor scattered concerns into `WorktreeService`, `HistoryService` (wraps `NarrativeLogPort`), `StepByStepController`. Keeps existing `CheckpointService`. Clean interfaces ready to be exposed via tool mechanism decided in ADR-014. (Sprint 12, Medium)
+- **EA11-S4** — Write ADR-013 "Orchestrator vs SprintRunner separation". Document the split: `SprintRunner` handles intra-command (worktree setup, session lifecycle, checkpoint, story filtering, event emission) while `OrchestratorService` handles inter-command (playbook reading, command sequencing, multi-step supervisor loop). (Sprint 12, Small)
+- **EA11-S5** — **Architect session** → produce ADR-014 "Supervisor Tool Interface". Mandatory session with user. Answers Q1–Q6 (see SCP 2026-04-11 §4.5). Must be committed before EA10-S4, S7, S8 start. (Sprint 12, Medium) **Critical path.**
+- **EA11-S6** — `SupervisorContext` bootstrap loader. At sprint start, loads PRD (`_bmad-output/planning-artifacts/prd.md`), architecture doc, project metadata from the filesystem and injects them into supervisor sessions via `SupervisorContext`. iamthelaw field reserved empty. Unit tests with fixture filesystem. (Sprint 12, Small)
+- **EA11-S7** — Session transcript generator. New component in `@cop1/observability` that reads `NarrativeLog` JSONL events for a session and produces a human-readable markdown transcript: Q/A of supervisor, system events (start/end, errors, retries), tool invocations. CLI `cop1 transcript <session-id>` to display or regenerate. Depends: existing `NarrativeLogPort`. (Sprint 12, Medium)
+
+**Definition of Done:**
+- All 4 legacy agent classes + their step wrappers marked `@deprecated` with rationale
+- Runtime warning visible when `workflow.useBMAD=false` is set
+- Technical services (`WorktreeService`, `HistoryService`, `StepByStepController`) live in dedicated files with clean interfaces
+- ADR-013 and ADR-014 committed and approved by user
+- SupervisorContext loader populates real project data at sprint start (verified by integration test)
+- Session transcript generator produces a readable markdown file from a real JSONL session log
+- `cop1 transcript <session-id>` CLI works
+
+**ADR References:** ADR-013 (produced in EA11-S4), ADR-014 (produced in EA11-S5)
+
+**Risks identified upfront:**
+1. **ADR-014 scope creep** in architect session. Mitigation: time-box the session, Q1–Q6 list is the agenda, decisions can be "revisit at V1.1" if ambiguous.
+2. **Extraction refactor breakage (EA11-S3)**. Mitigation: keep legacy paths intact, introduce new services side-by-side, migrate callers incrementally.
+3. **Filesystem assumption drift (EA11-S6)**. Mitigation: fixture tests that exercise real paths from `_bmad/bmm/config.yaml`.
 
 ---
 
@@ -1192,21 +1259,34 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 - EA9-S6 (ClaudeResumeSessionAdapter fallback) — after S1
 - **Goal:** cop1 can execute BMAD workflows autonomously via Agent SDK multi-turn sessions
 
-### Sprint 12 — Acceptance Test Harness
-- EA6-S1 (Acceptance test fixtures & scaffold)
-- EA6-S2 (Test runner & scoring matrix)
-- EA6-S3 (Regression detection & comparison)
-- EA6-S4 (Cobaye enrichment — optional)
-- **Goal:** Validate multi-turn pipeline works E2E before dogfooding
+### Sprint 12 — Acceptance Harness + Orchestrator Foundation (SCP 2026-04-11)
+- **EA6** (Acceptance Test Harness)
+  - EA6-S1 (Acceptance test fixtures & scaffold)
+  - EA6-S2 (Test runner & scoring matrix)
+  - EA6-S3 (Regression detection & comparison)
+  - EA6-S4 (Cobaye enrichment — optional)
+- **EA11** (Orchestrator Foundation, parallelized with EA6)
+  - EA11-S1 (Deprecate legacy cop1 agents)
+  - EA11-S2 (Deprecate workflow.useBMAD=false path)
+  - EA11-S3 (Extract technical services) — blocks EA10-S4
+  - EA11-S4 (ADR-013 Orchestrator vs SprintRunner)
+  - EA11-S5 (ADR-014 Supervisor Tool Interface — **architect session**) — **critical path**, blocks EA10-S4/S7/S8
+  - EA11-S6 (SupervisorContext bootstrap loader)
+  - EA11-S7 (Session transcript generator)
+- **Goal:** Validate multi-turn pipeline works E2E before dogfooding AND prepare plumbing for the orchestrator. Two ADRs committed before Sprint 13.
 
-### Sprint 13 — Supervisor Orchestrator (SCP 2026-04-07, BLOCKING V1 DoD)
+### Sprint 13 — Supervisor Orchestrator RESTRUCTURED (SCP 2026-04-11, BLOCKING V1-light DoD)
 - EA10-S1 (SupervisorPlaybookLoader)
-- EA10-S2 (OrchestratorService) — after S1
-- EA10-S3 (Auto-decision policies) — after S2, **L story, risk #1**
-- EA10-S4 (Mode --step-by-step inter-command) — after S2
-- EA10-S5 (CLI cop1 orchestrator run) — after S4
-- EA10-S6 (Integration test end-to-end) — after S5, depends on EA6
-- **Goal:** Autonomous BMAD command sequencing — V1 DoD "autonomous sprint" unblocked
+- EA10-S2 (Playbook format spec + example) — NEW, after S1
+- EA10-S3 (cop1 minimal playbook) — NEW, after S2, *replaces deferred auto-decision policies*
+- EA10-S4 (OrchestratorService main loop, 1-epic scope) — was original S2, after S3, depends on EA11-S3/S4/S5
+- EA10-S5 (Mode --step-by-step inter-command) — was original S4, after S4
+- EA10-S6 (CLI cop1 orchestrator run --epic <id>) — was original S5, after S5
+- EA10-S7 (Multi-agent advisory capability) — NEW, depends on EA11-S5 (ADR-014), includes Task 0 SDK spike
+- EA10-S8 (Supervisor multi-step resolution loop) — NEW, after S7, depends on EA11-S6
+- EA10-S9 (E2E integration test on EA6 cobaye) — was original S6, after S8, depends on EA6
+- **Goal:** V1-light DoD — `cop1 orchestrator run --epic <id> --step-by-step` drives 1 epic end-to-end with readable transcript
+- **Deferred to V1.1:** original EA10-S3 advanced auto-decision policies, sprint-planning in playbook, retrospective in playbook
 
 ### Sprint 14 — Distribution & Dogfooding Start
 - EA8-S1 (Pre-flight checks)
