@@ -340,9 +340,10 @@ development_status:
 
   # --- Epic EA11 — Orchestrator Foundation (Sprint 12) ---
   # Added 2026-04-11 — SCP 2026-04-11 approved
+  # Updated 2026-04-11 — SCP 2026-04-11 addendum (EA11-S8 added from ADR-014 §8.5)
   # Parallelized with EA6 in Sprint 12.
-  # Mission: prepare plumbing for orchestrator (cleanup + ADRs + SupervisorContext + transcript).
-  # BLOCKING for EA10 — all EA11 stories must complete before EA10-S4/S7/S8.
+  # Mission: prepare plumbing for orchestrator (cleanup + ADRs + SupervisorContext + 3-tracks logging + transcript).
+  # BLOCKING for EA10 — all 8 EA11 stories must complete before EA10-S4/S7/S8.
   epic-ea11: backlog
   EA11-S1: backlog   # Deprecate legacy cop1 agents (DevAgent/ReviewerAgent/QAAgent/PMAgent + *Step) — Sprint 12
   EA11-S2: backlog   # Deprecate workflow.useBMAD=false legacy path — Sprint 12
@@ -350,5 +351,6 @@ development_status:
   EA11-S4: backlog   # ADR-013 Orchestrator vs SprintRunner separation — Sprint 12
   EA11-S5: backlog   # ADR-014 Supervisor Tool Interface (architect session, answers Q1–Q6) — Sprint 12
   EA11-S6: backlog   # SupervisorContext bootstrap loader — Sprint 12 (depends: EA11-S5 optional)
-  EA11-S7: backlog   # Session transcript generator (markdown from NarrativeLog JSONL) — Sprint 12
+  EA11-S8: backlog   # Refactor SessionLogger/Reader → 3-tracks file-based structure — Sprint 12 (NEW, ADR-014 §8.5; depends: EA11-S5; blocks: EA11-S7; medium-large ~950-1350 LOC, capacity watch)
+  EA11-S7: backlog   # Session transcript generator (aggregates Track 2 markdown from .cop1/history/) — Sprint 12 (depends: EA11-S8)
   epic-ea11-retrospective: optional
