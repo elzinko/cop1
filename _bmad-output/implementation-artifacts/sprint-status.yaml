@@ -325,16 +325,17 @@ development_status:
   #   New: S2 playbook format spec, S3 cop1 playbook, S7 multi-agent advisory, S8 multi-step resolution.
   # Subsumes EA8-S6. BLOCKING for V1-light DoD "automate 1 epic".
   # Depends on: EA11 (all stories), EA9 (done), EA6 (for S9 integration test)
-  epic-ea10: backlog
-  EA10-S1: backlog   # SupervisorPlaybookLoader (markdown parser) — Sprint 13 (depends: EA9-S1, EA9-S3)
-  EA10-S2: backlog   # Playbook format specification + reference example — Sprint 13 (NEW, depends: EA10-S1)
-  EA10-S3: backlog   # cop1 minimal playbook (drives 1 epic) — Sprint 13 (NEW, depends: EA10-S2)
-  EA10-S4: backlog   # OrchestratorService main loop, 1-epic scope — Sprint 13 (was original S2; depends: EA10-S3, EA11-S3, EA11-S4, EA11-S5)
-  EA10-S5: backlog   # Mode --step-by-step inter-command — Sprint 13 (was original S4; depends: EA10-S4)
-  EA10-S6: backlog   # CLI cop1 orchestrator run --epic <id> — Sprint 13 (was original S5; depends: EA10-S4, EA10-S5)
-  EA10-S7: backlog   # Multi-agent advisory capability for supervisor — Sprint 13 (NEW, depends: EA11-S5 / ADR-014)
-  EA10-S8: backlog   # Supervisor multi-step resolution loop — Sprint 13 (NEW, depends: EA10-S7, EA11-S6)
-  EA10-S9: backlog   # E2E integration test on EA6 cobaye fixture — Sprint 13 (was original S6; depends: EA10-S1..S8, EA6)
+  # EA10 complete 2026-04-14 — all 9 stories done (V1-light DoD closed)
+  epic-ea10: done
+  EA10-S1: done   # SupervisorPlaybookLoader (markdown parser) — Sprint 13 (depends: EA9-S1, EA9-S3)
+  EA10-S2: done   # Playbook format specification + reference example — Sprint 13 (NEW, depends: EA10-S1)
+  EA10-S3: done   # cop1 minimal playbook (drives 1 epic) — Sprint 13 (NEW, depends: EA10-S2)
+  EA10-S4: done   # OrchestratorService main loop, 1-epic scope — Sprint 13 (was original S2; depends: EA10-S3, EA11-S3, EA11-S4, EA11-S5)
+  EA10-S5: done   # Mode --step-by-step inter-command — Sprint 13 (was original S4; depends: EA10-S4)
+  EA10-S6: done   # CLI cop1 orchestrator run --epic <id> — Sprint 13 (was original S5; depends: EA10-S4, EA10-S5)
+  EA10-S7: done   # Multi-agent advisory capability for supervisor — Sprint 13 (NEW, depends: EA11-S5 / ADR-014)
+  EA10-S8: done   # Supervisor multi-step resolution loop — Sprint 13 (NEW, depends: EA10-S7, EA11-S6)
+  EA10-S9: done   # E2E integration test on EA6 cobaye fixture — Sprint 13 (was original S6; depends: EA10-S1..S8, EA6)
   # EA10-S3-original (advanced auto-decision policies) DEFERRED to V1.1 — covered at V1-light by EA10-S8
   epic-ea10-retrospective: optional
 
@@ -344,13 +345,14 @@ development_status:
   # Parallelized with EA6 in Sprint 12.
   # Mission: prepare plumbing for orchestrator (cleanup + ADRs + SupervisorContext + 3-tracks logging + transcript).
   # BLOCKING for EA10 — all 8 EA11 stories must complete before EA10-S4/S7/S8.
-  epic-ea11: backlog
-  EA11-S1: backlog   # Deprecate legacy cop1 agents (DevAgent/ReviewerAgent/QAAgent/PMAgent + *Step) — Sprint 12
-  EA11-S2: backlog   # Deprecate workflow.useBMAD=false legacy path — Sprint 12
-  EA11-S3: backlog   # Extract technical services (WorktreeService, HistoryService, StepByStepController) — Sprint 12
-  EA11-S4: backlog   # ADR-013 Orchestrator vs SprintRunner separation — Sprint 12
-  EA11-S5: backlog   # ADR-014 Supervisor Tool Interface (architect session, answers Q1–Q6) — Sprint 12
-  EA11-S6: backlog   # SupervisorContext bootstrap loader — Sprint 12 (depends: EA11-S5 optional)
-  EA11-S8: backlog   # Refactor SessionLogger/Reader → 3-tracks file-based structure — Sprint 12 (NEW, ADR-014 §8.5; depends: EA11-S5; blocks: EA11-S7; medium-large ~950-1350 LOC, capacity watch)
-  EA11-S7: backlog   # Session transcript generator (aggregates Track 2 markdown from .cop1/history/) — Sprint 12 (depends: EA11-S8)
+  # EA11 complete 2026-04-14 — all 8 stories done
+  epic-ea11: done
+  EA11-S1: done   # Deprecate legacy cop1 agents (DevAgent/ReviewerAgent/QAAgent/PMAgent + *Step) — Sprint 12
+  EA11-S2: done   # Deprecate workflow.useBMAD=false legacy path — Sprint 12
+  EA11-S3: done   # Extract technical services (WorktreeService, HistoryService, StepByStepController) — Sprint 12
+  EA11-S4: done   # ADR-013 Orchestrator vs SprintRunner separation — Sprint 12
+  EA11-S5: done   # ADR-014 Supervisor Tool Interface (architect session, answers Q1–Q6) — Sprint 12
+  EA11-S6: done   # SupervisorContext bootstrap loader — Sprint 12 (depends: EA11-S5 optional)
+  EA11-S8: done   # Refactor SessionLogger/Reader → 3-tracks file-based structure — Sprint 12 (NEW, ADR-014 §8.5; depends: EA11-S5; blocks: EA11-S7; medium-large ~950-1350 LOC, capacity watch)
+  EA11-S7: done   # Session transcript generator (aggregates Track 2 markdown from .cop1/history/) — Sprint 12 (depends: EA11-S8)
   epic-ea11-retrospective: optional

@@ -4,11 +4,13 @@ import { COP1_VERSION } from '../features/daemon/domain/DaemonState.js';
 import { healthCommand } from './commands/health.js';
 import { initBmadBridgeCommand } from './commands/init-bmad-bridge.js';
 import { initCommand } from './commands/init.js';
+import { orchestratorRunCommand } from './commands/orchestrator.js';
 import { sprintRunCommand } from './commands/sprint-run.js';
 import { sprintStatusCommand } from './commands/sprint-status.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 import { stopCommand } from './commands/stop.js';
+import { transcriptCommand } from './commands/transcript.js';
 
 const program = new Command();
 
@@ -57,5 +59,27 @@ sprint
   .command('status')
   .description('Show sprint session and story statuses')
   .action(sprintStatusCommand);
+
+const orchestrator = program
+  .command('orchestrator')
+  .description('Supervisor orchestrator commands (EA10)');
+
+orchestrator
+  .command('run')
+  .description('Run the supervisor orchestrator on a target epic')
+  .requiredOption('--epic <id>', 'Target epic id (e.g. EA11)')
+  .option('--playbook <path>', 'Path to supervisor playbook (default: ./supervisor-playbook.md)')
+  .option('--step-by-step', 'Pause between commands for manual approval')
+  .option('--abort-on-escalation', 'Stop cleanly when supervisor escalates')
+  .option('--project-root <path>', 'Override project root (default: cwd)')
+  .action((options: Parameters<typeof orchestratorRunCommand>[0]) =>
+    orchestratorRunCommand(options),
+  );
+
+program
+  .command('transcript <session-id>')
+  .description('Generate a human-readable markdown transcript for a BMAD session (EA11-S7)')
+  .option('--out <path>', 'Write transcript to a file instead of stdout')
+  .action((sessionId: string, options: { out?: string }) => transcriptCommand(sessionId, options));
 
 program.parse();
