@@ -1,8 +1,8 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish', 'step-12-complete', 'step-e-01-discovery', 'step-e-02-review', 'step-e-03-edit']
+stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish', 'step-12-complete', 'step-e-01-discovery', 'step-e-02-review', 'step-e-03-edit', 'step-e-scp-2026-04-14']
 status: 'complete'
 completedAt: '2026-02-13'
-lastEdited: '2026-02-24'
+lastEdited: '2026-04-14'
 editHistory:
   - date: '2026-02-23'
     changes: 'Added 5 features: Quality Dashboard Web UI, Sprint Workflow Execution Visibility, Worktree Preview Environment, Demo Agent with Playwright, MCP Access Control per Agent. +18 FRs (FR117-FR134), +8 NFRs (NFR25-NFR32), +1 CA (CA12 Demo Agent), +2 User Journeys (J6, J7), modified FR27/FR32/FR47/FR58/FR116/NFR8.'
@@ -10,6 +10,12 @@ editHistory:
     changes: 'ADR: FR117 build guard+lifecycle, FR118 cleanup, FR120 Phase 2, +FR135 API REST, NFR32 clarified. Self-Consistency: fix FR86 dup, 10→12 caps, Growth tags, J6/J7 coverage, +NFR33. Pre-mortem: +FR137-141, SonarQube docker-compose. Occam Razor: merged FRs (-7 FRs, -1 NFR), Growth tags, CA12 condensed. Round Table: FR138 refined, +dependency chain, cop1=BMAD orchestrator, +NFR34 test strategy, CA11→CA7. War Room: MVP caps restructured in 3 tiers, +Sprint Roadmap section (FRs by horizon), BMAD pivot clarified as progressive (Sprint 7: LLMGateway enriched → Sprint 10+: BMAD #yolo experiment → Growth: full migration if proven), FR138 tagged Sprint 10+.'
   - date: '2026-02-24'
     changes: 'Post-validation edit (16 changes): +FR142-144 (Cap #10 Budget Tracking), cleaned 14 implementation leakage occurrences (MCPRegistry→service contrôle accès MCP, StructuredLogger→service logging, BrowserAutomationPort→contrat métier, EventBus→bus événements, LLMGateway→passerelle LLM, domain package→couche domaine, JSONL→logs structurés), SMART fixes (FR86 testable challenge, FR59 auto-approval 48h, FR48 file-overlap zero-conflict, FR52 split metric+ceremony), NFR metrics (NFR13 intervals+thresholds, NFR14 ramp-up 50%→+10%/15min, NFR34 coverage per layer), Journey Req Summary +7 entries + Telegram Growth tag + Cap #10, Preview Env classification clarified.'
+  - date: '2026-04-14'
+    changes: 'SCP 2026-04-14 readiness fixes (sync PRD ↔ epics FR inventory) : +CA12 LLM Provisioning (FR88-FR92), +CA13 Quality Intelligence (FR93-FR101), +CA14 Continuous Improvement Review (FR102-FR108), +CA15 Day Sprint Mode & Time-Boxing (FR109-FR115) — 28 FRs importés verbatim depuis epics.md. Demo Agent renumérotée CA12→CA16 pour éviter collision. +FR Coverage Map (FR1-FR144, 117 FRs actifs). NFR26-NFR34 vérifiés présents — cohérence PRD/SCP OK. Re-tagging FR125/126/129/135/139 MVP→Sprint 10+, FR121 MVP→E5-S13, et NFR phase tags hors scope de cette édition (SCP §4.1.2/4.4 à traiter séparément).'
+  - date: '2026-04-14'
+    changes: 'Validation session (elicitations #14/#36/#34) — corrections P0 appliquées : (1) FR Coverage Map — FR87 retagué CA11→CA7 (CA11 n''existe pas dans le corps du PRD ; FR87 vit dans CA7 Agile Ceremony Engine) ; (2) Journeys couvertes par le MVP — J6 re-étiquetée MVP→Sprint 10+ pour cohérence avec le re-tagging FR125/126/129/135/139 du SCP 2026-04-14 précédent ; (3) FR Coverage Map — compte actif corrigé 117→138 (FR1-144 = 144 IDs, −7 fusionnés, +1 FR52b). Findings P1/P2/P3 documentés dans prd-validation-report.md pour traitement ultérieur.'
+  - date: '2026-04-14'
+    changes: 'Pre-sprint readiness pass (party-mode) — P1/P2 appliqués pour débloquer planning : (1) Tableau "Capacités MVP" étendu 12→15 capabilities, préfixes MVP-N introduits pour lever l''ambiguïté avec CA1-16, ajout MVP-6 LLM Provisioning (FR89/91/92), MVP-12 Quality Intelligence (FR93-98/100-101), MVP-13 Continuous Improvement Persistence (FR105-107), MVP-14 MCP Audit Logging (FR121/NFR28), MVP-15 services backend Dashboard (Web UI Sprint 10+) ; (2) "Preview env epic (à créer)" → "E13-Preview-Environment (PENDING_ARCHITECT_SESSION)" sur FR117/118/122/140/141 ; (3) N manquants spécifiés : FR9 (5 itérations), FR24 (3 refus), FR57 (2 rejections DoD), FR71 (2 sprints) avec paramètres config nommés ; (4) FR138 enrichi de critères Go/No-Go Sprint 12 (≥3/5 stories success → Go, ≤1/5 → No-Go, 2/5 → extension 1 sprint) + fallback silencieux ; (5) +FR145 PM Question → Dev Notes feedback loop (couvre gap PM-8, J2/J4) ; (6) FR Coverage Map → 139 FRs actifs (FR1-FR145).'
 inputDocuments:
   - 'ROADMAP.md'
   - 'NEXT_SPRINT.md'
@@ -423,34 +429,39 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 **Critère de succès MVP :**
 > "Le lendemain matin, je trouve au moins 1 PR mergeable créée automatiquement pendant la nuit, avec un rapport qui m'explique ce qui s'est passé."
 
-### Capacités MVP (12 capabilities, 3 tiers)
+### Capacités MVP (15 capabilities, 3 tiers)
+
+*(Note : les numéros `MVP-N` sont des priorités MVP et ne correspondent PAS aux Capability Areas CA1-CA16.)*
 
 **Tier 1 — Circuit minimum "1 PR mergeable" :**
 
-| # | Capacité | Justification |
-|---|----------|---------------|
-| 2 | Lecture du backlog (markdown stories BMAD) | Point d'entrée de tout le workflow |
-| 4 | Agent Orchestration (dev-story, code-review, QA) | Circuit complet de production de code via agents cop1 (LLMGateway) enrichis par prompts BMAD *(Phase A pivot)* |
-| 5 | Workflow Dev Agent → Reviewer Agent (séquentiel) | Circuit complet "production de code" |
-| 7 | Morning Report (markdown) | Visibilité sur ce qui s'est passé |
-| 9 | Git Worktrees (branches isolées par story) | Évite les conflits, git propre |
+| MVP-# | Capacité | FRs clés | Justification |
+|---|----------|-----|---------------|
+| MVP-1 | Lecture du backlog (markdown stories BMAD) | FR1-FR5 | Point d'entrée de tout le workflow |
+| MVP-2 | Agent Orchestration (dev-story, code-review, QA) | FR6-FR12, FR41-FR44, FR116, FR137 | Circuit complet de production de code via agents cop1 (LLMGateway) enrichis par prompts BMAD *(Phase A pivot)* |
+| MVP-3 | Workflow Dev Agent → Reviewer Agent (séquentiel) | FR22-FR26, FR48 | Circuit complet "production de code" |
+| MVP-4 | Morning Report (markdown) | FR28-FR31, FR55 | Visibilité sur ce qui s'est passé |
+| MVP-5 | Git Worktrees (branches isolées par story) | FR22, FR116 | Évite les conflits, git propre |
+| MVP-6 | LLM Provisioning (dynamic download, registry) | FR89, FR91, FR92 | Gestion modèles LLM locaux sans redémarrage — prérequis MVP-2 *(ajouté SCP 2026-04-14, CA12)* |
 
-**Tier 2 — Sécurité + autonomie nocturne :**
+**Tier 2 — Sécurité + autonomie nocturne + qualité :**
 
-| # | Capacité | Justification |
-|---|----------|---------------|
-| 1 | Daemon Fastify + Web UI de monitoring | Contrôle et observabilité — sans ça, la nuit c'est une boîte noire |
-| 3 | Resource Guard (RAM/CPU monitoring) | Sécurité — éviter de bloquer la machine |
-| 6 | PM Agent (questions bloquantes → fichier décision) | Débloquage autonome sans input humain la nuit |
-| 8 | Adaptive Strategy L1 (retry avec autre LLM si échec) | Résilience de base, évite les boucles infinies |
-| 10 | Claude API Budget Tracking & Alerts | Contrôle des coûts Claude API avec alertes et auto-pause |
+| MVP-# | Capacité | FRs clés | Justification |
+|---|----------|-----|---------------|
+| MVP-7 | Daemon Fastify + Web UI de monitoring | FR27, FR36-FR40 | Contrôle et observabilité — sans ça, la nuit c'est une boîte noire |
+| MVP-8 | Resource Guard (RAM/CPU monitoring) | FR18-FR21, NFR11-NFR15 | Sécurité — éviter de bloquer la machine |
+| MVP-9 | PM Agent (questions bloquantes → fichier décision) | FR11, FR63-FR69 | Débloquage autonome sans input humain la nuit |
+| MVP-10 | Adaptive Strategy L1 (retry avec autre LLM si échec) | FR8, FR9, FR49 | Résilience de base, évite les boucles infinies |
+| MVP-11 | Claude API Budget Tracking & Alerts | FR142-FR144 | Contrôle des coûts Claude API avec alertes et auto-pause |
+| MVP-12 | Quality Intelligence backend (test coverage, static analysis, architecture drift) | FR93-FR98, FR100-FR101 | Donnée qualité brute pour ReviewerAgent et dashboards futurs *(ajouté SCP 2026-04-14, CA13)* |
+| MVP-13 | Continuous Improvement Persistence (RuleApplicationService, retro storage) | FR105-FR107 | Rétros et décisions d'amélioration versionnées — prérequis capacité self-improvement *(ajouté SCP 2026-04-14, CA14)* |
+| MVP-14 | MCP Audit Logging (backend) | FR121, NFR28 | Auditabilité Phase 1 MCP (accès complet soft-limit) — prérequis Phase 2 |
 
-**Tier 3 — Observabilité Web UI :**
+**Tier 3 — Observabilité Web UI (livrée Sprint 10+, backend MVP) :**
 
-| # | Capacité | Justification |
-|---|----------|---------------|
-| 11 | Quality Dashboard Web UI (KPIs, tendances, SonarQube) | Visibilité qualité — services backend existants, Web UI à créer |
-| 12 | Sprint Workflow Pipeline View (temps réel + historique) | Visibilité exécution — SSE + EventBus existants, Web UI à créer |
+| MVP-# | Capacité | FRs clés | Justification |
+|---|----------|-----|---------------|
+| MVP-15 | Services backend Dashboard + Pipeline (SSE, EventBus, API REST) | FR58, FR125, FR126, FR129, FR135, FR139 | Services backend en MVP ; **Web UI Tier 3 re-tagué Sprint 10+** par SCP 2026-04-14 (cf. section "Journeys couvertes par le MVP") |
 
 ### Journeys couvertes par le MVP
 
@@ -459,7 +470,7 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 - ✅ **J3** — Morning review (rapport du matin)
 - ✅ **J4** — Gestion des blocages (PM agent + décision files)
 - ❌ **J5** — Copilot diurne (post-MVP, Phase 2)
-- ✅ **J6** — Dashboard du matin (MVP — capabilities 11-12)
+- ⏳ **J6** — Dashboard du matin (Sprint 10+ — FR125/126/129/135/139 re-tagués par SCP 2026-04-14 ; MVP livre uniquement les services backend sous-jacents, pas la Web UI complète)
 - ❌ **J7** — Démo automatique (Growth — dépend Preview Environment + DemoAgent)
 
 ### Sprint Roadmap (FRs clés par horizon)
@@ -519,7 +530,7 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 - **FR67** : Le Developer peut consulter un tableau de bord backlog séparé (état idéation/grooming vs sprint actif)
 - **FR68** : Le PM Agent peut calculer automatiquement un score de priorité (WSJF) pour ordonner le backlog
 - **FR69** : Le Developer peut ajuster manuellement les priorités du backlog, les ajustements étant conservés entre les sessions
-- **FR71** : Le System peut alerter si le backlog "prêt" est insuffisant pour couvrir N sprints à venir (seuil configurable)
+- **FR71** : Le System peut alerter le Developer si le nombre de stories `ready-for-dev` est insuffisant pour couvrir un horizon configurable (défaut : **2 sprints**, paramètre `ready_backlog_horizon_sprints` dans `cop1.config.yaml`), en s'appuyant sur la vélocité observée (FR70)
 - **FR80** : Le Developer peut configurer les critères DoR applicables au projet (liste extensible)
 
 ### Capability Area 2 — Agent Orchestration
@@ -527,7 +538,7 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 - **FR6** : Le System peut lancer un workflow séquentiel d'agents (Dev → Reviewer → QA → (Demo optionnel, Growth) → PM) sur une story
 - **FR7** : Le System peut router chaque commande agent vers un LLM différent selon des règles configurables
 - **FR8** : Le System peut détecter un blocage agent (timeout ajusté à la saturation Docker + durée estimée dépassée) et activer la stratégie adaptative
-- **FR9** : Le System peut limiter le nombre d'itérations par story pour éviter les boucles infinies
+- **FR9** : Le System peut limiter le nombre d'itérations agent par story à un maximum configurable (défaut : **5 itérations**, paramètre `max_iterations_per_story` dans `cop1.config.yaml`). Au-delà, la story est marquée `blocked` et escaladée au PM Agent (FR11)
 - **FR10** : Le System peut arrêter proprement le workflow autonome et reprendre depuis le dernier état stable
 - **FR11** : Le PM Agent peut formuler des questions bloquantes et les persister en fichier décision sans input humain
 - **FR12** : Le System peut exécuter des workflows agents pendant une plage horaire programmée (mode nuit)
@@ -544,6 +555,7 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 - **FR140** : Le System vérifie l'accessibilité du preview environment avant de le déclarer disponible aux agents downstream. Si le health-check échoue, le preview est marqué indisponible et les agents continuent sans preview
 - **FR118** : Le System peut arrêter proprement le preview environment après la fin du workflow complet de la story (après le step PM, pas après chaque step individuel) — cleanup du processus, libération du port, suppression des fichiers temporaires
 - **FR119** : *(Growth)* Le DemoAgent peut s'exécuter comme un WorkflowStep supplémentaire dans le pipeline séquentiel (Dev → Reviewer → QA → Demo → PM) après validation QA
+- **FR145** : Les réponses du Developer aux questions formulées par le PM Agent (FR11, FR43) sont automatiquement injectées dans les **Dev Notes** de la story concernée avant reprise du workflow agent. Le format d'injection est structuré (section `## Decision Responses` datée, identifiant de la question, texte de la réponse) et persistant — la story conserve l'historique des Q/R pour tous les agents downstream. Si une réponse arrive alors que la story est déjà `done`, elle est archivée dans `pm-questions-{date}.md` sans modification de la story
 
 ### Capability Area 3 — LLM Infrastructure
 
@@ -568,10 +580,10 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 ### Capability Area 5 — Code Production & Git
 
 - **FR137** : Le System inclut systématiquement dans le prompt de la commande BMAD dev-story : (1) la DoD du projet (FR34), (2) le `project-context.md` (contraintes tech stack, conventions, architecture), (3) les acceptance criteria et dev notes de la story. Les tests unitaires font partie de la DoD par défaut. Ce mécanisme s'appuie sur les commandes BMAD existantes — cop1 enrichit le contexte, BMAD exécute.
-- **FR138** : *(Sprint 10+ — expérimentation)* Le System peut lancer les commandes BMAD en mode autonome (`#yolo` / `autonomous: true`) pour comparer les résultats avec les agents cop1 existants (passerelle LLM). Le System track les retours de chaque commande (succès/échec/questions non-résolues) et les consigne dans le workflow context. À groomer : stratégie de fallback si commande BMAD échoue silencieusement, critères de comparaison agents cop1 vs BMAD #yolo
+- **FR138** : *(Sprint 10+ — expérimentation bornée)* Le System peut lancer les commandes BMAD en mode autonome (`#yolo` / `autonomous: true`) pour comparer les résultats avec les agents cop1 existants (passerelle LLM). Le System track les retours de chaque commande (succès/échec/questions non-résolues) et les consigne dans le workflow context. **Critères de décision Go/No-Go (horizon Sprint 12) :** (1) **Go — migration progressive** si ≥ 3 stories sur 5 exécutées en `#yolo` passent le QA au premier essai ET coût LLM ≤ 1.5× le coût des agents cop1 équivalents ; (2) **No-Go — retour aux agents cop1** si ≤ 1 story sur 5 réussit OU coût > 2× OU un incident critique (perte de données, commit non validé mergé) survient ; (3) **Extension expérimentation** si 2 stories sur 5 réussissent — prolongation bornée à 1 sprint supplémentaire max. **Fallback silencieux :** toute commande BMAD `#yolo` sans output exploitable après `max_iteration_timeout` (NFR12) est traitée comme un échec et déclenche un re-run via l'agent cop1 équivalent sur la même story
 - **FR22** : Le Dev Agent peut produire du code sur une branche git isolée (worktree par story) et gérer les conflits en consultant l'historique des commits récents sur main
 - **FR23** : Le Dev Agent peut créer des commits structurés avec messages conventionnels
-- **FR24** : Le Reviewer Agent peut analyser le code produit et émettre un verdict (approve / request-changes), limité à N refus avant escalade au Developer
+- **FR24** : Le Reviewer Agent peut analyser le code produit et émettre un verdict (approve / request-changes), limité à un maximum configurable de refus consécutifs (défaut : **3 refus**, paramètre `reviewer_max_rejections` dans `cop1.config.yaml`) avant escalade au Developer
 - **FR25** : Le System peut merger ou proposer un merge de la branche story vers la branche principale
 - **FR26** : Le Developer peut consulter et valider manuellement les branches produites avant merge
 - **FR48** : Le System peut planifier les tâches nocturnes en ordonnant les stories par analyse de chevauchement de fichiers (stories modifiant des fichiers disjoints passent en premier). Objectif : zéro conflit merge entre stories exécutées dans une même session nocturne
@@ -616,7 +628,7 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 - **FR34** : Le Developer peut définir les Definition of Done (DoD) spécifiques au projet
 - **FR35** : Le System peut valider qu'une story répond aux critères DoD avant de la marquer comme terminée
 - **FR56** : Le System maintient un ensemble de règles d'équipe (team rules) évolutives, réévaluées à chaque rétrospective, incluant le principe de convergence par diversité
-- **FR57** : Le System peut limiter le nombre de rejections DoD et escalader au Developer si le seuil est dépassé
+- **FR57** : Le System peut limiter le nombre de rejections DoD à un maximum configurable par story (défaut : **2 rejections DoD**, paramètre `dod_max_rejections` dans `cop1.config.yaml`) ; au-delà, la story est escaladée au Developer via le canal de notification configuré
 - **FR59** : L'équipe peut proposer des modifications de règles autonomement. Si le Developer n'a pas rejeté une proposition dans les N heures (configurable dans `cop1.config.yaml`, défaut 48h), la proposition est auto-approuvée et appliquée au prochain sprint. Les auto-approbations sont signalées dans le morning report
 - **FR60** : Durant chaque rétrospective, les agents peuvent proposer des modifications à leurs propres règles/compétences (iamthelaw YAML)
 - **FR61** : Toute modification de règle agent est soumise à approbation explicite du Developer avant application au sprint suivant
@@ -643,10 +655,118 @@ Chaque agent a ses propres règles YAML (`@cop1/rules-engine`) — comportement 
 - **FR143** : Le Developer peut configurer un cap journalier de dépense API Claude dans `cop1.config.yaml` (montant en dollars ou en tokens)
 - **FR144** : Le System peut alerter le Developer (notification async) et auto-pauser les workflows agents quand le cap journalier API Claude est atteint — les stories en cours sont mises en pause proprement, le morning report inclut le motif d'arrêt
 
-### Capability Area 12 — Demo Agent & Visual Reporting
+### Capability Area 12 — LLM Provisioning & Docker Management
+
+*(Ajouté par SCP 2026-04-14 — aligne le PRD sur le scope epic E6 / epics.md CA12.)*
+
+- **FR88** : *(Phase 2 — Web UI)* Le Developer peut provisionner et déprovisionner des modèles LLM via la Web UI (Ollama REST API + Docker Engine API — compatible Docker Desktop)
+- **FR89** : *(MVP Tier 1)* Le System peut télécharger un modèle LLM dynamiquement (ollama pull via API HTTP) et l'activer sans redémarrer le daemon
+- **FR90** : *(Phase 2 — Web UI)* Le Developer peut consulter la liste des modèles LLM disponibles, leur statut (downloading / loaded / stopped) et leur taille
+- **FR91** : *(MVP Tier 1)* Le sous-système de provisioning LLM est découplé du reste — `ContainerRuntimePort` (lifecycle containers) + `OllamaManagementPort` (gestion modèles) sont des ports indépendants
+- **FR92** : *(MVP Tier 1 — 1 provider actif, N en post-MVP)* Le System supporte l'enregistrement de plusieurs LLM providers (local Docker, remote Ollama, Claude API) via `LLMProviderRegistry`
+
+### Capability Area 13 — Quality Intelligence
+
+*(Ajouté par SCP 2026-04-14 — aligne le PRD sur le scope epic E10 / epics.md CA13.)*
+
+- **FR93** : *(MVP Tier 2)* Le System peut mesurer la couverture de tests via Vitest et appliquer des seuils minimum configurables par agent (DevAgent ≥ 80% par défaut)
+- **FR94** : *(MVP Tier 2)* Le ReviewerAgent peut analyser la qualité du code via des outils statiques (Biome, ts-morph, madge) : complexité cyclomatique, duplication, dépendances circulaires, conformité patterns existants
+- **FR95** : *(MVP Tier 2)* Chaque règle dans `iamthelaw` peut référencer un ou plusieurs outils de mesure (id outil + seuil + enforced) — la règle est vérifiable automatiquement
+- **FR96** : *(MVP Tier 2)* Le System peut détecter une dérive architecturale (imports cross-features, dépendances circulaires) via madge + ESLint à chaque commit agent
+- **FR97** : *(MVP Tier 2)* Le System peut mesurer la qualité des reviews dans le temps (taux d'approbation, taux de rework) pour améliorer le ReviewerAgent
+- **FR98** : *(MVP Tier 2)* Le System peut mesurer la qualité des rétrospectives (taux d'adoption des règles proposées, taux de complétion des refactoring stories)
+- **FR99** : *(Phase 2 — Web UI)* Le Developer peut consulter un tableau de bord qualité (métriques par agent, par sprint, évolution) via la Web UI
+- **FR100** : *(MVP Tier 2)* Les agents peuvent suggérer des créations/modifications/suppressions de règles iamthelaw basées sur les outputs d'outils qualité — soumises à approbation Developer
+- **FR101** : *(MVP Tier 2)* Le Developer peut initialiser la configuration qualité d'un projet cible via `cop1 init <project-path>` — génère `.cop1/quality/` avec les configs dérivées des templates par défaut de cop1 (sonar-project.properties, .dependency-cruiser.js, .eslintrc.json)
+
+### Capability Area 14 — Continuous Improvement Review
+
+*(Ajouté par SCP 2026-04-14 — aligne le PRD sur le scope epic E12 / epics.md CA14.)*
+
+- **FR102** : *(Phase 2 — Web UI)* Le Developer peut consulter toutes les suggestions d'amélioration continue via une interface de review organisée par type : ArchitectureRuleProposal, TeamRuleProposal, AgentBehaviorProposal, RefactoringStoryProposal, QualityThresholdProposal, ProcessRuleProposal
+- **FR103** : *(Phase 2 — Web UI)* Pour chaque suggestion, le Developer dispose de trois actions : approuver (yes), rejeter (no), ou ajouter un commentaire pour déclencher une re-analyse par le quorum agile de l'équipe
+- **FR104** : *(Phase 2 — round-table UI)* Quand le Developer ajoute un commentaire, le quorum agile (SM Agent + PM Agent + Architect Agent) re-examine la suggestion en session Round-Table, intègre le commentaire, et produit une position consolidée soumise à nouveau au Developer
+- **FR105** : *(MVP Tier 2 — persistence backend)* Les rapports de rétrospective et toutes les décisions d'amélioration (approuvées, rejetées, en attente) sont stockés de façon persistante et versionnée dans `.cop1/improvement-decisions.jsonl` et `.cop1/retro-reports/` (format markdown + JSONL)
+- **FR106** : *(MVP Tier 2 — RuleApplicationService)* Les suggestions approuvées sont appliquées automatiquement via le `RuleApplicationService` qui route chaque décision vers son handler : iamthelaw YAML API (règles), backlog API (RefactoringStory), quality config API (seuils qualité) — jamais d'édition directe de fichiers par les agents
+- **FR107** : *(MVP Tier 2 — RuleApplicationService)* Le `RuleApplicationService` valide chaque règle à appliquer (schéma, conflits, doublons), l'applique dans le fichier cible, et enregistre l'application dans `iamthelaw/history.jsonl` avec applied_at, applied_by, source_proposal_id, status
+- **FR108** : *(Phase 2 — Web UI)* Le Developer peut consulter l'historique complet des décisions d'amélioration (date, type, proposition, décision Developer, résultat d'application) via la Web UI
+
+### Capability Area 15 — Day Sprint Mode & Time-Boxing
+
+*(Ajouté par SCP 2026-04-14 — aligne le PRD sur le scope Day-Sprint / epics.md CA15. FR116 déjà couvert en CA2 Agent Orchestration.)*
+
+- **FR109** : *(Phase 2 — Day Copilot)* Le Developer peut lancer un sprint à tout moment (jour ou nuit) en définissant une durée finie (ex. 1h, 2h, 4h, 8h) — la session s'arrête proprement à l'échéance même si des stories restent
+- **FR110** : *(Phase 2 — Day Copilot)* En mode co-présence (Developer actif sur le poste), le Resource Manager réduit dynamiquement la charge LLM agents selon un budget RAM jour configurable (distinct du budget nuit), pour ne pas perturber le travail du Developer
+- **FR111** : *(Phase 2 — Day Copilot)* Le Developer peut modifier le contenu des stories non-`in-progress` dans le backlog depuis la Web UI à tout moment, même pendant un sprint actif
+- **FR112** : *(Phase 2 — Day Copilot)* Le Developer peut ouvrir un "débat d'équipe" (team debate) sur n'importe quelle suggestion ou décision depuis la Web UI — SM+PM+Architect Agent contribuent leurs avis en round-table asynchrone, le Developer lit et décide
+- **FR113** : *(Phase 2 — Day Copilot)* Le System peut estimer en temps réel le temps nécessaire pour terminer le sprint en cours (time-to-completion) basé sur la vélocité observée, le burndown et le burnup
+- **FR114** : *(Phase 2 — Day Copilot)* Le System peut alerter le Developer quand le risque de dépassement de durée du sprint est détecté (stories restantes × temps moyen > temps disponible)
+- **FR115** : *(Phase 2 — Day Copilot)* Le Developer peut consulter un burndown et un burnup en temps réel pendant un sprint, avec projection de fin de sprint (estimated completion time)
+
+### Capability Area 16 — Demo Agent & Visual Reporting
+
+*(Renumérotée de CA12 → CA16 le 2026-04-14 pour aligner CA12-CA15 sur epics.md.)*
 
 - **FR130** : *(Growth)* Le DemoAgent est un WorkflowStep qui s'exécute après la validation QA. Il utilise Playwright MCP (via le contrat d'automatisation navigateur, cf. NFR32) pour naviguer l'application dans le preview environment, capturer des screenshots des pages pertinentes, et les stocker dans `.cop1/demos/{sprint}/{story}/`
 - **FR131** : *(Growth)* Le DemoAgent produit un rapport visuel de sprint en markdown avec images embarquées (avant/après, features clés). Les pages/routes à capturer sont configurables dans `cop1.config.yaml` ou dans les Dev Notes de chaque story
+
+### FR Coverage Map
+
+*(Ajouté 2026-04-14 — couverture FR1-FR144. Les IDs absents du tableau (FR124, FR127-FR128, FR132-FR134, FR136) ont été fusionnés lors du passage Occam Razor de 2026-02-23.)*
+
+| FR | Capability Area | Epic | Phase |
+|----|-----------------|------|-------|
+| FR1-FR5 | CA1 Backlog | E2 | MVP |
+| FR6-FR12 | CA2 Agent Orchestration | E3 | MVP |
+| FR13-FR17 | CA3 LLM Infrastructure | E5 | MVP |
+| FR18-FR21 | CA4 Resource Management | E7 | MVP |
+| FR22-FR26 | CA5 Code & Git | E3 | MVP |
+| FR27-FR31 | CA6 Monitoring | E11 | MVP |
+| FR32 | CA8 Config | E1 | MVP |
+| FR33-FR35 | CA8 Rules/DoD | E9 | MVP |
+| FR36-FR40 | CA10 Developer Control | E1 | MVP |
+| FR41-FR44 | CA2b Blocage & Escalade | E4 | MVP |
+| FR45-FR46 | CA7 Ceremonies | E8/E12 | MVP |
+| FR47 | CA3 MCP Access Control | E5 | MVP (Phase 1 soft-limit) |
+| FR48 | CA5 Night Planning | E3 | MVP |
+| FR49 | CA3 Super Saiyan mode | E5 | MVP |
+| FR50-FR51 | CA7 Ceremony Planning/SM | E8 | MVP |
+| FR52, FR52b | CA3 Tokens/sec measurement | E5 | Growth |
+| FR53 | CA6 Burndown | E11 | MVP |
+| FR54-FR55 | CA7 / CA6 Ceremony & Narrative | E8/E11 | MVP |
+| FR56-FR62 | CA8 Rules Engine | E9 | MVP |
+| FR63-FR69 | CA1 Grooming / Backlog mgmt | E2 | MVP |
+| FR70-FR71 | CA1 / CA6 Velocity & Alerts | E2/E11 | MVP |
+| FR72-FR78 | CA9 BMAD Interface & Snapshots | E2 | MVP |
+| FR79 | CA7 SM Reference Base | E8 | MVP |
+| FR80 | CA1 DoR config | E2 | MVP |
+| FR81-FR86 | CA7 Round-table & Challenge | E8 | MVP |
+| FR87 | CA7 Agile Ceremony Engine (Team Self-Improvement KPIs) | E12 | MVP |
+| FR88-FR92 | CA12 LLM Provisioning | E6 | MVP Tier 1 (FR89/91/92) ; Phase 2 (FR88/90) |
+| FR93-FR101 | CA13 Quality Intelligence | E10 | MVP Tier 2 (sauf FR99 Phase 2) |
+| FR102-FR108 | CA14 Continuous Improvement | E12 / E11 | MVP Tier 2 (FR105-107) ; Phase 2 (FR102-104, FR108) |
+| FR109-FR115 | CA15 Day Sprint Mode | E3 / E7 / E11 | Phase 2 (Day Copilot) |
+| FR116 | CA2 Worktree Simulation | E3 | MVP Tier 1 |
+| FR117-FR118 | CA2 Preview Environment | E13-Preview-Environment (PENDING_ARCHITECT_SESSION) | Sprint 10+ |
+| FR119 | CA2 DemoAgent WorkflowStep | Growth (DemoAgent) | Growth |
+| FR120 | CA3 MCP per-agent config | E5 | Phase 2 |
+| FR121 | CA3 MCP audit logging | **E5-S13** (nouveau — SCP 2026-04-14) | MVP (backend) |
+| FR122 | CA5 Preview URL (DevAgent) | Preview env epic | Sprint 10+ |
+| FR123 | CA5 Reviewer browse preview | Growth | Growth |
+| FR125 | CA6 SonarQube widget | EA3 Dashboard | Sprint 10+ (re-tagged par SCP 2026-04-14) |
+| FR126 | CA6 Pipeline view real-time | EA3 Dashboard | Sprint 10+ (re-tagged) |
+| FR129 | CA6 Sprint history navigation | EA3 Dashboard | Sprint 10+ (re-tagged) |
+| FR130-FR131 | CA16 Demo Agent | Growth (DemoAgent) | Growth |
+| FR135 | CA6 API REST backend | EA3 Dashboard | Sprint 10+ (re-tagged) |
+| FR137 | CA5 Prompt enrichment dev-story | EA1 | Sprint 7 |
+| FR138 | CA5 BMAD #yolo experiment | EA1 | Sprint 10+ |
+| FR139 | CA6 Cold-start dashboard | EA3 Dashboard | Sprint 10+ (re-tagged) |
+| FR140 | CA2 Preview env health-check | Preview env epic | Sprint 10+ |
+| FR141 | CA2 Dynamic port allocation | Preview env epic | Growth |
+| FR142-FR144 | CA10 Claude API Budget Tracking | EA2 | MVP |
+| FR145 | CA2 PM Question → Dev Notes feedback loop | E3 / E4 | MVP (ajouté par validation 2026-04-14, couvre J2/J4 gap PM-8) |
+
+**Couverture :** FR1-FR145 tracés — 139 FRs actifs (FR1-FR145 = 145 IDs, −7 fusionnés Occam Razor : FR124, FR127, FR128, FR132, FR133, FR134, FR136 ; +1 FR52b = 139). Dernier update : validation 2026-04-14 (ajout FR145 feedback loop).
 
 
 ## Non-Functional Requirements
