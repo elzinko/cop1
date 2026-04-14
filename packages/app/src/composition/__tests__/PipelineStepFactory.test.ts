@@ -48,9 +48,7 @@ function createSupervisorService(): SupervisorService {
 }
 
 function createSessionPort(): BMADSessionPort {
-  return new InMemorySessionAdapter([
-    { completed: true, output: 'ok', durationMs: 1 },
-  ]);
+  return new InMemorySessionAdapter([{ completed: true, output: 'ok', durationMs: 1 }]);
 }
 
 describe('PipelineStepFactory', () => {
@@ -63,11 +61,7 @@ describe('PipelineStepFactory', () => {
     const steps = factory.build(createConfig(true));
 
     expect(steps).toHaveLength(3);
-    expect(steps.map((s: WorkflowStep) => s.name)).toEqual([
-      'bmad-dev',
-      'bmad-review',
-      'bmad-qa',
-    ]);
+    expect(steps.map((s: WorkflowStep) => s.name)).toEqual(['bmad-dev', 'bmad-review', 'bmad-qa']);
   });
 
   it('should return legacy steps when useBMAD is false', () => {
@@ -107,5 +101,43 @@ describe('PipelineStepFactory', () => {
     expect(() => factory.build(createConfig(true))).toThrow(
       'BMADSessionPort and SupervisorService are required when workflow.useBMAD is true',
     );
+  });
+
+  // EA11-S2 — deprecation warning for legacy useBMAD=false path
+  describe('EA11-S2 legacy useBMAD=false deprecation warning', () => {
+    it('emits a deprecation warning once when useBMAD=false', () => {
+      const eventBus = new EventBus();
+      const warnings: string[] = [];
+      const factory = new PipelineStepFactory(eventBus, {
+        warn: (msg) => warnings.push(msg),
+      });
+      const config = createConfig(false);
+      const configLoader = createMockConfigLoader(config);
+
+      factory.build(config, configLoader);
+      factory.build(config, configLoader);
+      factory.build(config, configLoader);
+
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain('DEPRECATED EA11-S2');
+      expect(warnings[0]).toContain('workflow.useBMAD=false');
+      expect(warnings[0]).toContain('EA10 orchestrator');
+    });
+
+    it('does NOT emit the deprecation warning when useBMAD=true', () => {
+      const eventBus = new EventBus();
+      const warnings: string[] = [];
+      const sessionPort = createSessionPort();
+      const supervisorService = createSupervisorService();
+      const factory = new PipelineStepFactory(eventBus, {
+        sessionPort,
+        supervisorService,
+        warn: (msg) => warnings.push(msg),
+      });
+
+      factory.build(createConfig(true));
+
+      expect(warnings).toHaveLength(0);
+    });
   });
 });

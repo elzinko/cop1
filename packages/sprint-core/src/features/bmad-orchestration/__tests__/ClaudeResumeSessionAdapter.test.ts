@@ -208,19 +208,13 @@ describe('ClaudeResumeSessionAdapter', () => {
       { exitCode: 0, stdout: questionEnv },
     ]);
 
-    const handler = vi
-      .fn()
-      .mockResolvedValue({ behavior: 'deny', message: 'escalate' });
+    const handler = vi.fn().mockResolvedValue({ behavior: 'deny', message: 'escalate' });
 
     const eventBus = new EventBus();
     const failed: unknown[] = [];
     eventBus.on('session.workflow.failed', (p) => failed.push(p));
 
-    const adapter = new ClaudeResumeSessionAdapter(
-      eventBus,
-      { questionHandler: handler },
-      spawner,
-    );
+    const adapter = new ClaudeResumeSessionAdapter(eventBus, { questionHandler: handler }, spawner);
     const handle = await adapter.startSession('/test', { projectPath: '/tmp' });
     const result = await adapter.continueSession(handle.sessionId, 'C');
 

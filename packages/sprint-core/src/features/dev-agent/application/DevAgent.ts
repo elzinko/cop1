@@ -8,6 +8,15 @@ import { buildDevPrompt, parseLLMResponse } from '../domain/DevPromptTemplate.js
 import type { CodeGeneratorPort } from '../domain/ports/CodeGeneratorPort.js';
 import { WorktreeManager } from '../infrastructure/WorktreeManager.js';
 
+/**
+ * @deprecated Since 2026-04-14 (EA11-S1). The standalone cop1 agent pattern is
+ * superseded by BMAD-driven multi-turn sessions invoked through `BMADSessionPort`
+ * (ADR-012). This class remains as a safety-net fallback while
+ * `config.workflow.useBMAD=false` is still supported (deprecated in EA11-S2).
+ * Migration path: BMAD `dev-story` workflow driven by `SupervisorService` /
+ * `OrchestratorService` (EA10). Scheduled for removal once EA10-S9 integration
+ * test passes in production.
+ */
 export class DevAgent implements WorkflowStep {
   name = 'dev';
 

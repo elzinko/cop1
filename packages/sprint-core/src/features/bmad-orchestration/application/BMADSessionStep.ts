@@ -169,9 +169,7 @@ export class BMADSessionStep implements WorkflowStep {
    */
   private async runSession(
     context: WorkflowContext,
-  ): Promise<
-    { kind: 'success'; output: string } | { kind: 'failure'; errorMessage: string }
-  > {
+  ): Promise<{ kind: 'success'; output: string } | { kind: 'failure'; errorMessage: string }> {
     const storyContent = context.storyContent ?? '';
     const storyId = context.storyId;
 
@@ -216,8 +214,7 @@ export class BMADSessionStep implements WorkflowStep {
     if (lastTurn.error === true) {
       return {
         kind: 'failure',
-        errorMessage:
-          lastTurn.errorMessage || lastTurn.output || 'unknown session error',
+        errorMessage: lastTurn.errorMessage || lastTurn.output || 'unknown session error',
       };
     }
 
@@ -248,8 +245,7 @@ export class BMADSessionStep implements WorkflowStep {
       if (lastTurn.error === true) {
         return {
           kind: 'failure',
-          errorMessage:
-            lastTurn.errorMessage || lastTurn.output || 'unknown session error',
+          errorMessage: lastTurn.errorMessage || lastTurn.output || 'unknown session error',
         };
       }
     }

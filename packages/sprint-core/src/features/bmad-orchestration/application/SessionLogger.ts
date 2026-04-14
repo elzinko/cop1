@@ -1,5 +1,6 @@
 import type { StructuredLogger } from '@cop1/observability';
 import type { EventBus } from '@cop1/shared-kernel';
+import type { MetricsWriter } from '../infrastructure/MetricsWriter.js';
 
 export interface SessionInteraction {
   timestamp: string;
@@ -38,6 +39,7 @@ export class SessionLogger {
   constructor(
     private readonly logger: StructuredLogger,
     private readonly eventBus?: EventBus,
+    private readonly metricsWriter?: MetricsWriter,
   ) {}
 
   logInteraction(entry: SessionInteraction): void {
@@ -67,6 +69,23 @@ export class SessionLogger {
         content: entry.content,
         method: entry.analysis.method,
         durationMs: entry.durationMs,
+      });
+    }
+
+    // EA11-S8 — Track 3 metrics (fire-and-forget; metrics are best-effort)
+    if (this.metricsWriter) {
+      void this.metricsWriter.append({
+        ts: entry.timestamp,
+        sessionId: entry.sessionId,
+        storyId: entry.storyId,
+        event: eventType,
+        data: {
+          turn: entry.turn,
+          role: entry.role,
+          method: entry.analysis.method,
+          durationMs: entry.durationMs,
+          tokensUsed: entry.tokensUsed,
+        },
       });
     }
   }

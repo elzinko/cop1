@@ -2,6 +2,15 @@ import type { BacklogPort, BacklogStory } from '../domain/ports/BacklogPort.js';
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13];
 
+/**
+ * @deprecated Since 2026-04-14 (EA11-S1). The standalone cop1 agent pattern is
+ * superseded by BMAD-driven multi-turn sessions invoked through `BMADSessionPort`
+ * (ADR-012). This class remains as a safety-net fallback while
+ * `config.workflow.useBMAD=false` is still supported (deprecated in EA11-S2).
+ * Migration path: BMAD `create-story` / PM orchestration driven by
+ * `SupervisorService` / `OrchestratorService` (EA10). Scheduled for removal once
+ * EA10-S9 integration test passes in production.
+ */
 export class PMAgent {
   constructor(
     private readonly backlog: BacklogPort,

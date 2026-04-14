@@ -23,12 +23,22 @@ import type { ConfigLoader } from '../features/config/application/ConfigLoader.j
 export interface PipelineStepFactoryOptions {
   sessionPort?: BMADSessionPort;
   supervisorService?: SupervisorService;
+  /**
+   * Optional warn sink. Defaults to `console.warn`. Injectable for testing.
+   * @internal
+   */
+  warn?: (message: string) => void;
 }
+
+const LEGACY_USE_BMAD_WARNING =
+  '[DEPRECATED EA11-S2 / 2026-04-14] config.workflow.useBMAD=false uses the legacy stub pipeline (DevAgent/Reviewer/QA/PM*Step). This path is deprecated and scheduled for removal after EA10 orchestrator is proven. Switch to workflow.useBMAD=true (default) and, when available, the EA10 orchestrator.';
 
 export class PipelineStepFactory {
   private tpsListenerRegistered = false;
+  private legacyWarnEmitted = false;
   private readonly sessionPort?: BMADSessionPort;
   private readonly supervisorService?: SupervisorService;
+  private readonly warn: (message: string) => void;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -36,11 +46,16 @@ export class PipelineStepFactory {
   ) {
     this.sessionPort = options.sessionPort;
     this.supervisorService = options.supervisorService;
+    this.warn = options.warn ?? ((message) => console.warn(message));
   }
 
   build(config: Cop1Config, configLoader?: ConfigLoader): WorkflowStep[] {
     if (config.workflow.useBMAD) {
       return this.buildBMADSteps();
+    }
+    if (!this.legacyWarnEmitted) {
+      this.warn(LEGACY_USE_BMAD_WARNING);
+      this.legacyWarnEmitted = true;
     }
     return this.buildLegacySteps(configLoader);
   }

@@ -4,6 +4,15 @@ import type { WorkflowStep } from '../../workflow/domain/WorkflowStep.js';
 import { MaxRejectionsError, type ReviewResult } from '../domain/ReviewResult.js';
 import type { ReviewerPort } from '../domain/ports/ReviewerPort.js';
 
+/**
+ * @deprecated Since 2026-04-14 (EA11-S1). The standalone cop1 agent pattern is
+ * superseded by BMAD-driven multi-turn sessions invoked through `BMADSessionPort`
+ * (ADR-012). This class remains as a safety-net fallback while
+ * `config.workflow.useBMAD=false` is still supported (deprecated in EA11-S2).
+ * Migration path: BMAD `code-review` workflow driven by `SupervisorService` /
+ * `OrchestratorService` (EA10). Scheduled for removal once EA10-S9 integration
+ * test passes in production.
+ */
 export class ReviewerAgent implements WorkflowStep {
   name = 'reviewer';
 

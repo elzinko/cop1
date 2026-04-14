@@ -80,9 +80,7 @@ export class SessionHistoryReader {
     let files: string[];
     try {
       const allFiles = await readdir(this.logDir);
-      files = allFiles.filter(
-        (f) => f.startsWith('sprint-log-') && f.endsWith('.jsonl'),
-      );
+      files = allFiles.filter((f) => f.startsWith('sprint-log-') && f.endsWith('.jsonl'));
     } catch {
       return [];
     }

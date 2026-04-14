@@ -96,14 +96,7 @@ export class ClaudeResumeSessionAdapter implements BMADSessionPort {
     });
 
     const prompt = this.buildInitialPrompt(command, context);
-    const args = [
-      '-p',
-      prompt,
-      '--output-format',
-      'json',
-      '--permission-mode',
-      'acceptEdits',
-    ];
+    const args = ['-p', prompt, '--output-format', 'json', '--permission-mode', 'acceptEdits'];
 
     const firstTurn = await this.runTurn({
       sessionId,
@@ -140,14 +133,7 @@ export class ClaudeResumeSessionAdapter implements BMADSessionPort {
     }
 
     const startTime = Date.now();
-    const args = [
-      '--resume',
-      state.cliSessionId,
-      '-p',
-      message,
-      '--output-format',
-      'json',
-    ];
+    const args = ['--resume', state.cliSessionId, '-p', message, '--output-format', 'json'];
 
     const result = await this.runTurn({
       sessionId,
@@ -376,9 +362,7 @@ export class ClaudeResumeSessionAdapter implements BMADSessionPort {
     try {
       const parsed = JSON.parse(stdout) as Record<string, unknown>;
       const usage = parsed.usage as { input_tokens?: number; output_tokens?: number } | undefined;
-      const tokensUsed = usage
-        ? (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0)
-        : undefined;
+      const tokensUsed = usage ? (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0) : undefined;
       return {
         sessionId: typeof parsed.session_id === 'string' ? parsed.session_id : undefined,
         result: typeof parsed.result === 'string' ? parsed.result : undefined,

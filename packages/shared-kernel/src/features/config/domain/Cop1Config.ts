@@ -27,6 +27,13 @@ export interface Cop1Config {
     auto_merge: boolean;
   };
   workflow: {
+    /**
+     * @deprecated Since 2026-04-14 (EA11-S2). Setting `useBMAD=false` selects the legacy
+     * stub pipeline (`DevAgentStep` / `ReviewerAgentStep` / `QAAgentStep` / `PMAgentStep`)
+     * kept as a safety-net fallback. The BMAD path (`useBMAD=true`, default) is the
+     * supported route. This flag is scheduled for removal once EA10 Supervisor
+     * Orchestrator (EA10-S9 integration test) is proven in production.
+     */
     useBMAD: boolean;
   };
   blocage_rules: Record<string, string>;

@@ -2,11 +2,8 @@ import type { StructuredLogger } from '@cop1/observability';
 import { type Cop1Config, EventBus } from '@cop1/shared-kernel';
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkflowContext } from '../../workflow/domain/WorkflowContext.js';
-import {
-  BMADSessionStep,
-  type BMADSessionStepOptions,
-} from '../application/BMADSessionStep.js';
 import type { BudgetChecker } from '../application/BMADCommandStep.js';
+import { BMADSessionStep, type BMADSessionStepOptions } from '../application/BMADSessionStep.js';
 import { SessionLogger } from '../application/SessionLogger.js';
 import { SupervisorService } from '../application/SupervisorService.js';
 import { RetryPolicy } from '../domain/RetryPolicy.js';
@@ -26,10 +23,7 @@ function createSessionLogger(): SessionLogger {
 }
 
 function createSupervisor(): SupervisorService {
-  return new SupervisorService(
-    new InMemorySupervisorAdapter(new Map()),
-    createSessionLogger(),
-  );
+  return new SupervisorService(new InMemorySupervisorAdapter(new Map()), createSessionLogger());
 }
 
 function makeContext(overrides: Partial<WorkflowContext> = {}): WorkflowContext {
@@ -454,9 +448,7 @@ describe('BMADSessionStep', () => {
     const step = new BMADSessionStep(adapter, supervisor, baseOptions);
     await step.run(makeContext());
 
-    expect(setSpy.mock.invocationCallOrder[0]!).toBeLessThan(
-      startSpy.mock.invocationCallOrder[0]!,
-    );
+    expect(setSpy.mock.invocationCallOrder[0]!).toBeLessThan(startSpy.mock.invocationCallOrder[0]!);
     expect(setSpy.mock.calls[0]![3]).toBeUndefined();
   });
 

@@ -40,7 +40,18 @@ export const ConfigSchema = z
       .default({ auto_merge: false }),
     workflow: z
       .object({
-        useBMAD: z.boolean().default(true),
+        /**
+         * @deprecated Since 2026-04-14 (EA11-S2). `useBMAD=false` selects the legacy
+         * stub pipeline kept as a safety net. Scheduled for removal after EA10-S9
+         * integration test proves the orchestrator in production. A runtime warning
+         * is emitted at startup when `useBMAD=false`.
+         */
+        useBMAD: z
+          .boolean()
+          .default(true)
+          .describe(
+            'DEPRECATED (EA11-S2, 2026-04-14): false selects the legacy stub pipeline. Prefer true (default) and use the EA10 orchestrator when available.',
+          ),
       })
       .default({ useBMAD: true }),
     blocage_rules: z.record(z.string(), z.string()).default({}),

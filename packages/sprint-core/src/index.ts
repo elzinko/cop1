@@ -169,8 +169,7 @@ export { QualityBindingService } from './features/quality-binding/application/Qu
 // Auto-Rule Suggestions
 export { AutoRuleSuggestionService } from './features/auto-rule-suggestion/application/AutoRuleSuggestionService.js';
 
-// Sprint Journal
-export { SprintJournalService } from './features/sprint-journal/application/SprintJournalService.js';
+// sprint-journal feature removed by EA11-S8 (SCP 2026-04-11 §4 addendum — dead code)
 
 // KPIs Dashboard
 export { KPIsDashboardService } from './features/kpis-dashboard/application/KPIsDashboardService.js';
@@ -255,6 +254,32 @@ export {
 export type { SessionInteraction } from './features/bmad-orchestration/application/SessionLogger.js';
 export { SessionHistoryReader } from './features/bmad-orchestration/application/SessionHistoryReader.js';
 export type { SessionHistoryFilter } from './features/bmad-orchestration/application/SessionHistoryReader.js';
+// EA11-S3 / S6 / S7 / S8 — history + supervisor context + transcript
+export { HistoryService } from './features/bmad-orchestration/application/HistoryService.js';
+export { SupervisorContextLoader } from './features/bmad-orchestration/application/SupervisorContextLoader.js';
+export type {
+  SupervisorContext,
+  SupervisorProjectMetadata,
+} from './features/bmad-orchestration/domain/SupervisorContext.js';
+export { SessionTranscriptGenerator } from './features/bmad-orchestration/application/SessionTranscriptGenerator.js';
+export { ExchangeHistoryReader } from './features/bmad-orchestration/infrastructure/ExchangeHistoryReader.js';
+export type { ExchangeFile } from './features/bmad-orchestration/infrastructure/ExchangeHistoryReader.js';
+export { ExchangeHistoryWriter } from './features/bmad-orchestration/infrastructure/ExchangeHistoryWriter.js';
+export { MetricsWriter } from './features/bmad-orchestration/infrastructure/MetricsWriter.js';
+export { GitignoreBootstrap } from './features/bmad-orchestration/infrastructure/GitignoreBootstrap.js';
+export type {
+  ExchangeFrontMatter,
+  ExchangeRecord,
+  MetricRecord,
+} from './features/bmad-orchestration/domain/HistoryRecords.js';
+// EA11-S3 — extracted services
+export { WorktreeService } from './features/dev-agent/application/WorktreeService.js';
+export type { WorktreePort } from './features/dev-agent/domain/ports/WorktreePort.js';
+export { StepByStepController } from './features/workflow/application/StepByStepController.js';
+export type {
+  StepByStepMode,
+  StepByStepPort,
+} from './features/workflow/domain/ports/StepByStepPort.js';
 export { SupervisorService } from './features/bmad-orchestration/application/SupervisorService.js';
 export type { DeterministicPattern } from './features/bmad-orchestration/application/SupervisorService.js';
 
