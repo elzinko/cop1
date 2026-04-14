@@ -228,6 +228,25 @@ Ce document décompose les requirements du PRD et de l'Architecture en epics et 
 - NFR23 : Toute règle d'équipe ou règle agent (iamthelaw) est versionnée en YAML lisible par un humain
 - NFR24 : La configuration complète permet de recréer un environnement identique sur une autre machine
 
+**Phase 2 — Dashboard & Preview (ajoutés SCP 2026-04-14) (9)**
+- NFR26 : Sprint history load < 3s → **EA3 Dashboard** — **Sprint 10+** (UI)
+- NFR27 : KPI recalc < 2s → **EA3 Dashboard** — **Sprint 10+** (UI)
+- NFR28 : MCP audit logging → **E5-S13** (nouveau) — **MVP** (backend)
+- NFR29 : Preview env cleanup (pas de processus orphelin) → **Preview env epic** (à créer) — **Sprint 10+**
+- NFR30 : DemoAgent timeout (5 min défaut) → **Growth (DemoAgent)** — **Growth**
+- NFR31 : Preview env startup < 30s → **Preview env epic** — **Sprint 10+**
+- NFR32 : DemoAgent abstraction derrière contrat métier → **Growth (DemoAgent)** — **Growth**
+- NFR33 : API REST backend response times → **EA3 Dashboard** (bundle UI) — **Sprint 10+**
+- NFR34 : Test strategy par feature type (voir note ci-dessous) → **Cross-cutting DoD** — **MVP** (appliqué dès maintenant)
+
+**Note NFR34 (cross-cutting DoD) :** Chaque story de chaque epic doit satisfaire le seuil de couverture de sa catégorie de feature :
+- Backend domain (hexagonal, services) : **≥ 80 %** (unit + integration via Vitest)
+- SSE / EventBus / streaming : **≥ 70 %** (integration tests avec EventBus mock)
+- Web UI : **≥ 60 %** (component tests React)
+- Process management / preview env : **≥ 50 %** (integration tests avec timeout)
+
+Déviation autorisée uniquement par waiver explicite dans les ACs de la story. Workflows BMAD TEA (`bmad_tea_automate`, `bmad_tea_test-review`, `bmad_tea_atdd`) utilisables pour générer et auditer les tests. Cette règle s'applique à toutes les epics sans besoin de réécrire chaque DoD individuellement.
+
 ---
 
 ### Additional Requirements (Architecture)
@@ -395,8 +414,25 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 | FR102-108 | E12/E11 | ✅ |
 | FR109-115 | E3/E7/E11 | ✅ |
 | FR116 | E3 | ✅ |
+| FR117-118 | Preview env epic (à créer) | 🕗 Sprint 10+ |
+| FR119 | Growth (DemoAgent) | 🕗 Growth |
+| FR120 | E5 | 🕗 Phase 2 |
+| FR121 | **E5-S13** (nouveau — SCP 2026-04-14) | ✅ MVP backend |
+| FR122 | Preview env epic | 🕗 Sprint 10+ |
+| FR123 | Growth | 🕗 Growth |
+| FR125 | EA3 Dashboard | 🕗 Sprint 10+ (re-tagged SCP 2026-04-14) |
+| FR126 | EA3 Dashboard | 🕗 Sprint 10+ (re-tagged) |
+| FR129 | EA3 Dashboard | 🕗 Sprint 10+ (re-tagged) |
+| FR130-131 | Growth (DemoAgent) | 🕗 Growth |
+| FR135 | EA3 Dashboard | 🕗 Sprint 10+ (re-tagged) |
+| FR137 | EA1 | ✅ Sprint 7 |
+| FR138 | EA1 | 🕗 Sprint 10+ |
+| FR139 | EA3 Dashboard | 🕗 Sprint 10+ (re-tagged) |
+| FR140 | Preview env epic | 🕗 Sprint 10+ |
+| FR141 | Preview env epic | 🕗 Growth |
+| FR142-144 | EA2 | ✅ MVP |
 
-**Couverture : 116/116 FRs — 100%**
+**Couverture : 117/117 FRs actifs — 100%** (FR52b inclus, 7 IDs fusionnés Occam Razor 2026-02-23 : FR124, FR127, FR128, FR132, FR133, FR134, FR136 ; mise à jour SCP 2026-04-14)
 
 **Phase A Coverage (EA1-EA5):** Phase A epics address new requirements from the BMAD pivot (not part of original FR1-FR116). EA1 covers BMAD command orchestration, EA2 covers Claude API budget tracking, EA3 covers enhanced dashboard with replay, EA4 covers auto-retro and scrum reconciliation, EA5 covers BMAD sidecar sync. PRD updates tracked in Proposal 4 of the Sprint Change Proposal.
 
@@ -530,7 +566,7 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 **User Value :** "Je peux configurer quel LLM fait quoi — et le système s'adapte si un LLM est lent."
 
-**FRs couvertes :** FR13, FR14, FR15, FR16, FR17, FR47, FR49, FR52
+**FRs couvertes :** FR13, FR14, FR15, FR16, FR17, FR47, FR49, FR52, FR121
 
 **Package principal :** `@cop1/llm-intelligence`
 
@@ -550,6 +586,7 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 - **E5-S10** : LoggerBridge LLM Event Tracking — ajouter `llm.call.started` et `llm.call.completed` à `TRACKED_EVENTS` pour écriture dans `.cop1/sprint-log-*.jsonl` (FR29, NFR17)
 - **E5-S11** : TokensPerSecMonitor Wiring — connecter TokensPerSecMonitor à l'EventBus, souscrire à `llm.call.completed` pour alimenter `record()` automatiquement (FR52)
 - **E5-S12** : Ollama Models in Sprint Status — câbler OllamaManagementAdapter dans `cop1 sprint status` pour afficher les modèles Ollama disponibles avec leur taille (FR16, FR90)
+- **E5-S13** : MCP Audit Logging — sink JSONL `.cop1/audit/mcp-YYYY-MM-DD.jsonl` recevant chaque invocation MCP via EventBus (agent_id, tool_name, args_digest, result_status, duration_ms) — CLI `cop1 audit mcp --since <date>` pour dump (FR121, NFR28)
 
 **Definition of Done :**
 - LLM Gateway répond à une requête Ollama locale en < 2s pour un modèle chargé
@@ -870,7 +907,7 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 **Package principal:** `@cop1/sprint-core` (features `workflow`, `rule-proposal`) + `@cop1/ceremony-engine`
 
-**Dependencies:** EA1 (BMADCommandPort), EA5 (sidecar sync for rules), E9 (iamthelaw), E12 (RuleApplicationService)
+**Dependencies:** EA1 (BMADCommandPort), EA5 (one-way consumer — sidecar sync for rules), E9 (iamthelaw), E12 (RuleApplicationService)
 
 **Stories:**
 
@@ -888,6 +925,7 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 - Retro output parsed into structured action items (RuleProposal, RefactoringStory, etc.)
 - Action items feed into `RuleProposalService` → rules synced via EA5 sidecar
 - Full cycle tested: sprint → retro → action items → rule proposals → sidecar sync
+- **End-to-end AC (SCP 2026-04-14) :** test d'intégration vérifiant que la sortie retro émet bien un événement `rule.updated` sur l'EventBus et que le sidecar EA5 reflète le changement dans le même tick (consomation one-way validée)
 
 ---
 
@@ -897,7 +935,7 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 **Package principal:** `@cop1/sprint-core` (feature `iamthelaw`)
 
-**Dependencies:** E9 (iamthelaw rules), EA4 (retro-to-rules loop)
+**Dependencies:** E9 (iamthelaw rules)
 
 **BMAD mechanisms used:**
 - **customize.yaml**: Agent configuration override. `critical_actions` APPEND to base agent → load sidecar at activation.
@@ -908,6 +946,8 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 - **EA5-S1** : Sidecar sync service — Sync `.cop1/rules/active-rules.yaml` → `_bmad/_memory/iamthelaw-sidecar/rules.md` (LLM-friendly markdown)
 - **EA5-S2** : BMAD customize.yaml setup — `cop1 init-bmad-bridge` command configuring `_bmad/_config/agents/` customize files with `critical_actions` loading sidecar
 - **EA5-S3** : Auto-sync on rule change — EventBus listener: when rules change → trigger sidecar sync automatically
+
+> **Note (SCP 2026-04-14) :** EA5-S3 écoute l'EventBus sur l'événement `rule.updated` émis par la couche de persistance des règles (E9 `RuleApplicationService`) — quelle que soit l'origine du changement (édition manuelle, proposition issue de rétro, CLI). EA5 n'a aucune connaissance du pipeline retro ; elle réagit à un signal `rule.updated`. EA4-S6 est l'un des producteurs de ce signal via `RuleProposalService → RuleApplicationService → EventBus`. Cette dépendance est désormais explicitement **one-way** : EA4 consomme EA5 (sidecar sync), EA5 ne dépend pas d'EA4.
 
 **Definition of Done:**
 - `active-rules.yaml` converted to LLM-friendly markdown and written to `_bmad/_memory/iamthelaw-sidecar/rules.md`
@@ -1131,13 +1171,20 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 ---
 
-### Epic EA11 — Orchestrator Foundation
+### Epic EA11 — Session Transcripts & Orchestrator Platform
 
-> **Added 2026-04-11 — SCP 2026-04-11 approved.**
-> Parallelized with EA6 in Sprint 12. Prepares the plumbing required by EA10: cleanup of legacy agent classes, extraction of technical services, two architectural ADRs, SupervisorContext enrichment, and session transcript generation.
-> **BLOCKING for EA10** — all 7 stories must complete before EA10-S4, S7, S8.
+> **Added 2026-04-11 — SCP 2026-04-11 approved. Reframed 2026-04-14 — SCP readiness-fixes.**
+> Parallelized with EA6 in Sprint 12. Delivers the user-visible session artefacts (committable transcripts + per-story history) plus the architectural primitives (extracted services, ADR-013/014, SupervisorContext) that EA10 consumes.
+> **BLOCKING for EA10** — all 8 stories must complete before EA10-S4, S7, S8.
 
-**User Value:** "Before I can automate BMAD for 1 epic, I need solid foundations: dead code clearly deprecated, technical services cleanly extracted and exposable, architectural decisions documented, and a readable transcript of every multi-turn session."
+**User Value:** "As a Developer, after every multi-turn BMAD session I get a committable markdown transcript (Q/A, tool calls, decisions) and a per-story file-based history I can diff in git — so I can review what the orchestrator did without reading JSONL or log streams. This is the foundation that makes EA10 auditable and replayable."
+
+**Scope :** Delivers the 3-track persistence (exchange markdown, metrics JSONL, SDK session), the session transcript CLI (`cop1 transcript <session-id>`), plus the architectural primitives (extracted services, ADR-013/014, SupervisorContext) that EA10 consumes.
+
+**Housekeeping (epic-level DoD, not user-facing stories) :**
+- Legacy cop1 agent classes marked `@deprecated` with rationale (absorbé dans EA11-S1)
+- `workflow.useBMAD=false` path emits runtime warning (absorbé dans EA11-S2)
+- **Capacity note :** EA11-S1/S2 restent séparément trackables comme items XS pour la planification Sprint 12 mais n'apparaissent plus comme user-facing stories dans les rétros ou les rapports stakeholder.
 
 **Technical approach:**
 - **Deprecation (not deletion)** of legacy cop1 agent classes (DevAgent, ReviewerAgent, QAAgent, PMAgent + their *Step wrappers) and the `config.workflow.useBMAD=false` path. Preserves a fallback.
@@ -1145,7 +1192,8 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 - **ADR-013**: formal separation between `OrchestratorService` (inter-command) and `SprintRunner` (intra-command). Straightforward separation doc based on existing code.
 - **ADR-014**: **architect session with user** to decide how the LLM supervisor invokes cop1 technical services — MCP server, Agent SDK in-process tools, BMAD sidecar, or hybrid. Also answers Q2 (access scope: supervisor-only or shared with BMAD internal agents), Q3 (LLM provider abstraction for multi-provider future), Q4 (code vs LLM frontier), Q5 (playbook format), Q6 (supervisor history channel).
 - **SupervisorContext bootstrap loader**: at sprint start, read PRD, architecture doc, and project metadata from the filesystem and inject them into supervisor sessions. The `iamthelaw` field is reserved but populated empty until EA7 follow-up.
-- **Session transcript generator**: convert `NarrativeLog` JSONL multi-turn events into human-readable markdown (`.cop1/transcripts/session-{id}.md`). Foundational observability capability needed before any orchestrator validation.
+- **Session logging refactor (3-tracks)**: subsume `SessionLogger`/`SessionHistoryReader` into the file-based 3-tracks structure decided in ADR-014 §8.5 — Track 2 exchange history (markdown, git-visible) and Track 3 metrics (JSONL, gitignored). Prerequisite for the transcript generator.
+- **Session transcript generator**: compose a session-level human-readable markdown transcript by aggregating Track 2 exchange history files. Foundational observability capability needed before any orchestrator validation.
 
 **Package principal:** `@cop1/sprint-core` (services extraction, SupervisorContext loader) + `@cop1/observability` (transcript generator)
 
@@ -1159,7 +1207,8 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 - **EA11-S4** — Write ADR-013 "Orchestrator vs SprintRunner separation". Document the split: `SprintRunner` handles intra-command (worktree setup, session lifecycle, checkpoint, story filtering, event emission) while `OrchestratorService` handles inter-command (playbook reading, command sequencing, multi-step supervisor loop). (Sprint 12, Small)
 - **EA11-S5** — **Architect session** → produce ADR-014 "Supervisor Tool Interface". Mandatory session with user. Answers Q1–Q6 (see SCP 2026-04-11 §4.5). Must be committed before EA10-S4, S7, S8 start. (Sprint 12, Medium) **Critical path.**
 - **EA11-S6** — `SupervisorContext` bootstrap loader. At sprint start, loads PRD (`_bmad-output/planning-artifacts/prd.md`), architecture doc, project metadata from the filesystem and injects them into supervisor sessions via `SupervisorContext`. iamthelaw field reserved empty. Unit tests with fixture filesystem. (Sprint 12, Small)
-- **EA11-S7** — Session transcript generator. New component in `@cop1/observability` that reads `NarrativeLog` JSONL events for a session and produces a human-readable markdown transcript: Q/A of supervisor, system events (start/end, errors, retries), tool invocations. CLI `cop1 transcript <session-id>` to display or regenerate. Depends: existing `NarrativeLogPort`. (Sprint 12, Medium)
+- **EA11-S7** — Session transcript generator. New component in `@cop1/observability` that reads **Track 2 exchange history** (markdown files under `.cop1/history/`, produced by EA11-S8) and composes a session-level human-readable markdown transcript: Q/A of supervisor, system events (start/end, errors, retries), tool invocations. CLI `cop1 transcript <session-id>` to display or regenerate. Depends: **EA11-S8** (3-tracks structure). (Sprint 12, Medium)
+- **EA11-S8** — **Refactor `SessionLogger` / `SessionHistoryReader` to file-based 3-tracks structure** (proposed by ADR-014 §8.5 architect session). Implements Q6 decision: Track 2 exchange history (one markdown file per BMAD command invocation under `.cop1/history/{sprint}/{story}/`, committed to git unless opted out) + Track 3 metrics (daily JSONL under `.cop1/metrics/YYYY-MM-DD.jsonl`, gitignored). New writers `ExchangeHistoryWriter` and `MetricsWriter`, new reader `ExchangeHistoryReader`, refactored `SessionLogger`/`SessionHistoryReader` routing to both tracks while preserving the public `SessionInteraction` type and the existing `EventBus` integration (SSE). Front-matter injection escaping for Track 2 markdown. `.gitignore` auto-bootstrap guard with `--yes` flag (ADR-014 §8.6). Deletes dead `sprint-journal/` feature. Depends: **EA11-S5** (ADR-014 approved). Blocks: **EA11-S7**. (Sprint 12, **Medium-Large ~950–1350 LOC with tests**) **Capacity watch.**
 
 **Definition of Done:**
 - All 4 legacy agent classes + their step wrappers marked `@deprecated` with rationale
@@ -1167,7 +1216,8 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 - Technical services (`WorktreeService`, `HistoryService`, `StepByStepController`) live in dedicated files with clean interfaces
 - ADR-013 and ADR-014 committed and approved by user
 - SupervisorContext loader populates real project data at sprint start (verified by integration test)
-- Session transcript generator produces a readable markdown file from a real JSONL session log
+- File-based 3-tracks logging structure live: `ExchangeHistoryWriter` and `MetricsWriter` produce real files under `.cop1/history/` and `.cop1/metrics/`, `sprint-journal/` feature deleted, `SessionInteraction` type preserved, EventBus integration intact, `.gitignore` auto-bootstrap guard active
+- Session transcript generator produces a readable session-level markdown file by aggregating Track 2 exchange files
 - `cop1 transcript <session-id>` CLI works
 
 **ADR References:** ADR-013 (produced in EA11-S4), ADR-014 (produced in EA11-S5)
@@ -1176,6 +1226,7 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 1. **ADR-014 scope creep** in architect session. Mitigation: time-box the session, Q1–Q6 list is the agenda, decisions can be "revisit at V1.1" if ambiguous.
 2. **Extraction refactor breakage (EA11-S3)**. Mitigation: keep legacy paths intact, introduce new services side-by-side, migrate callers incrementally.
 3. **Filesystem assumption drift (EA11-S6)**. Mitigation: fixture tests that exercise real paths from `_bmad/bmm/config.yaml`.
+4. **EA11-S8 capacity overrun (Sprint 12)**. Re-estimated medium-large at ~950–1350 LOC (ADR-014 §8.5), larger than initially scoped. Mitigation: monitor Sprint 12 velocity; if at risk, defer EA11-S1/S2 (pure deprecations, XS) to Sprint 13 since they don't block anything.
 
 ---
 
@@ -1272,7 +1323,8 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
   - EA11-S4 (ADR-013 Orchestrator vs SprintRunner)
   - EA11-S5 (ADR-014 Supervisor Tool Interface — **architect session**) — **critical path**, blocks EA10-S4/S7/S8
   - EA11-S6 (SupervisorContext bootstrap loader)
-  - EA11-S7 (Session transcript generator)
+  - EA11-S8 (Refactor SessionLogger/Reader → 3-tracks structure) — NEW, ADR-014 §8.5, blocks S7
+  - EA11-S7 (Session transcript generator) — now reads Track 2 from S8
 - **Goal:** Validate multi-turn pipeline works E2E before dogfooding AND prepare plumbing for the orchestrator. Two ADRs committed before Sprint 13.
 
 ### Sprint 13 — Supervisor Orchestrator RESTRUCTURED (SCP 2026-04-11, BLOCKING V1-light DoD)
@@ -1821,6 +1873,19 @@ shared-kernel → observability → llm-intelligence → quality-intelligence �
 
 - **AC1** : `TokensPerSecMonitor.measure(agentName)` mesure le débit LLM réel sur les 3 dernières requêtes et retourne `{tokensPerSec, meetsMinimum: boolean}` (seuil 15 t/s — NFR2)
 - **AC2** : Agent avec `meetsMinimum: false` est exclu automatiquement des cérémonies Round-Table — la décision est loggée sur SSE (`agent.excluded_low_perf`)
+
+---
+
+#### [E5-S13] MCP Audit Logging
+> **5 pts** | Must Have | Bloqué par : E5-S5, E7-S1
+
+- **AC1** : `MCPAuditSink` souscrit à l'EventBus sur `mcp.call.completed` — chaque événement est écrit dans `.cop1/audit/mcp-YYYY-MM-DD.jsonl` avec schéma `{ts, agent_id, tool_name, args_digest, result_status, duration_ms}` (FR121, NFR28)
+- **AC2** : `args_digest` est un hash SHA-256 tronqué (16 chars) des arguments — jamais les arguments en clair (NFR6 — pas de fuite de secrets potentiels dans les args MCP)
+- **AC3** : Rotation quotidienne du fichier (`mcp-YYYY-MM-DD.jsonl`) — répertoire `.cop1/audit/` ajouté au `.gitignore` par le setup E1
+- **AC4** : CLI `cop1 audit mcp --since <ISO-date>` retourne les entrées postérieures à la date, triées — stretch goal `--agent <id>` et `--tool <name>` pour filtrer
+- **AC5** : Tests unitaires sur sérialisation, rotation de date, et digest ; test d'intégration avec EventBus mock émettant 100 événements → 100 lignes JSONL valides
+
+> **Sprint assignment :** Sprint 7 ou 8 (MVP backend, flexible selon capacité). Non-bloquant pour EA10.
 
 ---
 
