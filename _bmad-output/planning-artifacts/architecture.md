@@ -3,7 +3,10 @@ stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-13'
-lastUpdated: '2026-03-19'
+lastUpdated: '2026-04-15'
+amendments:
+  - date: '2026-04-15'
+    scope: 'V1.1 architect session — D1 BMAD pin / D2 command mapping / D3 sprint-status write discipline / D4 session log aggregation'
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/project-context.md'
@@ -956,11 +959,11 @@ interface BMADCommandResult {
 4. **Retro** — structured retrospective with action items
 5. **Sprint-status transitions** — `ready-for-dev → in-progress → review` (Steps 4 & 9 of dev-story)
 
-**sprint-status.yaml ownership:** → See **ADR-009** for full specification
+**sprint-status.yaml ownership:** → See **ADR-009** for full specification + **ADR-013 §8.4** for orchestrator-level reconfirmation
 - **BMAD** manages all transitions (dev-story Steps 4 & 9, create-story, sprint-planning, retro)
 - **cop1** reads from `_bmad-output/implementation-artifacts/sprint-status.yaml` via `SprintStatusReaderPort` (read-only)
-- cop1 writes only its own execution history to `.cop1/sprint-log-*.jsonl`
-- cop1 **NEVER** writes to `sprint-status.yaml` — no `setStatus()` in SprintRunner
+- cop1 writes only its own execution history to `.cop1/sprint-log-*.jsonl` + son checkpoint de process dans `.cop1/orchestrator-state.yaml` (ADR-013 §8.4)
+- cop1 **NEVER** writes to `sprint-status.yaml` — no `setStatus()` in SprintRunner, no `persistStatus()` in OrchestratorService (V1-light waiver documenté en ADR-009 — à résorber V1.1)
 
 **Rationale:**
 - BMAD workflows are battle-tested (10-step dev-story > 14-line DevAgent prompt)
@@ -1065,6 +1068,14 @@ development_status:
 - Le port hexagonal `SprintStatusReaderPort` permet de tester sans filesystem
 - Le format BMAD (`storyId: status`) est plus simple que le format cop1 (`{ status, updatedAt }`) — pas besoin de `updatedAt` côté cop1, c'est dans le JSONL
 
+**V1-light temporary waiver (2026-04-15 — à résorber en V1.1) :**
+
+Depuis EA10-S4, `OrchestratorService.persistStatus()` (`packages/app/src/features/orchestrator/application/OrchestratorService.ts:207-211`) écrit dans `sprint-status.yaml` pour faire avancer manuellement les stories — parce que `BMADCommandRunner` est un stub qui ne déclenche pas la vraie commande `/bmad-bmm-dev-story` (laquelle mute le YAML elle-même, ADR-008 Step 9).
+
+Ce write viole l'invariant ADR-009 ET ADR-013 §8.4. Il est **toléré en V1-light** uniquement parce que sans lui rien n'avance. Le trigger de suppression est explicite : la PR V1.1 qui branche le vrai `BMADCommandRunner` → `SprintRunner` → `BMADSessionPort` **doit supprimer `persistStatus()` dans le même diff** (atomicité). Voir amendement V1.1 § *Sprint-Status Write Discipline* plus bas pour le séquençage complet.
+
+Aucune nouvelle ADR n'est requise — ADR-013 §8.4 a déjà tranché que `.cop1/orchestrator-state.yaml` est le seul espace d'écriture légitime pour le checkpoint de process.
+
 ---
 
 ### ADR-012 — Multi-Turn BMAD Interaction: Agent SDK + LLM Supervisor
@@ -1121,13 +1132,23 @@ Depuis EA9-S6, `BMADSessionPort` a deux implémentations infrastructure : `Agent
 
 ### ADR-013 — Supervisor Orchestrator vs SprintRunner Separation (EA10)
 
-> Status: **Draft stub** — full content to be written during EA10-S2 (Sprint 13). Placeholder created 2026-04-07 by SCP.
+> Status: **ACCEPTED** — finalisé Sprint 13 via EA11-S4. Document complet : `adr-013-orchestrator-sprintrunner-separation.md` (525 L). Cette section n'est qu'un pointeur — toute référence autoritative doit citer le document complet.
 
-**Context:** EA10 introduces a new `OrchestratorService` that drives inter-command BMAD sequencing (create-story → dev-story → code-review → retrospective) from a markdown playbook. This raises the question of how it relates to the existing `SprintRunner`, which orchestrates intra-command pipeline steps (`BMADSessionStep`, etc.).
+**Decision (résumé) :** Séparation deux couches — `OrchestratorService` (inter-command, boucle playbook, épic-scope) **appelle** `SprintRunner` (intra-command, mécanique worktree/session/checkpoint). Pas de `SprintRunnerPort` en V1-light (ADR-013 §8.1). Pas de couche intermédiaire.
 
-**Decision (to be finalized in EA10-S2):** The `OrchestratorService` **calls** `SprintRunner` for each BMAD command rather than replacing it. Playbook format = markdown standard; if more expressive power becomes necessary, switch to BMAD `workflow.xml` format rather than extending the markdown parser.
+**Ce qu'ADR-013 tranche explicitement** (lire le doc pour les rationales) :
 
-**Consequences:** TBD during EA10-S2.
+| Sous-décision | Référence |
+|---|---|
+| SprintRunner reste classe concrète (mockée `vi.fn()`) | §8.1 |
+| `SprintRunner.run()` legacy conservée avec critères de sortie mesurables | §8.2 |
+| `StepByStepController` unifié — `{continue, skip-to-next-command, skip-to-next-story, abort}` | §8.3 |
+| **Persistance inter-invocation dans `.cop1/orchestrator-state.yaml`** (PAS dans `sprint-status.yaml`) | §8.4 |
+| OrchestratorService observe `InvocationResult` typé, pas les events intra | §8.5 |
+
+**Cohérence ADR-009 :** ADR-013 §8.4 tranche explicitement que l'orchestrator n'écrit **jamais** dans `sprint-status.yaml`. Le checkpoint de process vit dans `.cop1/orchestrator-state.yaml`. Voir amendement V1.1 § *Sprint-Status Write Discipline* plus bas pour le trigger de suppression de la dette V1-light `OrchestratorService.persistStatus()`.
+
+**Consequences:** stories débloquées documentées §9 du doc complet (EA11-S3, EA10-S4/S5/S6).
 
 ---
 
@@ -1446,6 +1467,350 @@ fi
 # check-iamthelaw.sh — validation YAML schema (démarrage daemon + CI)
 # Valide chaque fichier iamthelaw/ contre IamTheLawConfig schema (Zod)
 ```
+
+## V1.1 Amendments (2026-04-15)
+
+> Session architect V1.1 (2026-04-15) — quatre décisions tranchées post-clôture V1-light. Entrées : `docs/brownfield-snapshot.md` (snapshot code), `docs/bmad-version-audit.md` (compat BMAD), ADR-013/ADR-014 (immuables), retro EA10/EA11 2026-04-14. Les sections ci-dessous **étendent** l'architecture sans rouvrir les ADRs existants.
+
+### BMAD Version Strategy
+
+**Décision (D1).** Freeze `core + bmm` à **6.0.0-Beta.8** pour toute la fenêtre V1.1. Pas d'upgrade vers 6.3. `bmb` et `tea` restent inchangés (non consommés par le runtime cop1 — audit §3).
+
+**Commandes gelées (source : `docs/bmad-version-audit.md` §3) :**
+
+| Slash command | Module | Pinned version | Consumer path |
+|---|---|---|---|
+| `/bmad-bmm-create-story` | bmm | 6.0.0-Beta.8 | `supervisor-playbook.md:10`, orchestrator-e2e |
+| `/bmad-bmm-dev-story` | bmm | 6.0.0-Beta.8 | `PipelineStepFactory.ts:77`, playbook |
+| `/bmad-bmm-code-review` | bmm | 6.0.0-Beta.8 | `PipelineStepFactory.ts:83`, playbook |
+| `/bmad-bmm-qa-automate` | bmm | 6.0.0-Beta.8 | `PipelineStepFactory.ts:89` — ⚠ Quinn supprimé en 6.3 |
+| `/bmad-help` | bmm | 6.0.0-Beta.8 | `SupervisorPlaybookLoader.ts:100`, playbook |
+
+**Rationale (critères coût / risque / valeur) :**
+
+- **Coût d'upgrade 6.3 élevé** : refactor "everything is a skill" en 6.1, suppression de Quinn en 6.3 (donc `/bmad-bmm-qa-automate` à remapper ou remplacer), re-run `cop1 init-bmad-bridge` pour rafraîchir `customize.yaml`, smoke-test des 5 commandes — sur un pipeline actuellement single-point-of-failure en dogfooding.
+- **Risque HIGH** : la pipeline V1-light est la surface de test unique — un upgrade mid-V1.1 fait coïncider première-contact-production et migration-breaking.
+- **Valeur 6.3 pour V1.1 quasi-nulle** : V1.1 = hardening `commit_anchor` + session log aggregation. Aucune feature de 6.1/6.2/6.3 n'accélère ce scope. Stability > features — règle héritée retro EA10-S9 Plan B ("pragmatisme bat idéalisme quand DoD en jeu").
+
+**Trigger de ré-évaluation (non ambigu) :** dès que V1.1 est clôturée (ou dès qu'une feature upstream 6.1+ devient bloquante, selon ce qui arrive en premier), ouvrir une story dédiée "BMAD upgrade spike" avec : (a) `npx bmad-method update --dry-run` sur worktree isolé, (b) smoke-test des 5 commandes via fixture, (c) replacement map explicite pour `/bmad-bmm-qa-automate` (via `/bmad-help` sur l'install 6.3), (d) rollback plan.
+
+**Conformité ADR-014 :** la whitelist `allowed_commands` du playbook (ADR-014 §7.4) matérialise déjà ce freeze à l'exécution — toute commande absente est rejetée, protection contre drift.
+
+**Hors scope :** BMB (bmad-builder) — `bmad-builder v1` est toujours "In Progress" upstream sans ETA (audit §4.4). Ne pas baser d'architecture cop1 sur BMB `create-module/create-agent/create-workflow`.
+
+#### Exit Paths (ajoutés post adversarial review 2026-04-15, SCP 2026-04-15)
+
+Le freeze 6.0.0-Beta.8 n'est pas un cul-de-sac. Trois chemins de sortie ordonnés :
+
+- **Path A — Upstream bugfix (ex : 6.0.0-Beta.9).** Auto-autorisé dans la fenêtre V1.1, sans SCP dédié. Condition : smoke-test sur fixture EA6 avant merge. Le pinned version bump est un one-liner dans le playbook frontmatter `bmad_target_version`.
+- **Path B — Fork patch dans `_bmad-method-distribution/`.** Toléré jusqu'à 14 jours. Documenté comme dette technique explicite avec annotation "BMAD upstream version expected: X.Y.Z" dans le commit de fork. Déclenché par défaut si un bug bloquant upstream reste unfixed > 14j — dans ce cas, une story V1.1 est ouverte pour le suivi.
+- **Path C — Freeze to stable 5.x.** Uniquement via SCP dédié (pas le chemin par défaut). Implique un downgrade significatif (perte des améliorations 6.0.0-Beta.*).
+
+**SLA :** si 6.0.0-Beta.8 a un bug bloquant non corrigé upstream sous 14 jours, Path B se déclenche par défaut.
+
+---
+
+### Playbook Scrum-Directives (V1.1)
+
+**Décision (D2) — PIVOTÉE le 2026-04-15** (SCP adversarial review). L'approche `commands:` map du frontmatter est **rejetée**. Le playbook ne contient **aucune énumération de commandes BMAD**.
+
+**Nouvelle règle :**
+
+Le playbook markdown (`.cop1/playbooks/default.md`) contient exclusivement :
+
+1. **Frontmatter YAML minimal** : `playbook_version`, `bmad_target_version`, `bmad_module`, `scope`, `budgets` (voir A1 ci-dessous pour simplification budgets). Pas de `commands:`, pas de `allowed_commands`.
+2. **Corps markdown = directives scrum** : posture du superviseur, forme du cycle ("create a story → develop it → qa test → code review → move to next"), politique d'escalation, mission statement. Non spécifique à BMAD — transposable à tout framework de développement assisté.
+3. **Catalogue d'outils cop1** : le frontmatter déclare les outils MCP non-BMAD (cop1's own API : `commit_anchor`, `remaining_budget`, `query_session_history`, etc.). Ces outils SONT déclarés explicitement car ils sont propriétaires cop1.
+
+**Découverte autonome des commandes BMAD par le superviseur :**
+
+Le superviseur LLM est informé via son system prompt qu'il a accès au projet BMAD et peut :
+- Invoquer `/bmad-help` pour découvrir les workflows disponibles
+- Utiliser la complétion slash pour explorer les commandes
+- Lire `_bmad/bmm/**` pour la version pinnée
+
+L'outil `invoke_bmad_command` accepte **toute chaîne de commande BMAD** au runtime — aucun filtrage par whitelist. La sécurité repose sur le garde-fou de ré-entrance (§5.7 ADR-014, amendé A4) et le budget token (§3.3 ADR-014, amendé A1), pas sur une énumération statique.
+
+**Schéma Zod (`PlaybookSchemaV2`) simplifié :**
+
+```typescript
+const PlaybookSchemaV2 = z.object({
+  playbook_version: z.literal(2),
+  bmad_target_version: z.string().regex(/^\d+\.\d+\.\d+(-\w+)?$/),
+  bmad_module: z.enum(['bmm', 'bmb', 'tea']),
+  scope: z.object({
+    mode: z.enum(['single_epic']),
+    max_stories_per_run: z.number().default(30),
+  }),
+  budgets: z.object({
+    max_tokens_per_night: z.number().default(2_000_000),
+    max_reentrance_depth: z.number().default(3),
+  }).optional(),
+  // NO commands: field. NO allowed_commands: field.
+  // cop1 tool catalogue declared separately in tool definitions.
+});
+```
+
+**Impact sur le code existant (V1.1 stories) :**
+
+| Site | Action |
+|---|---|
+| `PipelineStepFactory.ts:77,83,89` | Les littéraux hardcodés migrent dans le **system prompt du superviseur** comme guidance scrum, pas dans le frontmatter. `invoke_bmad_command` accepte toute commande. |
+| `orchestrator-e2e.test.ts:45,134` | Relaxer : ne plus asserter sur des noms de commandes BMAD littéraux. Asserter sur le résultat (story avancée, status changé). |
+| `bmad-pipeline-e2e.test.ts:166-171` | Idem : assertions sur effets, pas sur commandes. |
+| `supervisor-playbook-reference.md` | Mettre à jour pour refléter le pivot (scrum directives, pas command map). |
+
+**Contrat d'extensibilité** : quand BMAD 6.3 supprime `/bmad-bmm-qa-automate`, le superviseur le découvre via `/bmad-help` et adapte — zéro ligne TypeScript modifiée, zéro playbook modifié. L'adaptation est dans le cerveau du LLM, pas dans la config.
+
+---
+
+### Status Discipline — BMAD Workflow-Gated (V1.1)
+
+**Décision (D3) — PIVOTÉE le 2026-04-15** (SCP adversarial review). La discipline originale (D3 = "no write") est **renforcée** : cop1 ne lit NI n'écrit `sprint-status.yaml` ou tout autre artefact BMAD au runtime. Couplage fichier zéro.
+
+**Nouvelle règle :**
+
+1. **Le superviseur interroge le statut via `/bmad-bmm-sprint-status`** — workflow BMAD natif (confirmé présent dans `_bmad/bmm/workflows/4-implementation/sprint-status/`). Le superviseur interprète la sortie texte et transmet l'état compris à cop1 via une API interne.
+
+2. **Invocation event-driven, pas polling.** Le superviseur appelle `/bmad-bmm-sprint-status` uniquement après un workflow susceptible d'avoir changé le statut (typiquement après le retour de `/bmad-bmm-dev-story` Step 9 qui écrit sprint-status.yaml). Pas de vérification avant `create-story` — inutile, le superviseur sait ce qu'il vient de lancer.
+
+3. **cop1 écrit son propre état dans `.cop1/orchestrator-state.yaml`** via `OrchestratorService.persistState()` (schéma ADR-013 §8.4, atomic rename, gitignored). Ce fichier est l'unique source de vérité de l'état orchestrateur.
+
+4. **`BmadStatusReader` est DÉPRÉCIÉ et à supprimer** du runtime. Tous ses consommateurs sont à retirer. La suppression est une story V1.1 (cf. SCP 2026-04-15 §5.3).
+
+**Séquençage de migration :**
+
+| Phase | Lecture sprint-status.yaml | Écriture sprint-status.yaml | `.cop1/orchestrator-state.yaml` |
+|---|---|---|---|
+| V1-light (actuel) | Via `BmadStatusReader` (waiver) | Via `persistStatus()` (waiver) | ❌ pas encore |
+| V1.1 step 1 | **SUPPRIMÉE** (`BmadStatusReader` retiré) | **SUPPRIMÉE** (`persistStatus()` retiré) | ✅ écrit par `persistState()` |
+| V1.1 terminal | Zéro couplage | BMAD seul | Canonical |
+
+**Invariant post-V1.1** (propriété testable, test d'architecture) :
+
+> `grep -r "sprint-status.yaml" packages/**/src/**/*.ts` retourne **zéro résultat**. Ni lecture, ni écriture. Seules exceptions tolérées : références dans la documentation SCP et dans les fichiers deprecated marqués pour suppression.
+
+Un test `architecture-invariants.test.ts` mécanise cette garantie.
+
+**Tests à mettre à jour :**
+
+- `orchestrator-e2e.test.ts` — assertions sur `orchestrator-state.yaml` uniquement, plus aucune référence à `sprint-status.yaml`.
+- `OrchestratorService.test.ts` — vérifier qu'aucun `readFile` ni `writeFile` de `sprint-status.yaml` n'a lieu.
+
+**Pas d'ADR-015.** ADR-013 §8.4 + cette discipline pivotée couvrent l'architecture. L'enforcement est dans le test d'invariant.
+
+---
+
+### Session Log Aggregation (Story-Level View)
+
+**Décision (D4).** On ajoute un **artefact dérivé** agrégeant Track 2 (exchanges) + Track 3 (metrics) + résultat `commit_anchor` à la granularité **story**, matérialisé dans `_bmad-output/implementation-artifacts/sessions/<storyKey>-session.md`. Pas de 4e track — ADR-014 §8 (trois tracks) préservé. L'agrégat est un **view**, pas une source de vérité.
+
+**Rationale** : le hack utilisateur pré-V1.1 (retro §5 HIGH #2–#3, `epic-ea10-ea11-retro-2026-04-14.md`) a prouvé par l'usage que la granularité exchange (un fichier par `invoke_bmad_command`, ADR-014 §8.3) est la bonne structure **opérationnelle**, mais la granularité consultation-humaine utile est **story-level agrégée** avec shell commands, exit codes, questions verbatim, décisions, gate results et commit hash dans un seul fichier lisible.
+
+**Emplacement** : `_bmad-output/implementation-artifacts/sessions/<storyKey>-session.md` (alignement sur l'output du hack, évite la friction de re-apprentissage). Commité par `commit_anchor` dans le même commit que la story et le code — pattern "un commit = une story" (retro §5).
+
+**Schéma frontmatter YAML** :
+
+```yaml
+---
+schema_version: 1
+story: EA11-S5
+epic: EA11
+sprint: sprint-13
+supervisor_session_id: 8583af39-ecd7-497f-9297-c5cfb4b8cc69
+workflow_sequence:
+  - create-story
+  - dev-story
+  - code-review
+  - qa-automate
+started: 2026-04-11T14:30:00Z
+ended:   2026-04-11T18:12:44Z
+outcome: completed        # completed | escalated | aborted | partial
+anchor_commit: a1b2c3d4   # from commit_anchor MCP tool (V1.1 priority #1)
+exchange_files:           # Track 2 pointers — canonical source
+  - .cop1/history/sprints/sprint-13/sessions/20260411-143000_EA11-S5_create-story_8583af.md
+  - .cop1/history/sprints/sprint-13/sessions/20260411-164522_EA11-S5_dev-story_b72e1c.md
+  - .cop1/history/sprints/sprint-13/sessions/20260411-181111_EA11-S5_code-review_f901ab.md
+metrics_range:            # Track 3 pointer (JSONL slice by ts + story)
+  start: 2026-04-11T14:30:00Z
+  end:   2026-04-11T18:12:44Z
+  file:  .cop1/metrics/sprints/sprint-13/2026-04-11.metrics.jsonl
+gate_results:
+  dev_story:   { outcome: pass, verdict: "AC 1-7 met", evidence: "...pointer..." }
+  code_review: { outcome: pass, verdict: "no HIGH findings" }
+  qa_automate: { outcome: pass, verdict: "coverage 94%, 0 regressions" }
+escalations_count: 1
+blockers_count: 0
+---
+```
+
+**Sections markdown canoniques** (ordre et noms stables — consommables par un futur reader) :
+
+```markdown
+# Session Log — {storyKey}
+
+## 1. Entry context
+PRD refs + architecture refs chargés via SupervisorContextLoader (ADR-012 §A3 / EA11-S6)
+
+## 2. Shell commands & exit codes
+Table: | ts | cmd | exit | stderr (500 char truncated) |
+
+## 3. File modifications
+Wired à `### File List` de la story markdown (réciproque : §8 ci-dessous écrit un pointeur vers ce log dans `### Debug Log References` de la story)
+
+## 4. Key questions & decision method
+Table: | ts | question (verbatim) | method (deterministic/LLM/user) | responder | answer |
+Filtré depuis Track 2 — uniquement les exchanges `action_type: escalation | decision_method_llm | decision_method_deterministic`
+
+## 5. Decisions with rationale
+Agrégation des `commit_anchor`, `consult_agent`, décisions de pilotage supervisor (Track 2 entries `action_type: supervisor decision (*)`)
+
+## 6. Blockers & root causes
+Narration des escalations + résolution downstream
+
+## 7. Gate results
+Détail par workflow — extrait depuis `gate_results` frontmatter + pointeurs vers artefacts reviewer/QA
+
+## 8. Anchor commit
+Full metadata du commit `commit_anchor` : SHA, message conventional, fichiers modifiés, Co-Authored-By
+```
+
+**Pipeline de génération** :
+
+```
+orchestrator.story.completed event
+        │
+        ▼
+SessionLogAggregator.generate(storyKey, epicId, supervisorSessionId)
+        │
+        ├─ ExchangeHistoryReader.getExchangesForStory(storyKey)   # Track 2
+        │     → filtre action_types sémantiques (skip plumbing)
+        ├─ MetricsReader.getMetricsSliceForStory(storyKey)        # Track 3
+        │     → fenêtrage temporel + gate_results extraction
+        ├─ StoryFileReader.getStoryMetadata(storyKey)             # _bmad-output stories
+        │     → commands run, File List, AC status
+        └─ commit_anchor.getAnchorForStory(storyKey)              # V1.1 dep
+              → SHA, message, paths
+        │
+        ▼
+Write atomically _bmad-output/implementation-artifacts/sessions/<storyKey>-session.md
+        │
+        ▼
+PatchStory(storyKey):
+  - Append ./sessions/<storyKey>-session.md to ### Debug Log References
+  - Append ./sessions/<storyKey>-session.md to ### File List
+        │
+        ▼
+commit_anchor.commit({ files: [story.md, session.md, ...code], message })
+```
+
+**Placement code** :
+
+```
+packages/sprint-core/src/features/bmad-orchestration/
+  application/
+    SessionLogAggregator.ts           [NEW — ~250-350 LOC + tests]
+    SessionLogFrontmatterSchema.ts    [NEW — Zod schema_version: 1]
+    __tests__/SessionLogAggregator.test.ts
+```
+
+**Consumers** : `OrchestratorService` hook `orchestrator.story.completed` → appelle `SessionLogAggregator.generate()` **avant** `commit_anchor` (ordre : générer → patcher story → commit atomique).
+
+**Rapport aux 3 tracks (ADR-014 §8)** :
+
+| Track | Rôle préservé | Relation au SLASL |
+|---|---|---|
+| Track 1 — SDK Session | Resume-on-crash | Inchangé. Le SLASL n'utilise pas Track 1. |
+| Track 2 — Exchange History | Source de vérité append-only | **Source primaire** du SLASL. Jamais muté. |
+| Track 3 — Metrics JSONL | Observabilité technique | Source secondaire du SLASL (gate outcomes, latences). |
+| **SLASL (V1.1)** | **Vue story-level dérivée** | **Régénérable** depuis Track 2 + Track 3 + story.md. Commit discipline (un par story). |
+
+**Invariant de dérivabilité** : `SessionLogAggregator` est **pure** au sens fonctionnel — `generate(storyKey, tracks)` produit le même markdown pour un même état des tracks. Si un session log est détruit/corrompu, régénération triviale sans perte d'information — Track 2+3 restent canoniques.
+
+**Intégration `commit_anchor` (retro priorité #1 V1.1)** : la spec de `commit_anchor` (hors scope de cette session) doit exposer :
+
+```typescript
+interface CommitAnchorInput {
+  storyKey: string
+  filesFromStoryFileList: string[]   // ex: ['packages/.../Foo.ts']
+  sessionLogPath: string              // ex: '_bmad-output/.../sessions/EA11-S5-session.md'
+  messageConventional: string         // ex: 'feat(orchestrator): EA11-S5 ...'
+  coAuthoredBy?: string
+}
+interface CommitAnchorOutput {
+  sha: string
+  message: string
+  filesCommitted: string[]            // incluant story.md + session.md + code
+}
+```
+
+Le SLASL est **écrit avant** le commit ; le SHA du commit est **patché après** dans le frontmatter `anchor_commit` du SLASL (petit post-commit amend local d'un seul fichier, ou écriture en 2 passes : pré-commit sans SHA, post-commit avec SHA — stratégie tranchée lors de l'impl `commit_anchor` V1.1).
+
+#### commit_anchor — hard prerequisite (ajouté post adversarial review 2026-04-15, B1)
+
+`toolCatalog.ts:122-128` est un stub (`{ committed: false, note: "V1-light stub" }`). L'implémentation réelle de `commit_anchor` est un **prérequis dur** pour le SLASL (SessionLogAggregator). Le SLASL ne peut pas fonctionner sans un vrai SHA de commit à patcher dans le frontmatter.
+
+**Règle :** `commit_anchor` réel doit atterrir dans la même PR que le SLASL, ou dans une PR précédente. Enregistré comme **V1.1 priorité #1** (cf. SCP 2026-04-15 §5.3).
+
+#### SHA strategy — question ouverte (ajouté post adversarial review 2026-04-15, B2)
+
+La stratégie de patching du SHA post-commit (amend vs 2 passes) est **laissée ouverte** — à trancher au moment de l'implémentation de `commit_anchor`, pas maintenant. Les deux approches sont viables :
+- **Amend :** simple, mais modifie le SHA que d'autres consommateurs auraient pu lire.
+- **2 passes :** pré-commit sans SHA → commit → post-commit patch SHA → amend uniquement le session log. Plus propre, plus complexe.
+
+Cette décision sera prise dans la PR `commit_anchor` avec le contexte d'implémentation.
+
+**Schema versioning** : `schema_version: 1` en frontmatter. Extension future (ex : ajout d'un champ `retry_count`) = `schema_version: 2` avec migration progressive via reader tolérant.
+
+---
+
+### V1.1 Amendments Follow-ups (2026-04-15, post adversarial review)
+
+> Notes architecturales issues de la revue adversariale du 2026-04-15 (SCP `sprint-change-proposal-2026-04-15-adversarial-review.md`). Ces items ne modifient pas les sections D1-D4 ci-dessus mais complètent le backlog V1.1 avec des actions identifiées par le reviewer.
+
+#### A1 — Simplification budget (ADR-014 §3.3)
+
+Le modèle 3-caps (`max_turns_per_workflow`, `max_tokens_per_session`, `max_duration_per_workflow_seconds`) est remplacé par un **cap unique `max_tokens_per_night`** (défaut 2 000 000). La compaction SDK native est suffisante pour gérer la fenêtre de contexte — les caps intermédiaires ajoutent de la complexité de configuration sans valeur démontrée.
+
+**Action V1.1 :** modifier `PlaybookSchemaV2.budgets` pour ne contenir que `max_tokens_per_night` et `max_reentrance_depth`. Dans `toolCatalog.ts:132`, le tool `remaining_budget` doit **fail-fast** si `budgetProvider` est absent (supprimer le fallback `Number.POSITIVE_INFINITY`).
+
+→ Amendement formel dans ADR-014 §Amendment 2026-04-15.
+
+#### A2 — Recovery E2E test gap (ADR-014 §3.5)
+
+La Strategy A (SDK `resume: session_id`) n'a jamais été testée end-to-end. EA10-S9 a fermé via `InMemorySessionAdapter` (Plan B). Le test manquant est le bloqueur.
+
+**Action V1.1 :** ouvrir une story "Recovery E2E test with real AgentSdkSessionAdapter". **Prérequis dur** pour le sign-off "dogfooding unassisted" V1.1. Pas de changement RTO/RPO — seul le test manque.
+
+#### A3 — Layer separation (ADR-014 §4.3)
+
+`toolCatalog.ts:60-135` mélange Layer 1 (logique métier core) et Layer 2a (wrapping SDK). La promesse de portabilité 3-couches n'est pas matérialisée.
+
+**Action V1.1 (non bloquante) :** extraire des fichiers `*Core.ts` contenant la logique métier pure. Ajouter un contract test invoquant Core avec un `workingDir` arbitraire pour prouver l'indépendance Layer 1 ↔ Layer 2.
+
+#### A4 — Re-entrance guard configurable (ADR-014 §5.7)
+
+Le cap de ré-entrance reste à 3 mais devient configurable via `budgets.max_reentrance_depth` dans le playbook frontmatter (déjà reflété dans le schéma D2 pivoté ci-dessus). Le `throw new Error(...)` à `toolCatalog.ts:81` est remplacé par un retour structuré :
+
+```typescript
+{ error: 'reentrance_cap', escalation_required: true, depth: number, max: number }
+```
+
+Un nouveau type d'événement Track 3 `reentrance.cap_hit` est ajouté au catalogue (ADR-014 §8.4).
+
+→ Amendement formel dans ADR-014 §Amendment 2026-04-15.
+
+#### A7 — Aspirational features audit
+
+Trois features dans `packages/sprint-core/src/features/` sont auditées :
+
+| Feature | Verdict | Action |
+|---|---|---|
+| `burndown/` | Potentiellement raccordable aux futures commandes cop1 consommant la sortie `/bmad-bmm-sprint-status` | **Conserver.** Marquer "pending wire" dans le backlog V1.1. |
+| `velocity-projector/` | Idem | **Conserver.** Marquer "pending wire". |
+| `kpis-dashboard/` | Zéro consommateur fonctionnel (barrel re-export uniquement, pas de wiring CLI/API) | **Supprimer** sauf si un chemin concret est identifié lors du sprint planning V1.1. Story backlog ouverte. |
+
+---
 
 ## Architecture Validation Results
 

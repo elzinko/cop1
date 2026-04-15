@@ -1094,4 +1094,71 @@ narrative-log-cursor: <event-id>
 
 ---
 
+## Amendment 2026-04-15 (post adversarial review)
+
+> **Context :** revue adversariale de l'architecture V1.1 le 2026-04-15, 10 issues identifiées, 8 arbitrages validés par elzinko. Cet amendement formalise les changements qui touchent le corps d'ADR-014 sans le réécrire. Le corps ADR-014 reste immutable (Accepted 2026-04-11). Référence complète : `sprint-change-proposal-2026-04-15-adversarial-review.md`.
+
+### §3.3 — Budget simplifié (arbitrage A1)
+
+Le modèle 3-caps de §3.4 (safety net) est **remplacé** par un cap unique :
+
+| Ancien cap | Nouveau cap |
+|---|---|
+| `max_turns_per_workflow` (défaut 50) | **Supprimé** — la compaction SDK native suffit |
+| `max_tokens_per_session` (défaut 500k) | **Remplacé** par `max_tokens_per_night` (défaut 2 000 000) |
+| `max_duration_per_workflow_seconds` (défaut 1800) | **Supprimé** — durée non pertinente comme garde-fou isolé |
+
+**Rationale :** les caps intermédiaires ajoutent de la complexité de configuration sans valeur opérationnelle démontrée. Un budget par nuit est plus naturel pour un run nocturne d'epic. La compaction SDK est fonctionnelle et testée — pas besoin de "safety rail avant compaction agressive".
+
+**Impact code :** `toolCatalog.ts:132` — le tool `remaining_budget` doit **fail-fast** (retour `{ error: 'no_budget_provider' }`) si `budgetProvider` est absent. Le fallback `Number.POSITIVE_INFINITY` actuel est un danger silencieux — un superviseur sans budget configuré doit être stoppé, pas laissé en liberté.
+
+### §5.7 — Retour structuré pour le cap de ré-entrance (arbitrage A4)
+
+Le `throw new Error(...)` à `toolCatalog.ts:81` lorsque le cap de ré-entrance est atteint est **remplacé** par un retour structuré :
+
+```typescript
+// Avant (throw)
+throw new Error(`Reentrance depth ${depth} exceeds cap ${max}`);
+
+// Après (structured return)
+return {
+  error: 'reentrance_cap',
+  escalation_required: true,
+  depth,
+  max,
+};
+```
+
+Le cap reste à `3` par défaut mais est **configurable** via `budgets.max_reentrance_depth` dans le playbook frontmatter.
+
+**Nouveau type Track 3 (§8.4)** : `reentrance.cap_hit` ajouté au catalogue d'événements metrics. Schéma :
+
+```json
+{
+  "event": "reentrance.cap_hit",
+  "depth": 3,
+  "max": 3,
+  "tool": "invoke_bmad_command",
+  "escalation_required": true,
+  "ts": "2026-04-15T02:30:00Z"
+}
+```
+
+### Forward-references (autres arbitrages)
+
+Les arbitrages suivants sont formalisés dans `architecture.md` §V1.1 Amendments et §V1.1 Amendments Follow-ups (2026-04-15) :
+
+| Arbitrage | ADR-014 section concernée | Localisation |
+|---|---|---|
+| A2 — Recovery E2E test | §3.5 (Strategy A non testée) | `architecture.md` Follow-ups A2 |
+| A3 — Layer separation | §4.3 (3-layer portability) | `architecture.md` Follow-ups A3 |
+| A5 — Playbook pivot (no command map) | §7.2, §7.4 (playbook schema, allowed_commands) | `architecture.md` D2 pivoté |
+| A6 — Status discipline (no file coupling) | §5.2 (BMAD pristine) étendu à la lecture | `architecture.md` D3 pivoté |
+| A7 — Aspirational features audit | Hors scope ADR-014 | `architecture.md` Follow-ups A7 |
+| A8 — BMAD version pin exit paths | Hors scope ADR-014 | `architecture.md` D1 Exit Paths |
+| B1 — commit_anchor prerequisite | §Annexe B (commit anchor spec) | `architecture.md` D4 commit_anchor note |
+| B2 — SLASL SHA strategy open | §Annexe B | `architecture.md` D4 SHA strategy note |
+
+---
+
 **End of draft ADR-014**
