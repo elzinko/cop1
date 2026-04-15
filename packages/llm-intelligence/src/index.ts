@@ -8,9 +8,6 @@ export type { LLMChunk } from './features/llm-gateway/domain/types/LLMChunk.js';
 export { LLMUnavailableError } from './features/llm-gateway/domain/errors/LLMUnavailableError.js';
 export { LLMRouter } from './features/llm-gateway/application/LLMRouter.js';
 
-// Claude API
-export { ClaudeAPIAdapter } from './features/claude-adapter/application/ClaudeAPIAdapter.js';
-
 // Model Manager
 export { ModelManager } from './features/model-manager/application/ModelManager.js';
 
