@@ -55,10 +55,10 @@ export class ExchangeHistoryWriter {
       `ended_at: ${JSON.stringify(fm.endedAt)}`,
       `supervisor_turns: ${fm.supervisorTurns}`,
       `status: ${fm.status}`,
-      '---',
-      FRONTMATTER_ESCAPE_SENTINEL,
-      '',
     ];
+    // EA12-S6: optional commit SHA (from commit_anchor).
+    if (fm.commit) yaml.push(`commit: ${JSON.stringify(fm.commit)}`);
+    yaml.push('---', FRONTMATTER_ESCAPE_SENTINEL, '');
     return `${yaml.join('\n')}\n`;
   }
 
@@ -78,6 +78,41 @@ export class ExchangeHistoryWriter {
       lines.push(it.content);
       lines.push('```');
       lines.push('');
+      // EA12-S6 — structured subsections when present.
+      if (it.shellCommand) {
+        const sc = it.shellCommand;
+        lines.push('#### Shell');
+        lines.push('');
+        if (sc.ts) lines.push(`*${sc.ts}*`);
+        if (sc.cwd) lines.push(`_cwd: \`${sc.cwd}\`_`);
+        lines.push('');
+        lines.push(`\`$ ${sc.command}\``);
+        lines.push('');
+        lines.push(`*return code:* \`${sc.returnCode}\``);
+        if (sc.stderr) {
+          const truncated = sc.stderr.length > 500 ? `${sc.stderr.slice(0, 497)}...` : sc.stderr;
+          lines.push('');
+          lines.push('```');
+          lines.push(truncated);
+          lines.push('```');
+        }
+        lines.push('');
+      }
+      if (it.blocker) {
+        lines.push('#### Blocker');
+        lines.push('');
+        lines.push(`**reason:** ${it.blocker.reason}`);
+        if (it.blocker.detail) lines.push(`**detail:** ${it.blocker.detail}`);
+        lines.push('');
+      }
+      if (it.gateResult) {
+        const gr = it.gateResult;
+        lines.push('#### Gate');
+        lines.push('');
+        lines.push(`**${gr.name}:** ${gr.pass ? 'PASS' : 'FAIL'}`);
+        if (gr.detail) lines.push(gr.detail);
+        lines.push('');
+      }
     }
     return lines.join('\n');
   }

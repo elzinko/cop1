@@ -364,12 +364,12 @@ development_status:
   # hardens runtime (A1, A4), and audits aspirational features (A7).
   # Source: SCP 2026-04-15 adversarial review (10 arbitrages, 8 validated, 2 pivots)
   # Depends on: EA10 (done), EA11 (done), EA9 (done)
-  epic-ea12: in-progress
+  epic-ea12: done
   EA12-S1: done      # commit_anchor real implementation (B1) — Sprint 13 (blocks: EA12-S6)
   EA12-S2: done      # Recovery E2E test with real AgentSdkSessionAdapter (A2) — Sprint 13 (blocks: dogfooding sign-off)
   EA12-S3: done      # Playbook pivot — remove commands enumeration (A5) — Sprint 13
   EA12-S4: done      # Status discipline — remove BmadStatusReader (A6) — Sprint 13
   EA12-S5: done      # Runtime hardening — budget simplification + reentrance guard (A1+A4) — Sprint 13
-  EA12-S6: todo      # Track 2 extended format + session log aggregation D4 (B1+D4) — Sprint 13 (depends: EA12-S1)
+  EA12-S6: done      # Track 2 extended format + session log aggregation D4 (B1+D4) — Sprint 13 (depends: EA12-S1)
   EA12-S7: done      # Aspirational features audit — delete/wire burndown, velocity, kpis (A7) — Sprint 13
   epic-ea12-retrospective: optional

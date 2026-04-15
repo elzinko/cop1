@@ -77,4 +77,137 @@ describe('ExchangeHistoryWriter', () => {
     const content = await readFile(path, 'utf-8');
     expect(content).toContain('_No interactions recorded._');
   });
+
+  it('EA12-S6: frontmatter carries commit SHA when provided', async () => {
+    const writer = new ExchangeHistoryWriter(dir);
+    const path = await writer.write(
+      record({
+        frontMatter: {
+          sessionId: 'sess-1',
+          storyId: 'EA12-S1',
+          sprintId: 'sprint-13',
+          command: '/bmad-bmm-dev-story',
+          startedAt: '2026-04-15T12:00:00.000Z',
+          endedAt: '2026-04-15T12:05:00.000Z',
+          supervisorTurns: 1,
+          status: 'success',
+          commit: 'abcdef1234567890abcdef1234567890abcdef12',
+        },
+      }),
+    );
+    const content = await readFile(path, 'utf-8');
+    expect(content).toContain('commit: "abcdef1234567890abcdef1234567890abcdef12"');
+  });
+
+  it('EA12-S6: frontmatter omits commit line when absent (backwards compat)', async () => {
+    const writer = new ExchangeHistoryWriter(dir);
+    const path = await writer.write(record());
+    const content = await readFile(path, 'utf-8');
+    expect(content).not.toMatch(/\ncommit:/);
+  });
+
+  it('EA12-S6: renders shellCommand with return code + stderr (truncated at 500 chars)', async () => {
+    const writer = new ExchangeHistoryWriter(dir);
+    const longStderr = 'x'.repeat(1000);
+    const path = await writer.write(
+      record({
+        interactions: [
+          {
+            timestamp: '2026-04-15T12:00:00.000Z',
+            sessionId: 'sess-1',
+            storyId: 'EA12-S6',
+            epicId: 'EA12',
+            workflowCommand: '/bmad-bmm-dev-story',
+            turn: 1,
+            role: 'supervisor',
+            content: 'Running pnpm test.',
+            analysis: { type: 'completion', method: 'llm' },
+            durationMs: 10,
+            shellCommand: {
+              command: 'pnpm test',
+              returnCode: 1,
+              stderr: longStderr,
+              cwd: '/tmp/proj',
+              ts: '2026-04-15T12:00:01.000Z',
+            },
+          },
+        ],
+      }),
+    );
+    const content = await readFile(path, 'utf-8');
+    expect(content).toContain('#### Shell');
+    expect(content).toContain('`$ pnpm test`');
+    expect(content).toContain('return code:* `1`');
+    expect(content).toContain('/tmp/proj');
+    // Truncated stderr (500-char cap → ends with …)
+    expect(content).toContain('...');
+    expect(content).not.toContain('x'.repeat(501)); // never emits more than the truncated slice
+  });
+
+  it('EA12-S6: renders blocker subsection when set', async () => {
+    const writer = new ExchangeHistoryWriter(dir);
+    const path = await writer.write(
+      record({
+        interactions: [
+          {
+            timestamp: '2026-04-15T12:00:00.000Z',
+            sessionId: 'sess-1',
+            storyId: 'EA12-S6',
+            epicId: 'EA12',
+            workflowCommand: '/bmad-bmm-dev-story',
+            turn: 1,
+            role: 'supervisor',
+            content: 'Escalating.',
+            analysis: { type: 'escalation', method: 'escalation' },
+            durationMs: 1,
+            blocker: { reason: 'DoR gap', detail: 'AC3 ambiguous' },
+          },
+        ],
+      }),
+    );
+    const content = await readFile(path, 'utf-8');
+    expect(content).toContain('#### Blocker');
+    expect(content).toContain('**reason:** DoR gap');
+    expect(content).toContain('**detail:** AC3 ambiguous');
+  });
+
+  it('EA12-S6: renders gate result subsection (pass + fail)', async () => {
+    const writer = new ExchangeHistoryWriter(dir);
+    const path = await writer.write(
+      record({
+        interactions: [
+          {
+            timestamp: '2026-04-15T12:00:00.000Z',
+            sessionId: 'sess-1',
+            storyId: 'EA12-S6',
+            epicId: 'EA12',
+            workflowCommand: '/bmad-bmm-dev-story',
+            turn: 1,
+            role: 'supervisor',
+            content: 'Gate check.',
+            analysis: { type: 'completion', method: 'deterministic' },
+            durationMs: 1,
+            gateResult: { name: 'typecheck', pass: true },
+          },
+          {
+            timestamp: '2026-04-15T12:00:01.000Z',
+            sessionId: 'sess-1',
+            storyId: 'EA12-S6',
+            epicId: 'EA12',
+            workflowCommand: '/bmad-bmm-dev-story',
+            turn: 2,
+            role: 'supervisor',
+            content: 'Gate check.',
+            analysis: { type: 'completion', method: 'deterministic' },
+            durationMs: 1,
+            gateResult: { name: 'test', pass: false, detail: '3 failing' },
+          },
+        ],
+      }),
+    );
+    const content = await readFile(path, 'utf-8');
+    expect(content).toContain('**typecheck:** PASS');
+    expect(content).toContain('**test:** FAIL');
+    expect(content).toContain('3 failing');
+  });
 });

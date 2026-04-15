@@ -13,10 +13,29 @@ export interface SessionInteraction {
   content: string;
   analysis: {
     type: 'question_simple' | 'question_complex' | 'completion' | 'error' | 'escalation';
-    method: 'deterministic' | 'llm' | 'escalation';
+    method: 'deterministic' | 'llm' | 'consult' | 'escalation';
   };
   durationMs: number;
   tokensUsed?: number;
+  /** EA12-S6 — optional shell-command metadata when the turn wrapped an exec. */
+  shellCommand?: {
+    command: string;
+    returnCode: number;
+    stderr?: string;
+    cwd?: string;
+    ts?: string;
+  };
+  /** EA12-S6 — optional blocker declaration. */
+  blocker?: {
+    reason: string;
+    detail?: string;
+  };
+  /** EA12-S6 — optional gate result (typecheck / test / lint / custom). */
+  gateResult?: {
+    name: string;
+    pass: boolean;
+    detail?: string;
+  };
 }
 
 /**
@@ -99,6 +118,8 @@ export class SessionLogger {
         return 'session.turn.answered_deterministic';
       case 'llm':
         return 'session.turn.answered_llm';
+      case 'consult':
+        return 'session.turn.answered_consult';
       case 'escalation':
         return 'session.turn.escalated';
     }

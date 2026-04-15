@@ -9,6 +9,8 @@ export interface ExchangeFrontMatter {
   endedAt: string;
   supervisorTurns: number;
   status: 'success' | 'failed' | 'escalated';
+  /** EA12-S6 — SHA from commit_anchor when the workflow produced a commit. */
+  commit?: string;
 }
 
 export interface ExchangeRecord {
