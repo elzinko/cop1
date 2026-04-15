@@ -79,6 +79,33 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     };
   }
 
+  /**
+   * EA12-S2 — recovery accessor. Retrieves the SDK-assigned session_id bound to
+   * a local sessionId. Callers persist this id between crashes and hand it back
+   * to `restoreSession` on a fresh adapter instance.
+   */
+  getSdkSessionId(localSessionId: string): string | undefined {
+    return this.sdkSessionIds.get(localSessionId);
+  }
+
+  /**
+   * EA12-S2 — recovery entrypoint. Primes a fresh adapter with a previously
+   * captured SDK session_id so subsequent `continueSession` calls pass
+   * `resume: sdkSessionId` to the SDK query. Returns a new local sessionId.
+   */
+  restoreSession(sdkSessionId: string, context: BMADSessionContext): string {
+    const sessionId = randomUUID();
+    this.sessionContexts.set(sessionId, context);
+    this.sdkSessionIds.set(sessionId, sdkSessionId);
+    this.eventBus?.emit('session.restored', {
+      sessionId,
+      sdkSessionId,
+      storyId: context.storyId,
+      timestamp: new Date().toISOString(),
+    });
+    return sessionId;
+  }
+
   async startSession(command: string, context: BMADSessionContext): Promise<SessionHandle> {
     const sessionId = randomUUID();
     const startTime = Date.now();

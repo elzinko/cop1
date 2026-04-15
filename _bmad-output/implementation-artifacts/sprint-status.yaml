@@ -366,7 +366,7 @@ development_status:
   # Depends on: EA10 (done), EA11 (done), EA9 (done)
   epic-ea12: in-progress
   EA12-S1: done      # commit_anchor real implementation (B1) — Sprint 13 (blocks: EA12-S6)
-  EA12-S2: todo      # Recovery E2E test with real AgentSdkSessionAdapter (A2) — Sprint 13 (blocks: dogfooding sign-off)
+  EA12-S2: done      # Recovery E2E test with real AgentSdkSessionAdapter (A2) — Sprint 13 (blocks: dogfooding sign-off)
   EA12-S3: done      # Playbook pivot — remove commands enumeration (A5) — Sprint 13
   EA12-S4: done      # Status discipline — remove BmadStatusReader (A6) — Sprint 13
   EA12-S5: done      # Runtime hardening — budget simplification + reentrance guard (A1+A4) — Sprint 13
