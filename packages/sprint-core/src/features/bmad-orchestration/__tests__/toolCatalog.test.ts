@@ -60,25 +60,65 @@ describe('buildSupervisorToolHandlers (EA10-S7 Layer 2a)', () => {
       command: '/bmad-bmm-dev-story',
       storyId: 'EA10-S7',
     });
+    if ('error' in result) throw new Error('expected success result');
     expect(result.sessionId).toBe('sess-1');
     expect(result.completed).toBe(true);
   });
 
-  it('invoke_bmad_command enforces re-entrance cap (3) and throws beyond', async () => {
+  it('invoke_bmad_command re-entrance cap: returns structured error (not throws) + emits reentrance.cap_hit', async () => {
     const deps = makeDeps();
-    const handlers = buildSupervisorToolHandlers({ ...deps, maxReentrance: 2 });
-    // Simulate re-entrance by nesting calls
+    const events: { name: string; payload: Record<string, unknown> }[] = [];
+    deps.eventBus?.on('reentrance.cap_hit', (payload) =>
+      events.push({ name: 'reentrance.cap_hit', payload: payload as Record<string, unknown> }),
+    );
+    deps.eventBus?.on('supervisor.tool.failed', (payload) =>
+      events.push({ name: 'supervisor.tool.failed', payload: payload as Record<string, unknown> }),
+    );
+    const handlers = buildSupervisorToolHandlers({ ...deps, maxReentrance: 1 });
+    let innerResult: unknown = null;
+    // Outer call enters at depth 0 → 1. Inner recurse hits cap (1 >= 1).
     (deps.sessionPort.startSession as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-      // Recurse
-      await handlers.invoke_bmad_command({ command: '/x', storyId: 'x' });
+      innerResult = await handlers.invoke_bmad_command({ command: '/x', storyId: 'x' });
       return {
         sessionId: 's',
         firstTurn: { completed: true, output: 'ok', durationMs: 1 },
       };
     });
-    await expect(handlers.invoke_bmad_command({ command: '/y', storyId: 'y' })).rejects.toThrow(
-      /re-entrance depth/,
-    );
+    const outer = await handlers.invoke_bmad_command({ command: '/outer', storyId: 'outer' });
+    expect('sessionId' in outer && outer.sessionId).toBe('s');
+
+    expect(innerResult).toMatchObject({
+      error: 'reentrance_cap',
+      escalation_required: true,
+      depth: 1,
+      max: 1,
+    });
+    const capHit = events.find((e) => e.name === 'reentrance.cap_hit');
+    expect(capHit).toBeDefined();
+    expect(capHit?.payload).toMatchObject({ depth: 1, max: 1, command: '/x', storyId: 'x' });
+    // Structured failure also fires generic supervisor.tool.failed event
+    const failed = events.find((e) => e.name === 'supervisor.tool.failed');
+    expect(failed).toBeDefined();
+  });
+
+  it('invoke_bmad_command: configurable cap via deps.maxReentrance (cap=2 allows one level of nesting)', async () => {
+    const deps = makeDeps();
+    const handlers = buildSupervisorToolHandlers({ ...deps, maxReentrance: 2 });
+    let innerResult: unknown = null;
+    let level = 0;
+    (deps.sessionPort.startSession as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      level++;
+      if (level === 1) {
+        innerResult = await handlers.invoke_bmad_command({ command: '/inner', storyId: 'x' });
+      }
+      return {
+        sessionId: `s${level}`,
+        firstTurn: { completed: true, output: 'ok', durationMs: 1 },
+      };
+    });
+    await handlers.invoke_bmad_command({ command: '/outer', storyId: 'outer' });
+    // With cap=2 the inner call at depth 1 succeeds (1 < 2).
+    expect(innerResult).toMatchObject({ sessionId: 's2', completed: true });
   });
 
   it('query_session_history routes by storyId or sessionId', async () => {
@@ -89,18 +129,21 @@ describe('buildSupervisorToolHandlers (EA10-S7 Layer 2a)', () => {
     expect(deps.history.byStory).toHaveBeenCalledWith('EA10-S7');
   });
 
-  it('remaining_budget returns provided value or infinity', async () => {
+  it('remaining_budget returns tokensRemaining when budgetProvider is set', async () => {
     const deps = makeDeps();
     const handlers = buildSupervisorToolHandlers({
       ...deps,
       budgetProvider: () => 42,
     });
     const out = await handlers.remaining_budget({} as Record<string, never>);
-    expect(out.tokensRemaining).toBe(42);
+    expect(out).toEqual({ tokensRemaining: 42 });
+  });
 
-    const defaultHandlers = buildSupervisorToolHandlers(deps);
-    const defaultOut = await defaultHandlers.remaining_budget({} as Record<string, never>);
-    expect(defaultOut.tokensRemaining).toBe(Number.POSITIVE_INFINITY);
+  it('remaining_budget: fail-fast with no_budget_provider when provider absent (EA12-S5 A1)', async () => {
+    const deps = makeDeps();
+    const handlers = buildSupervisorToolHandlers(deps);
+    const out = await handlers.remaining_budget({} as Record<string, never>);
+    expect(out).toEqual({ error: 'no_budget_provider' });
   });
 
   it('commit_anchor: returns nothing_to_commit when staging area is empty', async () => {

@@ -64,6 +64,17 @@ export type CommitAnchorResult =
   | { committed: false; reason: 'nothing_to_commit' }
   | { committed: false; reason: 'commit_failed'; detail: string };
 
+export type RemainingBudgetResult = { tokensRemaining: number } | { error: 'no_budget_provider' };
+
+export type InvokeBmadCommandResult =
+  | { sessionId: string; completed: boolean; output?: string }
+  | {
+      error: 'reentrance_cap';
+      escalation_required: true;
+      depth: number;
+      max: number;
+    };
+
 export interface SupervisorToolHandlers {
   create_worktree: (input: { storyId: string; projectPath: string }) => Promise<{ path: string }>;
   cleanup_worktree: (input: {
@@ -73,7 +84,7 @@ export interface SupervisorToolHandlers {
   invoke_bmad_command: (input: {
     command: string;
     storyId: string;
-  }) => Promise<{ sessionId: string; completed: boolean; output?: string }>;
+  }) => Promise<InvokeBmadCommandResult>;
   query_session_history: (input: {
     storyId?: string;
     sessionId?: string;
@@ -82,7 +93,7 @@ export interface SupervisorToolHandlers {
     message: string;
     worktreePath?: string;
   }) => Promise<CommitAnchorResult>;
-  remaining_budget: (input: Record<string, never>) => Promise<{ tokensRemaining: number }>;
+  remaining_budget: (input: Record<string, never>) => Promise<RemainingBudgetResult>;
 }
 
 /**
@@ -118,14 +129,27 @@ export function buildSupervisorToolHandlers(
 
     async invoke_bmad_command({ command, storyId }) {
       if (currentDepth >= maxReentrance) {
-        emit('supervisor.tool.failed', {
+        const payload = {
           tool: 'invoke_bmad_command',
           reason: 're-entrance depth cap',
           depth: currentDepth,
+          max: maxReentrance,
+        };
+        emit('supervisor.tool.failed', payload);
+        // AC5 — Track 3 event for metrics catalogue (EA12-S5).
+        emit('reentrance.cap_hit', {
+          tool: 'invoke_bmad_command',
+          depth: currentDepth,
+          max: maxReentrance,
+          command,
+          storyId,
         });
-        throw new Error(
-          `invoke_bmad_command re-entrance depth ${currentDepth} >= ${maxReentrance} — escalate instead of looping`,
-        );
+        return {
+          error: 'reentrance_cap',
+          escalation_required: true,
+          depth: currentDepth,
+          max: maxReentrance,
+        };
       }
       currentDepth++;
       emit('supervisor.tool.invoked', { tool: 'invoke_bmad_command', command, storyId });
@@ -217,7 +241,14 @@ export function buildSupervisorToolHandlers(
 
     async remaining_budget() {
       emit('supervisor.tool.invoked', { tool: 'remaining_budget' });
-      const tokensRemaining = deps.budgetProvider?.() ?? Number.POSITIVE_INFINITY;
+      if (!deps.budgetProvider) {
+        emit('supervisor.tool.failed', {
+          tool: 'remaining_budget',
+          reason: 'no_budget_provider',
+        });
+        return { error: 'no_budget_provider' };
+      }
+      const tokensRemaining = deps.budgetProvider();
       emit('supervisor.tool.completed', { tool: 'remaining_budget', tokensRemaining });
       return { tokensRemaining };
     },

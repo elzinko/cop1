@@ -108,6 +108,39 @@ describe('SupervisorPlaybookLoader', () => {
     await expect(loader.load(path)).rejects.toThrow(/Unknown BMAD command/);
   });
 
+  it('parses budgets section (EA12-S5: max_tokens_per_night + max_reentrance_depth)', async () => {
+    const path = join(projectRoot, 'playbook.md');
+    await writeFile(
+      path,
+      [
+        'BMAD version: 6',
+        'help: /bmad-help',
+        'max_tokens_per_night: 2_000_000',
+        'max_reentrance_depth: 5',
+        '',
+        '## Loop',
+        '1. `/bmad-bmm-dev-story`',
+      ].join('\n'),
+    );
+    const loader = new SupervisorPlaybookLoader({ projectRoot });
+    const pb = await loader.load(path);
+    expect(pb.budgets).toEqual({
+      max_tokens_per_night: 2_000_000,
+      max_reentrance_depth: 5,
+    });
+  });
+
+  it('budgets omitted when no budget lines present', async () => {
+    const path = join(projectRoot, 'playbook.md');
+    await writeFile(
+      path,
+      ['BMAD version: 6', 'help: /bmad-help', '', '## Loop', '1. `/bmad-bmm-dev-story`'].join('\n'),
+    );
+    const loader = new SupervisorPlaybookLoader({ projectRoot });
+    const pb = await loader.load(path);
+    expect(pb.budgets).toBeUndefined();
+  });
+
   it('supports multiple phases in order', async () => {
     const path = join(projectRoot, 'playbook.md');
     await writeFile(

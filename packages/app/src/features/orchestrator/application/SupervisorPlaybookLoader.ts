@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  type PlaybookBudgets,
   type PlaybookCommand,
   type PlaybookPhase,
   PlaybookValidationError,
@@ -53,6 +54,7 @@ export class SupervisorPlaybookLoader {
     const stepByStep = this.extractSection(preamble, /^Step[- ]by[- ]step hooks?:\s*(.*)$/i);
     const decisionPolicy = this.extractSection(preamble, /^Decision policy:\s*(.*)$/i);
     const epicRestrictions = this.extractSection(preamble, /^Epic\/story restrictions?:\s*(.*)$/i);
+    const budgets = this.extractBudgets(preamble);
 
     // Phases.
     const phases: PlaybookPhase[] = [];
@@ -102,7 +104,31 @@ export class SupervisorPlaybookLoader {
       epicRestrictions: epicRestrictions ? { raw: epicRestrictions } : undefined,
       hooks: { worktree, stepByStep },
       decisionPolicy: decisionPolicy,
+      budgets,
     };
+  }
+
+  private extractBudgets(preamble: string[]): PlaybookBudgets | undefined {
+    const tokens = this.extractNumber(preamble, /^max_tokens_per_night:\s*([0-9_]+)$/);
+    const depth = this.extractNumber(preamble, /^max_reentrance_depth:\s*([0-9_]+)$/);
+    if (tokens === undefined && depth === undefined) return undefined;
+    const budgets: PlaybookBudgets = {};
+    if (tokens !== undefined) budgets.max_tokens_per_night = tokens;
+    if (depth !== undefined) budgets.max_reentrance_depth = depth;
+    return budgets;
+  }
+
+  private extractNumber(preamble: string[], pattern: RegExp): number | undefined {
+    for (const line of preamble) {
+      const m = line.match(pattern);
+      if (m) {
+        const raw = m[1]?.replace(/_/g, '');
+        if (!raw) continue;
+        const n = Number(raw);
+        if (Number.isFinite(n)) return n;
+      }
+    }
+    return undefined;
   }
 
   private extractSimple(preamble: string[], pattern: RegExp): string | undefined {

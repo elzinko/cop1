@@ -12,6 +12,13 @@ export interface EpicRestrictions {
   raw: string;
 }
 
+export interface PlaybookBudgets {
+  /** Per-night cumulative token cap. Added EA12-S5 (A1). */
+  max_tokens_per_night?: number;
+  /** Max supervisor re-entrance depth for invoke_bmad_command. Added EA12-S5 (A4). */
+  max_reentrance_depth?: number;
+}
+
 export interface SupervisorPlaybook {
   version: string;
   helpRef: string;
@@ -22,6 +29,7 @@ export interface SupervisorPlaybook {
     stepByStep?: string;
   };
   decisionPolicy?: string;
+  budgets?: PlaybookBudgets;
 }
 
 export class PlaybookValidationError extends Error {
