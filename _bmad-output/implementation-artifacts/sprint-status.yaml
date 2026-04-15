@@ -337,7 +337,7 @@ development_status:
   EA10-S8: done   # Supervisor multi-step resolution loop — Sprint 13 (NEW, depends: EA10-S7, EA11-S6)
   EA10-S9: done   # E2E integration test on EA6 cobaye fixture — Sprint 13 (was original S6; depends: EA10-S1..S8, EA6)
   # EA10-S3-original (advanced auto-decision policies) DEFERRED to V1.1 — covered at V1-light by EA10-S8
-  epic-ea10-retrospective: optional
+  epic-ea10-retrospective: done
 
   # --- Epic EA11 — Orchestrator Foundation (Sprint 12) ---
   # Added 2026-04-11 — SCP 2026-04-11 approved
@@ -355,4 +355,4 @@ development_status:
   EA11-S6: done   # SupervisorContext bootstrap loader — Sprint 12 (depends: EA11-S5 optional)
   EA11-S8: done   # Refactor SessionLogger/Reader → 3-tracks file-based structure — Sprint 12 (NEW, ADR-014 §8.5; depends: EA11-S5; blocks: EA11-S7; medium-large ~950-1350 LOC, capacity watch)
   EA11-S7: done   # Session transcript generator (aggregates Track 2 markdown from .cop1/history/) — Sprint 12 (depends: EA11-S8)
-  epic-ea11-retrospective: optional
+  epic-ea11-retrospective: done
