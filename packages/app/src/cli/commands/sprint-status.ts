@@ -1,9 +1,10 @@
 import { OllamaManagementAdapter } from '@cop1/llm-intelligence';
-import { BmadStatusReader, SprintSessionService } from '@cop1/sprint-core';
+import { SprintSessionService } from '@cop1/sprint-core';
+import { YamlSprintStatusAdapter } from '../../features/orchestrator/infrastructure/YamlSprintStatusAdapter.js';
 
 export async function sprintStatusCommand(): Promise<void> {
   const projectPath = process.cwd();
-  const reader = new BmadStatusReader(projectPath);
+  const reader = new YamlSprintStatusAdapter(projectPath);
   const sessionService = new SprintSessionService(projectPath);
 
   // Session info

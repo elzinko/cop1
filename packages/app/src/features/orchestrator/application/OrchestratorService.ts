@@ -4,6 +4,13 @@ import type { EventBus } from '@cop1/shared-kernel';
 import { defaultCommandsForPhase } from '@cop1/sprint-core';
 import type { SupervisorPlaybook } from '../domain/SupervisorPlaybook.js';
 
+// NOTE — `sprint-status.yaml` file-level coupling is intentional and localized
+// here (the orchestrator reads BMAD's story list). Target architecture
+// (EA12-S4 follow-up, V1.1) replaces this with a `SprintStatusPort` injection
+// wired to a `BmadCommandStatusAdapter`. The invariant test at
+// `infrastructure/__tests__/sprint-status-coupling-invariant.test.ts` allows
+// this single reference.
+
 export type OrchestratorMode = 'normal' | 'step-by-step' | 'abort-on-escalation';
 
 export interface OrchestratorRunOptions {

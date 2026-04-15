@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { SprintStatusReaderPort } from '@cop1/sprint-core';
+import type { SprintStatusPort } from '../../orchestrator/domain/SprintStatusPort.js';
 
 export class StoriesApiHandler {
-  constructor(private readonly statusReader: SprintStatusReaderPort) {}
+  constructor(private readonly statusReader: SprintStatusPort) {}
 
   handle(req: IncomingMessage, res: ServerResponse): boolean {
     const urlMatch = req.url?.match(/^\/api\/stories\/([^/]+)$/);

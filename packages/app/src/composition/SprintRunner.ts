@@ -6,17 +6,17 @@ import { QualityGateService } from '@cop1/quality-intelligence';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   BMADReader,
-  BmadStatusReader,
   CheckpointPhase,
   CheckpointService,
   SprintSessionService,
-  type SprintStatusReaderPort,
   type StepResult,
   type StoryMetadata,
   WorkflowEngine,
   type WorkflowStep,
 } from '@cop1/sprint-core';
 import { ConfigLoader } from '../features/config/application/ConfigLoader.js';
+import type { SprintStatusPort } from '../features/orchestrator/domain/SprintStatusPort.js';
+import { YamlSprintStatusAdapter } from '../features/orchestrator/infrastructure/YamlSprintStatusAdapter.js';
 import type { PipelineStepFactory } from './PipelineStepFactory.js';
 
 export interface SprintRunnerDeps {
@@ -24,7 +24,7 @@ export interface SprintRunnerDeps {
   eventBus?: EventBus;
   steps?: WorkflowStep[];
   stepFactory?: PipelineStepFactory;
-  statusReader?: SprintStatusReaderPort;
+  statusReader?: SprintStatusPort;
 }
 
 export interface SprintRunOptions {
@@ -49,14 +49,14 @@ export class SprintRunner {
   private readonly projectPath: string;
   private readonly customSteps?: WorkflowStep[];
   private readonly stepFactory?: PipelineStepFactory;
-  private readonly statusReader: SprintStatusReaderPort;
+  private readonly statusReader: SprintStatusPort;
 
   constructor(deps: SprintRunnerDeps) {
     this.projectPath = deps.projectPath;
     this.eventBus = deps.eventBus ?? new EventBus();
     this.customSteps = deps.steps;
     this.stepFactory = deps.stepFactory;
-    this.statusReader = deps.statusReader ?? new BmadStatusReader(deps.projectPath);
+    this.statusReader = deps.statusReader ?? new YamlSprintStatusAdapter(deps.projectPath);
   }
 
   async run(options: SprintRunOptions = {}): Promise<SprintRunResult> {

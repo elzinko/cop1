@@ -25,10 +25,9 @@ export { StoryStatusTracker } from './features/story-tracker/application/StorySt
 export { StoryStatus } from './features/story-tracker/domain/StoryStatus.js';
 export type { StoryStatusValue } from './features/story-tracker/domain/StoryStatus.js';
 export { InvalidTransitionError } from './features/story-tracker/domain/errors/InvalidTransitionError.js';
-/** @deprecated Use BmadStatusReader + SprintStatusReaderPort instead */
 export { YamlStatusStore } from './features/story-tracker/infrastructure/YamlStatusStore.js';
-export type { SprintStatusReaderPort } from './features/story-tracker/domain/ports/SprintStatusReaderPort.js';
-export { BmadStatusReader } from './features/story-tracker/infrastructure/BmadStatusReader.js';
+// EA12-S4 (A6 pivot): BmadStatusReader + SprintStatusReaderPort removed.
+// File-level BMAD coupling now lives in `@cop1/app` orchestrator adapter only.
 export { InMemoryStatusReader } from './features/story-tracker/infrastructure/InMemoryStatusReader.js';
 
 // Snapshot

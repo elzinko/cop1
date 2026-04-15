@@ -1,4 +1,5 @@
-import { BmadStatusReader, SprintSessionService } from '@cop1/sprint-core';
+import { SprintSessionService } from '@cop1/sprint-core';
+import { YamlSprintStatusAdapter } from '../../orchestrator/infrastructure/YamlSprintStatusAdapter.js';
 import { DEFAULT_PORT } from '../domain/DaemonState.js';
 import { HttpServer } from '../infrastructure/HttpServer.js';
 import { PidFileManager } from '../infrastructure/PidFileManager.js';
@@ -20,7 +21,7 @@ export class DaemonService {
     this.pidManager = new PidFileManager(projectPath);
 
     this.httpServer.setSprintStatusProvider(() => {
-      const reader = new BmadStatusReader(projectPath);
+      const reader = new YamlSprintStatusAdapter(projectPath);
       const sessionService = new SprintSessionService(projectPath);
 
       const statuses = reader.getAllStatuses();

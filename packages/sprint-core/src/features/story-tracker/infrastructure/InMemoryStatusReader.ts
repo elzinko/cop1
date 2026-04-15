@@ -1,6 +1,16 @@
-import type { SprintStatusReaderPort } from '../domain/ports/SprintStatusReaderPort.js';
+/**
+ * Minimal in-memory status reader. Kept after EA12-S4 for tests that want
+ * a trivial status source without seeding a real YAML file. Exports its
+ * own structural shape — consumers that also type against the new
+ * `SprintStatusPort` (in `@cop1/app`) should be compatible since the
+ * signature matches.
+ */
+export interface InMemoryStatusReaderShape {
+  getStoryStatus(storyId: string): string | null;
+  getAllStatuses(): Map<string, string>;
+}
 
-export class InMemoryStatusReader implements SprintStatusReaderPort {
+export class InMemoryStatusReader implements InMemoryStatusReaderShape {
   private readonly statuses: Map<string, string>;
 
   constructor(initial?: Map<string, string>) {
