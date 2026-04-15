@@ -95,14 +95,9 @@ export type {
   SprintMetrics,
 } from './features/sprint-dashboard/domain/SprintDashboardTypes.js';
 
-// Burndown
-export { BurndownCalculator } from './features/burndown/application/BurndownCalculator.js';
-export type {
-  BurndownDataPoint,
-  BurnupDataPoint,
-  ChartData,
-} from './features/burndown/domain/BurndownTypes.js';
-export type { DailySnapshot } from './features/burndown/application/BurndownCalculator.js';
+// Burndown — removed EA12-S7 (A7 pivot — aspirational feature, zero consumer).
+// V1.2 backlog: reintroduce with a cop1 command that consumes
+// /bmad-bmm-sprint-status output as its data source.
 
 // DoR Validator
 export { DORValidator } from './features/dor-validator/application/DORValidator.js';
@@ -170,11 +165,8 @@ export { AutoRuleSuggestionService } from './features/auto-rule-suggestion/appli
 
 // sprint-journal feature removed by EA11-S8 (SCP 2026-04-11 §4 addendum — dead code)
 
-// KPIs Dashboard
-export { KPIsDashboardService } from './features/kpis-dashboard/application/KPIsDashboardService.js';
-
-// Velocity Projector
-export { VelocityProjector } from './features/velocity-projector/application/VelocityProjector.js';
+// KPIs Dashboard — removed EA12-S7 (A7 pivot — zero functional consumer, barrel-only).
+// Velocity Projector — removed EA12-S7 (A7 pivot — aspirational, V1.2 backlog if reintroduced).
 
 // Agent Self-Assessment
 export { AgentSelfAssessmentService } from './features/agent-self-assessment/application/AgentSelfAssessmentService.js';

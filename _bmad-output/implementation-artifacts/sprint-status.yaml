@@ -371,5 +371,5 @@ development_status:
   EA12-S4: done      # Status discipline — remove BmadStatusReader (A6) — Sprint 13
   EA12-S5: done      # Runtime hardening — budget simplification + reentrance guard (A1+A4) — Sprint 13
   EA12-S6: todo      # Track 2 extended format + session log aggregation D4 (B1+D4) — Sprint 13 (depends: EA12-S1)
-  EA12-S7: todo      # Aspirational features audit — delete/wire burndown, velocity, kpis (A7) — Sprint 13
+  EA12-S7: done      # Aspirational features audit — delete/wire burndown, velocity, kpis (A7) — Sprint 13
   epic-ea12-retrospective: optional
