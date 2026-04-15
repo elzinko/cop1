@@ -365,7 +365,7 @@ development_status:
   # Source: SCP 2026-04-15 adversarial review (10 arbitrages, 8 validated, 2 pivots)
   # Depends on: EA10 (done), EA11 (done), EA9 (done)
   epic-ea12: in-progress
-  EA12-S1: todo      # commit_anchor real implementation (B1) — Sprint 13 (blocks: EA12-S6)
+  EA12-S1: done      # commit_anchor real implementation (B1) — Sprint 13 (blocks: EA12-S6)
   EA12-S2: todo      # Recovery E2E test with real AgentSdkSessionAdapter (A2) — Sprint 13 (blocks: dogfooding sign-off)
   EA12-S3: todo      # Playbook pivot — remove commands enumeration (A5) — Sprint 13
   EA12-S4: todo      # Status discipline — remove BmadStatusReader (A6) — Sprint 13

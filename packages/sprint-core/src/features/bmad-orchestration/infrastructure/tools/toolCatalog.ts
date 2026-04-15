@@ -1,8 +1,39 @@
+import { execSync } from 'node:child_process';
 import type { EventBus } from '@cop1/shared-kernel';
 import { z } from 'zod';
 import type { WorktreeService } from '../../../dev-agent/application/WorktreeService.js';
 import type { HistoryService } from '../../application/HistoryService.js';
 import type { BMADSessionPort } from '../../domain/ports/BMADSessionPort.js';
+
+/** Git driver abstraction so tests can inject a fake without touching a real repo. */
+export interface GitDriver {
+  hasStagedChanges(cwd: string): boolean;
+  commit(cwd: string, message: string): void;
+  headSha(cwd: string): string;
+}
+
+const defaultGitDriver: GitDriver = {
+  hasStagedChanges(cwd) {
+    try {
+      execSync('git diff --cached --quiet', { cwd, stdio: 'pipe' });
+      return false;
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 1) return true;
+      throw err;
+    }
+  },
+  commit(cwd, message) {
+    execSync('git commit -F -', {
+      cwd,
+      input: message,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  },
+  headSha(cwd) {
+    return execSync('git rev-parse HEAD', { cwd, encoding: 'utf-8' }).trim();
+  },
+};
 
 /**
  * EA10-S7 — V1-light tool catalog for the supervisor MCP server (ADR-014 §4.4).
@@ -22,7 +53,16 @@ export interface ToolCatalogDeps {
   eventBus?: EventBus;
   /** Maximum re-entrance depth for invoke_bmad_command (ADR-014 §5.7). */
   maxReentrance?: number;
+  /** Trailer appended to every commit_anchor commit. */
+  coAuthoredBy?: string;
+  /** Override git driver (tests). */
+  gitDriver?: GitDriver;
 }
+
+export type CommitAnchorResult =
+  | { committed: true; sha: string; short_sha: string }
+  | { committed: false; reason: 'nothing_to_commit' }
+  | { committed: false; reason: 'commit_failed'; detail: string };
 
 export interface SupervisorToolHandlers {
   create_worktree: (input: { storyId: string; projectPath: string }) => Promise<{ path: string }>;
@@ -38,7 +78,10 @@ export interface SupervisorToolHandlers {
     storyId?: string;
     sessionId?: string;
   }) => Promise<{ interactions: unknown[] }>;
-  commit_anchor: (input: { message: string }) => Promise<{ committed: boolean; note?: string }>;
+  commit_anchor: (input: {
+    message: string;
+    worktreePath?: string;
+  }) => Promise<CommitAnchorResult>;
   remaining_budget: (input: Record<string, never>) => Promise<{ tokensRemaining: number }>;
 }
 
@@ -50,6 +93,8 @@ export function buildSupervisorToolHandlers(
   deps: ToolCatalogDeps & { budgetProvider?: () => number },
 ): SupervisorToolHandlers {
   const maxReentrance = deps.maxReentrance ?? 3;
+  const git = deps.gitDriver ?? defaultGitDriver;
+  const coAuthoredBy = deps.coAuthoredBy ?? 'cop1-supervisor <noreply@anthropic.com>';
   let currentDepth = 0;
 
   const emit = (name: string, payload: Record<string, unknown>) => {
@@ -119,12 +164,55 @@ export function buildSupervisorToolHandlers(
       return { interactions: rows };
     },
 
-    async commit_anchor({ message }) {
+    async commit_anchor({ message, worktreePath }) {
       emit('supervisor.tool.invoked', { tool: 'commit_anchor' });
-      // V1-light: placeholder — real git integration deferred. Return note so
-      // caller knows this is a no-op for now.
-      emit('supervisor.tool.completed', { tool: 'commit_anchor' });
-      return { committed: false, note: `V1-light stub — would commit: ${message}` };
+      const cwd = worktreePath ?? deps.projectRoot;
+
+      let staged: boolean;
+      try {
+        staged = git.hasStagedChanges(cwd);
+      } catch (err) {
+        const detail = serializeGitError(err);
+        emit('supervisor.tool.failed', {
+          tool: 'commit_anchor',
+          reason: 'commit_failed',
+          detail,
+        });
+        return { committed: false, reason: 'commit_failed', detail };
+      }
+      if (!staged) {
+        emit('supervisor.tool.completed', {
+          tool: 'commit_anchor',
+          committed: false,
+          reason: 'nothing_to_commit',
+        });
+        return { committed: false, reason: 'nothing_to_commit' };
+      }
+
+      const fullMessage = `${message.trimEnd()}\n\nCo-Authored-By: ${coAuthoredBy}\n`;
+      try {
+        git.commit(cwd, fullMessage);
+        const sha = git.headSha(cwd);
+        const result: CommitAnchorResult = {
+          committed: true,
+          sha,
+          short_sha: sha.slice(0, 7),
+        };
+        emit('supervisor.tool.completed', {
+          tool: 'commit_anchor',
+          committed: true,
+          sha,
+        });
+        return result;
+      } catch (err) {
+        const detail = serializeGitError(err);
+        emit('supervisor.tool.failed', {
+          tool: 'commit_anchor',
+          reason: 'commit_failed',
+          detail,
+        });
+        return { committed: false, reason: 'commit_failed', detail };
+      }
     },
 
     async remaining_budget() {
@@ -134,6 +222,13 @@ export function buildSupervisorToolHandlers(
       return { tokensRemaining };
     },
   };
+}
+
+function serializeGitError(err: unknown): string {
+  const e = err as { stderr?: Buffer | string; message?: string };
+  const raw =
+    (typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString()) ?? e.message ?? String(err);
+  return raw.length > 500 ? `${raw.slice(0, 497)}...` : raw;
 }
 
 /**
@@ -158,6 +253,7 @@ export const toolSchemas = {
   },
   commit_anchor: {
     message: z.string(),
+    worktreePath: z.string().optional(),
   },
   remaining_budget: {} as Record<string, never>,
 };
