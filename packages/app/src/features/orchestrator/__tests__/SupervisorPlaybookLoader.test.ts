@@ -31,7 +31,7 @@ describe('SupervisorPlaybookLoader', () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
 
-  it('parses a minimal valid playbook', async () => {
+  it('parses a minimal valid playbook (prose-only phase, post-EA12-S3 pivot)', async () => {
     const path = join(projectRoot, 'playbook.md');
     await writeFile(
       path,
@@ -40,8 +40,8 @@ describe('SupervisorPlaybookLoader', () => {
         'help: /bmad-help',
         '',
         '## Development Loop',
-        '1. `/bmad-bmm-dev-story`',
-        '2. `/bmad-bmm-code-review`',
+        '',
+        'The supervisor drives the canonical scrum cycle.',
         '',
       ].join('\n'),
     );
@@ -50,7 +50,27 @@ describe('SupervisorPlaybookLoader', () => {
     expect(pb.version).toBe('6.0.0-Beta.8');
     expect(pb.helpRef).toBe('/bmad-help');
     expect(pb.phases).toHaveLength(1);
-    expect(pb.phases[0].commands.map((c) => c.command)).toEqual([
+    expect(pb.phases[0]?.name).toBe('Development Loop');
+    expect(pb.phases[0]?.commands).toBeUndefined();
+    expect(pb.phases[0]?.intent).toContain('canonical scrum cycle');
+  });
+
+  it('still parses ordered-list commands for backwards-compat', async () => {
+    const path = join(projectRoot, 'playbook.md');
+    await writeFile(
+      path,
+      [
+        'BMAD version: 6',
+        'help: /bmad-help',
+        '',
+        '## Loop',
+        '1. `/bmad-bmm-dev-story`',
+        '2. `/bmad-bmm-code-review`',
+      ].join('\n'),
+    );
+    const loader = new SupervisorPlaybookLoader({ projectRoot });
+    const pb = await loader.load(path);
+    expect(pb.phases[0]?.commands?.map((c) => c.command)).toEqual([
       '/bmad-bmm-dev-story',
       '/bmad-bmm-code-review',
     ]);
@@ -69,7 +89,8 @@ describe('SupervisorPlaybookLoader', () => {
         'Decision policy: 3-tier cascade',
         '',
         '## Loop',
-        '1. `/bmad-bmm-create-story`',
+        '',
+        'Intent prose here.',
       ].join('\n'),
     );
     const loader = new SupervisorPlaybookLoader({ projectRoot });
@@ -87,12 +108,51 @@ describe('SupervisorPlaybookLoader', () => {
     await expect(loader.load(path)).rejects.toThrow('no H2 phases');
   });
 
-  it('throws on phase with no ordered list', async () => {
+  it('tolerates a phase with no ordered list (post-EA12-S3 pivot)', async () => {
     const path = join(projectRoot, 'playbook.md');
-    await writeFile(path, 'BMAD version: 6\nhelp: /bmad-help\n\n## Empty Phase\n\nSome text.\n');
+    await writeFile(path, 'BMAD version: 6\nhelp: /bmad-help\n\n## Prose Phase\n\nSome text.\n');
+    const loader = new SupervisorPlaybookLoader({ projectRoot });
+    const pb = await loader.load(path);
+    expect(pb.phases).toHaveLength(1);
+    expect(pb.phases[0]?.commands).toBeUndefined();
+    expect(pb.phases[0]?.intent).toBe('Some text.');
+  });
+
+  it('rejects forbidden "commands:" preamble key (EA12-S3 A5 pivot)', async () => {
+    const path = join(projectRoot, 'playbook.md');
+    await writeFile(
+      path,
+      [
+        'BMAD version: 6',
+        'help: /bmad-help',
+        'commands: /bmad-bmm-dev-story',
+        '',
+        '## Loop',
+        '',
+        'prose',
+      ].join('\n'),
+    );
+    const loader = new SupervisorPlaybookLoader({ projectRoot });
+    await expect(loader.load(path)).rejects.toThrow(/preamble key "commands" is not allowed/);
+  });
+
+  it('rejects forbidden "allowed_commands:" preamble key (EA12-S3 A5 pivot)', async () => {
+    const path = join(projectRoot, 'playbook.md');
+    await writeFile(
+      path,
+      [
+        'BMAD version: 6',
+        'help: /bmad-help',
+        'allowed_commands: /bmad-bmm-dev-story',
+        '',
+        '## Loop',
+        '',
+        'prose',
+      ].join('\n'),
+    );
     const loader = new SupervisorPlaybookLoader({ projectRoot });
     await expect(loader.load(path)).rejects.toThrow(
-      'Phase "Empty Phase" has no ordered-list commands',
+      /preamble key "allowed_commands" is not allowed/,
     );
   });
 
@@ -119,7 +179,8 @@ describe('SupervisorPlaybookLoader', () => {
         'max_reentrance_depth: 5',
         '',
         '## Loop',
-        '1. `/bmad-bmm-dev-story`',
+        '',
+        'prose',
       ].join('\n'),
     );
     const loader = new SupervisorPlaybookLoader({ projectRoot });
@@ -134,7 +195,7 @@ describe('SupervisorPlaybookLoader', () => {
     const path = join(projectRoot, 'playbook.md');
     await writeFile(
       path,
-      ['BMAD version: 6', 'help: /bmad-help', '', '## Loop', '1. `/bmad-bmm-dev-story`'].join('\n'),
+      ['BMAD version: 6', 'help: /bmad-help', '', '## Loop', '', 'prose'].join('\n'),
     );
     const loader = new SupervisorPlaybookLoader({ projectRoot });
     const pb = await loader.load(path);
@@ -150,10 +211,12 @@ describe('SupervisorPlaybookLoader', () => {
         'help: /bmad-help',
         '',
         '## Phase 1',
-        '1. `/bmad-bmm-create-story`',
+        '',
+        'first phase prose',
         '',
         '## Phase 2',
-        '1. `/bmad-bmm-dev-story`',
+        '',
+        'second phase prose',
       ].join('\n'),
     );
     const loader = new SupervisorPlaybookLoader({ projectRoot });

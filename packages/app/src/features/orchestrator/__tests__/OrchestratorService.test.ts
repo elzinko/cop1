@@ -187,6 +187,62 @@ describe('OrchestratorService', () => {
     expect(events.filter((e) => e === 'story.started').length).toBeGreaterThan(0);
   });
 
+  it('falls back to DEFAULT_ORCHESTRATOR_CYCLE when phase has no commands (EA12-S3)', async () => {
+    await seedStatusFile(projectRoot);
+    const bus = new EventBus();
+    const runner = vi.fn(async () => ({ success: true, nextStatus: 'done' }));
+    const svc = new OrchestratorService(runner, bus);
+
+    // Prose-only playbook — phases have names but no commands.
+    const intentOnly: SupervisorPlaybook = {
+      version: '6.0.0',
+      helpRef: '/bmad-help',
+      phases: [
+        { name: 'Story Creation', intent: 'prose only' },
+        { name: 'Development Loop', intent: 'prose only' },
+      ],
+      hooks: {},
+    };
+
+    await svc.run({
+      playbook: intentOnly,
+      epicId: 'EA99',
+      projectRoot,
+      mode: 'normal',
+    });
+
+    const commandsInvoked = runner.mock.calls.map((c) => c[0].command);
+    // Canonical cycle from sprint-core:
+    //   Story Creation → /bmad-bmm-create-story
+    //   Development Loop → /bmad-bmm-dev-story, /bmad-bmm-code-review
+    expect(commandsInvoked).toContain('/bmad-bmm-create-story');
+    expect(commandsInvoked).toContain('/bmad-bmm-dev-story');
+    expect(commandsInvoked).toContain('/bmad-bmm-code-review');
+  });
+
+  it('skips phases whose name is unknown to DEFAULT_ORCHESTRATOR_CYCLE and which have no commands', async () => {
+    await seedStatusFile(projectRoot);
+    const bus = new EventBus();
+    const runner = vi.fn(async () => ({ success: true, nextStatus: 'done' }));
+    const svc = new OrchestratorService(runner, bus);
+
+    const noopPlaybook: SupervisorPlaybook = {
+      version: '6.0.0',
+      helpRef: '/bmad-help',
+      phases: [{ name: 'Unknown Phase', intent: 'nothing to do' }],
+      hooks: {},
+    };
+
+    await svc.run({
+      playbook: noopPlaybook,
+      epicId: 'EA99',
+      projectRoot,
+      mode: 'normal',
+    });
+
+    expect(runner).not.toHaveBeenCalled();
+  });
+
   it('calls auto-decision logger per command', async () => {
     await seedStatusFile(projectRoot);
     const bus = new EventBus();

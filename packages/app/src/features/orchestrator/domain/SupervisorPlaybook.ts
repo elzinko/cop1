@@ -5,7 +5,14 @@ export interface PlaybookCommand {
 
 export interface PlaybookPhase {
   name: string;
-  commands: PlaybookCommand[];
+  /**
+   * Optional command enumeration (deprecated for new playbooks — EA12-S3 A5 pivot).
+   * When absent, `OrchestratorService` falls back to `defaultCommandsForPhase(name)`.
+   * Kept optional for backwards compatibility with playbooks predating the pivot.
+   */
+  commands?: PlaybookCommand[];
+  /** Free-form prose describing what the phase accomplishes. EA12-S3 addition. */
+  intent?: string;
 }
 
 export interface EpicRestrictions {

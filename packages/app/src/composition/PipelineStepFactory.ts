@@ -11,6 +11,7 @@ import type { EventBus } from '@cop1/shared-kernel';
 import {
   type BMADSessionPort,
   BMADSessionStep,
+  DEFAULT_BMAD_PIPELINE_COMMANDS,
   DevAgent,
   PMAgentWorkflowStep,
   QAAgent,
@@ -69,24 +70,26 @@ export class PipelineStepFactory {
     const sessionPort = this.sessionPort;
     const supervisorService = this.supervisorService;
     const eventBus = this.eventBus;
-    // BMAD pipeline: 3 BMADSessionStep instances sharing the same sessionPort +
-    // supervisorService (ADR-012). PM validation is handled internally by BMAD.
+    // BMAD pipeline: one BMADSessionStep per canonical command from
+    // DEFAULT_BMAD_PIPELINE_COMMANDS (EA12-S3 / A5 pivot — commands are no
+    // longer enumerated inline here). PM validation is handled internally by BMAD.
+    const [devCmd, reviewCmd, qaCmd] = DEFAULT_BMAD_PIPELINE_COMMANDS;
     return [
       new BMADSessionStep(sessionPort, supervisorService, {
         name: 'bmad-dev',
-        command: '/bmad-bmm-dev-story',
+        command: devCmd,
         errorPrefix: 'BMAD dev-story failed',
         eventBus,
       }),
       new BMADSessionStep(sessionPort, supervisorService, {
         name: 'bmad-review',
-        command: '/bmad-bmm-code-review',
+        command: reviewCmd,
         errorPrefix: 'BMAD code-review failed',
         eventBus,
       }),
       new BMADSessionStep(sessionPort, supervisorService, {
         name: 'bmad-qa',
-        command: '/bmad-bmm-qa-automate',
+        command: qaCmd,
         errorPrefix: 'BMAD QA validation failed',
         eventBus,
       }),

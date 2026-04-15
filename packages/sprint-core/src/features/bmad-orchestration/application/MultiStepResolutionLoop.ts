@@ -94,7 +94,11 @@ export class MultiStepResolutionLoop {
 
     try {
       const budget = await this.tools.remaining_budget({} as Record<string, never>);
-      advisoryOutputs.push(`budget:${budget.tokensRemaining}`);
+      if ('tokensRemaining' in budget) {
+        advisoryOutputs.push(`budget:${budget.tokensRemaining}`);
+      } else {
+        advisoryOutputs.push(`budget:${budget.error}`);
+      }
     } catch {
       // not fatal
     }

@@ -22,12 +22,15 @@ export interface SupervisorPlaybookLoaderOptions {
 }
 
 /**
- * Parses a `supervisor-playbook.md` per the EA10-S2 spec:
- *   - H2 sections → phases
- *   - Ordered lists under each H2 → commands
- *   - Preamble → version, help pointer, optional sections
+ * Parses a `supervisor-playbook.md`:
+ *   - H2 sections → phases (scrum directives — name + optional intent prose)
+ *   - Ordered lists under each H2 → optional command enumeration (deprecated
+ *     per EA12-S3 A5 pivot; kept for backwards compat)
+ *   - Preamble → version, help pointer, optional sections + optional budgets
  *
- * Validates that each extracted command exists in `.claude/commands/`.
+ * Rejects preamble `commands:` or `allowed_commands:` top-level keys (A5 pivot).
+ * When a phase has no commands, the consumer (`OrchestratorService`) falls
+ * back to `defaultCommandsForPhase(phase.name)` from sprint-core.
  */
 export class SupervisorPlaybookLoader {
   constructor(private readonly options: SupervisorPlaybookLoaderOptions = {}) {}
@@ -48,6 +51,10 @@ export class SupervisorPlaybookLoader {
     if (firstH2 === -1) firstH2 = lines.length;
     const preamble = lines.slice(0, firstH2);
 
+    // AC1 (EA12-S3 / A5 pivot) — reject top-level `commands:` / `allowed_commands:`
+    // preamble keys. These are not part of the playbook schema.
+    this.rejectForbiddenPreambleKeys(preamble);
+
     const version = this.extractSimple(preamble, /^BMAD version:\s*(.+)$/);
     const helpRef = this.extractSimple(preamble, /^help:\s*(\/.+)$/);
     const worktree = this.extractSection(preamble, /^Worktree hooks?:\s*(.*)$/i);
@@ -67,6 +74,7 @@ export class SupervisorPlaybookLoader {
       }
       const phaseName = h2Match[1]?.trim() ?? '';
       const commands: PlaybookCommand[] = [];
+      const proseLines: string[] = [];
       i++;
       while (i < lines.length && !/^##\s/.test(lines[i] ?? '')) {
         const line = lines[i] ?? '';
@@ -80,17 +88,16 @@ export class SupervisorPlaybookLoader {
               note: content.replace(commandMatch[0], '').trim() || undefined,
             });
           }
+        } else if (line.trim().length > 0) {
+          proseLines.push(line);
         }
         i++;
       }
-      if (commands.length === 0) {
-        throw new PlaybookValidationError(
-          `Phase "${phaseName}" has no ordered-list commands`,
-          undefined,
-          firstH2,
-        );
-      }
-      phases.push({ name: phaseName, commands });
+      const phase: PlaybookPhase = { name: phaseName };
+      if (commands.length > 0) phase.commands = commands;
+      const prose = proseLines.join('\n').trim();
+      if (prose.length > 0) phase.intent = prose;
+      phases.push(phase);
     }
 
     if (phases.length === 0) {
@@ -106,6 +113,17 @@ export class SupervisorPlaybookLoader {
       decisionPolicy: decisionPolicy,
       budgets,
     };
+  }
+
+  private rejectForbiddenPreambleKeys(preamble: string[]): void {
+    for (const line of preamble) {
+      const m = line.match(/^(commands|allowed_commands)\s*:/i);
+      if (m) {
+        throw new PlaybookValidationError(
+          `Playbook preamble key "${m[1]}" is not allowed — command enumeration was removed in EA12-S3 (A5 pivot). Phase-level ordered lists remain supported for backwards compat.`,
+        );
+      }
+    }
   }
 
   private extractBudgets(preamble: string[]): PlaybookBudgets | undefined {
@@ -150,6 +168,7 @@ export class SupervisorPlaybookLoader {
   private async validateCommands(playbook: SupervisorPlaybook): Promise<void> {
     const known = await this.discoverCommands();
     for (const phase of playbook.phases) {
+      if (!phase.commands) continue;
       for (const cmd of phase.commands) {
         if (!known.has(cmd.command)) {
           throw new PlaybookValidationError(

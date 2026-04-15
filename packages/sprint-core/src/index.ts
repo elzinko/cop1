@@ -217,9 +217,22 @@ export type {
   SupervisorLLMPort,
   SupervisorQuestion,
   SupervisorResponse,
-  SupervisorContext,
 } from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
+// SupervisorContext is exported from the EA11-S6 bootstrap module below
+// (domain/SupervisorContext.js). The older `ports/SupervisorLLMPort.js`
+// also defines a SupervisorContext for backwards compatibility but is
+// intentionally not re-exported here to avoid the duplicate-identifier
+// build error — import it directly from its module if needed.
 export { buildSupervisorPrompt } from './features/bmad-orchestration/domain/SupervisorPromptBuilder.js';
+export {
+  DEFAULT_BMAD_PIPELINE_COMMANDS,
+  DEFAULT_ORCHESTRATOR_CYCLE,
+  defaultCommandsForPhase,
+} from './features/bmad-orchestration/domain/BmadCycle.js';
+export type {
+  BmadCyclePhase,
+  BmadPipelineCommand,
+} from './features/bmad-orchestration/domain/BmadCycle.js';
 export { SupervisorTimeoutError } from './features/bmad-orchestration/domain/errors/SupervisorTimeoutError.js';
 export type {
   BMADSessionPort,

@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { EventBus } from '@cop1/shared-kernel';
+import { defaultCommandsForPhase } from '@cop1/sprint-core';
 import type { SupervisorPlaybook } from '../domain/SupervisorPlaybook.js';
 
 export type OrchestratorMode = 'normal' | 'step-by-step' | 'abort-on-escalation';
@@ -98,7 +99,13 @@ export class OrchestratorService {
       const commandsRun: string[] = [];
 
       for (const phase of options.playbook.phases) {
-        for (const cmd of phase.commands) {
+        // EA12-S3 / A5 pivot: if the playbook doesn't enumerate phase commands,
+        // fall back to the canonical cycle from sprint-core. Unknown phase names
+        // with no commands are silently skipped.
+        const phaseCommands =
+          phase.commands ?? defaultCommandsForPhase(phase.name)?.map((command) => ({ command }));
+        if (!phaseCommands || phaseCommands.length === 0) continue;
+        for (const cmd of phaseCommands) {
           if (options.mode === 'step-by-step') {
             const gate = await this.gate({ storyKey, nextCommand: cmd.command });
             if (gate === 'abort') {
