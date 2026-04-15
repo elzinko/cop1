@@ -1,220 +1,160 @@
 # Getting Started with cop1
 
+> **Status (2026-04-14):** V1-light MVP closed. The Supervisor Orchestrator CLI (`cop1 orchestrator run`) is shipped as a walking skeleton — the inter-command loop, playbook, step-by-step mode, and 3-tracks logging work end-to-end. The `BMADCommandRunner` is still a stub (V1.1 hardening): real BMAD execution + real commits are not wired yet.
+
 ## Prerequisites
 
 - Node.js >= 20
 - pnpm >= 9
-- (Optional) LMStudio or Ollama for local LLMs
+- Git
+- (For interactive runs) A BMAD installation in the target project (`_bmad/`) and Claude Code CLI
 
-## Installation
+## Install + Build
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Build all packages
-pnpm build
+pnpm build       # builds all 7 workspace packages
+pnpm test        # ~850 tests, should all pass
+pnpm typecheck   # clean on `@cop1/sprint-core` and `@cop1/app`
 ```
 
-## Running the MVP
+## Package Layout
 
-### 1. Start the API
+```
+packages/
+  shared-kernel/        — EventBus, shared types
+  observability/        — logging, metrics primitives
+  quality-intelligence/ — quality gates, drift detection
+  sprint-core/          — BMAD orchestration, supervisor, sessions (hex architecture)
+  llm-intelligence/     — LLM gateway + routing
+  ceremony-engine/      — ceremonies (planning, retro, grooming)
+  app/                  — CLI entry point (orchestrator, daemon, transcript)
+  web/                  — React dashboard (optional)
+```
+
+## Running the Supervisor Orchestrator (V1-light)
+
+The orchestrator walks an epic's stories in order, invoking BMAD commands per phase (create-story → dev-story → code-review), pausing for supervisor decisions or human approvals.
+
+### 1. Define a playbook
+
+A playbook is markdown that declares the command sequence. The project root contains a minimal one at `supervisor-playbook.md`. Example:
+
+```markdown
+BMAD version: 6.0.0-Beta.8
+
+## Story Creation
+1. /bmad-bmm-create-story
+
+## Development Loop
+1. /bmad-bmm-dev-story
+2. /bmad-bmm-code-review
+```
+
+Format reference: `_bmad-output/planning-artifacts/supervisor-playbook-format.md`.
+
+### 2. Launch on a target epic
 
 ```bash
-# In terminal 1
-cd packages/api
-pnpm dev
+# Normal mode — runs through the whole epic without pauses
+node packages/app/dist/cli/daemon-entry.js orchestrator run --epic <epicId>
+
+# Step-by-step — pauses between commands for manual approval (TTY prompt, or COP1_APPROVAL_FILE)
+node packages/app/dist/cli/daemon-entry.js orchestrator run --epic <epicId> --step-by-step
+
+# Abort on escalation — stop the run as soon as the supervisor escalates
+node packages/app/dist/cli/daemon-entry.js orchestrator run --epic <epicId> --abort-on-escalation
+
+# Custom playbook location
+node packages/app/dist/cli/daemon-entry.js orchestrator run --epic <epicId> --playbook path/to/playbook.md
 ```
 
-The API will start on http://localhost:3000
+Exit codes: `0` success, `2` runtime error, `3` aborted on escalation.
 
-### 2. Start the Web Interface
+### 3. Inspect outputs
+
+Each run emits three tracks (ADR-014 §8.5):
 
 ```bash
-# In terminal 2
-cd packages/web
-pnpm dev
+# Track 1 — SDK session state (opaque, managed by Agent SDK)
+# Track 2 — human-readable exchange history (markdown)
+ls .cop1/history/
+
+# Track 3 — structured metrics (JSONL per exchange)
+ls .cop1/metrics/
+
+# Auto-decision log (supervisor decisions per turn)
+cat .cop1/sprint-log-$(date +%Y-%m-%d).jsonl
 ```
 
-The web interface will be available at http://localhost:5173
-
-### 3. Test the API
+### 4. Read a session transcript
 
 ```bash
-# Health check
-curl http://localhost:3000/health
-
-# List projects (should be empty initially)
-curl http://localhost:3000/api/projects
+node packages/app/dist/cli/daemon-entry.js transcript <sessionId>
 ```
 
-## Creating Your First Agent
+Aggregates Track 2 markdown into a readable transcript.
 
-### Using Cloud LLM (Claude)
+## What Works Today (V1-light)
 
-```bash
-curl -X POST http://localhost:3000/api/agents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Code Reviewer Bot",
-    "type": "code_reviewer",
-    "capabilities": {
-      "canReviewCode": true,
-      "canWriteCode": false,
-      "canRunTests": false,
-      "canManageTasks": false,
-      "canAnalyzeArchitecture": true
-    },
-    "llmConfig": {
-      "provider": "cloud",
-      "modelName": "claude-sonnet-4.5",
-      "apiKey": "YOUR_CLAUDE_API_KEY",
-      "temperature": 0.7,
-      "maxTokens": 4096
-    },
-    "rulesModules": ["agent-general", "code-reviewer"]
-  }'
-```
+- Playbook parsing → typed domain model (EA10-S1)
+- Inter-command orchestrator loop with state transitions (EA10-S4)
+- Inter-command step-by-step approval (TTY / `COP1_APPROVAL_FILE` / CI no-op) (EA10-S5)
+- CLI subcommand (EA10-S6)
+- In-process MCP tool catalog for the supervisor (6 tools, ADR-014 §4.2) (EA10-S7)
+- Supervisor decision cascade (deterministic → LLM → escalation) (EA9-S3 + EA10-S8)
+- 3-tracks persistence + session transcript (EA11-S7/S8)
+- Worktree-per-story execution (EA11-S3 via `WorktreeService`)
 
-### Using Local LLM (LMStudio)
+## What Is Stubbed Today
 
-1. Start LMStudio and load a model
-2. Enable the local server (usually on http://localhost:1234)
-3. Create an agent:
+- `BMADCommandRunner` is a no-op that just transitions story status (no real BMAD execution)
+- `commit_anchor` tool returns a stub (no real git commits per story)
+- `EA10-S9` E2E test uses a local scripted fixture instead of a real cobaye project (EA6 scope)
 
-```bash
-curl -X POST http://localhost:3000/api/agents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Local Developer Bot",
-    "type": "developer",
-    "capabilities": {
-      "canReviewCode": true,
-      "canWriteCode": true,
-      "canRunTests": true,
-      "canManageTasks": false,
-      "canAnalyzeArchitecture": false
-    },
-    "llmConfig": {
-      "provider": "local",
-      "modelName": "llama-3-8b",
-      "endpoint": "http://localhost:1234/v1",
-      "temperature": 0.7,
-      "maxTokens": 2048
-    },
-    "rulesModules": ["agent-general", "developer"]
-  }'
-```
+See `_bmad-output/implementation-artifacts/epic-ea10-ea11-retro-2026-04-14.md` for the full gap list and V1.1 priorities.
 
-## Creating a Project
+## Current Interactive Workflow (Pre-V1.1)
 
-```bash
-curl -X POST http://localhost:3000/api/projects \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "My Awesome Project",
-    "description": "Building something cool with AI agents",
-    "metadata": {
-      "repository": "https://github.com/user/repo",
-      "technologies": ["typescript", "react", "nodejs"]
-    }
-  }'
-```
+Until `commit_anchor` + real `BMADCommandRunner` land, the practical workflow is manual driving through Claude Code:
 
-## Creating and Executing a Task
+1. Pick the next `ready-for-dev` story from `_bmad-output/implementation-artifacts/sprint-status.yaml`
+2. Run `/bmad-bmm-dev-story` in Claude Code
+3. Run `/bmad-bmm-code-review`
+4. Commit (1 commit per story, conventional format)
+5. Update story status to `done` in `sprint-status.yaml`
 
-```bash
-# 1. Create a task
-TASK_ID=$(curl -X POST http://localhost:3000/api/tasks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Review authentication module",
-    "description": "Review the authentication code for security issues and best practices",
-    "projectId": "PROJECT_ID_HERE",
-    "priority": "high"
-  }' | jq -r '.id')
+This is exactly the pattern the supervisor orchestrator will automate in V1.1.
 
-# 2. Assign to an agent
-curl -X POST http://localhost:3000/api/tasks/$TASK_ID/assign \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agentId": "AGENT_ID_HERE"
-  }'
+## Architecture
 
-# 3. Execute the task
-curl -X POST http://localhost:3000/api/tasks/$TASK_ID/execute
-```
+cop1 uses hexagonal architecture across the packages:
 
-## Architecture Overview
+- **Domain ports** (interfaces): `BMADSessionPort`, `SupervisorLLMPort`, `BMADCommandRunner`
+- **Application services**: `SupervisorService`, `OrchestratorService`, `HistoryService`, `WorktreeService`, `StepByStepController`
+- **Infrastructure adapters**: `AgentSdkSessionAdapter` (Agent SDK), `ClaudeResumeSessionAdapter` (CLI fallback), `InMemorySessionAdapter` (tests)
 
-cop1 uses hexagonal architecture:
-
-```
-Domain (Business Logic)
-  ├── Entities (Task, Agent, Project)
-  ├── Use Cases (CreateTask, ExecuteTask, etc.)
-  └── Ports (Interfaces)
-
-Infrastructure (Technical Adapters)
-  ├── SQLite Repositories
-  ├── Rules Provider
-  └── LLM Provider
-
-Application (API & Web)
-  ├── REST API (Fastify)
-  └── Web Interface (React)
-```
-
-## LLM Gateway
-
-The LLM Gateway supports:
-
-1. **Local LLMs**: LMStudio, Ollama (OpenAI-compatible)
-2. **Cloud LLMs**: Claude (Anthropic API), OpenAI (coming soon)
-3. **Hybrid**: Mix local and cloud agents
-
-Example hybrid setup:
-- Project Manager: Claude Sonnet 4.5 (cloud)
-- Code Reviewer: Claude Sonnet 4.5 (cloud)
-- Developer: Llama 3 (local)
-- QA Tester: Llama 3 (local)
-
-## Rules Engine
-
-Agents follow behavior rules defined in YAML:
-
-- `agent-general`: Basic rules for all agents
-- `code-reviewer`: Specific rules for code review
-- `developer`: Rules for writing code
-
-Create custom rules in `.cop1/rulesets/` (coming soon).
-
-## Next Steps
-
-1. Explore the web interface
-2. Create agents with different LLM providers
-3. Set up tasks and watch agents work
-4. Customize agent rules
-5. Build your own workflows
+Key ADRs to read:
+- `_bmad-output/planning-artifacts/adr-012-multi-turn-bmad-interaction.md` — multi-turn session pattern
+- `_bmad-output/planning-artifacts/adr-013-orchestrator-sprintrunner-separation.md` — inter- vs intra-command boundary
+- `_bmad-output/planning-artifacts/adr-014-supervisor-tool-interface.md` — in-process MCP tool catalog (most novel piece)
 
 ## Troubleshooting
 
-### API doesn't start
-- Check if port 3000 is available
-- Verify database path permissions
+### `Failed to load playbook`
+- Check `supervisor-playbook.md` exists at project root (or pass `--playbook <path>`)
+- Validate format against `supervisor-playbook-format.md`
 
-### Local LLM not working
-- Ensure LMStudio/Ollama is running
-- Check endpoint URL (default: http://localhost:1234/v1)
-- Verify model is loaded
+### Orchestrator exits with code 3
+- Expected when `--abort-on-escalation` is set and the supervisor escalates
+- Inspect `.cop1/sprint-log-*.jsonl` for the last decision
 
-### Agent execution fails
-- Check LLM provider is available
-- Verify API keys for cloud providers
-- Check agent rules modules exist
+### No visible effect on the codebase
+- Expected today: `BMADCommandRunner` is a stub. Story statuses transition in `sprint-status.yaml` but no code is generated. V1.1 hardening will wire real BMAD execution.
 
-## Documentation
+## Further Reading
 
-- [Architecture](./architecture.md)
-- [LLM Gateway](./llm-gateway.md)
-- [Rules Engine](./rules-engine.md)
+- `docs/architecture.md` — system architecture
+- `_bmad-output/planning-artifacts/prd.md` — product requirements
+- `_bmad-output/planning-artifacts/epics.md` — epic catalog
+- `_bmad-output/implementation-artifacts/epic-ea10-ea11-retro-2026-04-14.md` — latest retro + V1.1 priorities
