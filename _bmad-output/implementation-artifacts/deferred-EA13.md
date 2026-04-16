@@ -33,6 +33,24 @@ The 13 pre-existing errors are scattered across BMADSessionStep.test.ts, ClaudeR
 
 Priority: **MEDIUM** — matches the "not zero errors but no regression" posture that EA12-S1 used for TS errors (before EA13-S1 closed them).
 
+## Code/adversarial review findings — EA13-S1 (not auto-applied)
+
+From quality-control-enforcer code review + adversarial review of commit `d01746f`. All MEDIUM / LOW — no HIGH/BLOCKER. Parked here per execution rule.
+
+| # | Severity | File:line | Finding | Disposition |
+|---|---|---|---|---|
+| 1 | MEDIUM | `OrchestratorService.ts:238` | `if (!key) continue;` is unreachable; masks future regex loosening. Prefer throw-on-unreachable for consistency with `SessionTranscriptGenerator`. | Park — refactor in EA14 lint-hygiene or EA13-retro. |
+| 2 | MEDIUM | `OrchestratorService.test.ts:193-220` | Side-effect array pattern loses direct access to `runner.mock.calls` shape. | Accept — functional equivalence, pragmatic syntax dodge for `vi.fn<>` tuple typing. |
+| 3 | MEDIUM | — | Zero new tests added for 3 production narrowings. | Park — coverage for parse/extract edge cases belongs with a test-quality story, not a build fix. |
+| 4 | MEDIUM | `deferred-EA13.md` | Hypothesis "S2 fixes the 9 SprintRunner failures" is can-kicking. | Mitigation: **EA13-S3 validation will re-check**; if still red, escalate at S3 adversarial review. |
+| 5 | MEDIUM | `@cop1/sprint-core` tests | No lock test for `ApprovalResolver` barrel export. | Park — add a type-export smoke test in an EA14 API-surface hygiene story. |
+| 6 | LOW | `SessionTranscriptGenerator.ts:40-45` | Throw-on-unreachable overkill vs. `!` + inline invariant comment. | Keep — consistent with AC5. |
+| 7 | LOW | `SupervisorPlaybookLoader.ts:88` | `commandMatch[0] ?? ''` is dead-branch compliance. | Keep — matches the loader's defensive style. |
+| 8 | LOW | commit `d01746f` | 15 files / 3 concerns bundled. | Accept — session-unique execution constraint. |
+| 9 | LOW | `real-run-report-2026-04-16.md` | Committed inside S1 instead of a prior docs commit. | Accept — report drove S1 scope; orphaned otherwise. |
+| 10 | LOW | lint | 12 new `noNonNullAssertion` warnings. | Park — EA14 lint-hygiene story. |
+| 11 | LOW | `orchestrator.test.ts:29` | `null` broadening papers over a Node API investigation. | Accept — backup/restore pattern is lossy without `null`. |
+
 ## Scope creep opportunities rejected
 
 - **Replace all 12 test `!` with narrowing** — would turn a mechanical 9-file story into a 20-site refactor. Rejected: warnings (not errors), idiomatic in test fixtures.
