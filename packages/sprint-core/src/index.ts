@@ -280,6 +280,7 @@ export type {
 export { WorktreeService } from './features/dev-agent/application/WorktreeService.js';
 export type { WorktreePort } from './features/dev-agent/domain/ports/WorktreePort.js';
 export { StepByStepController } from './features/workflow/application/StepByStepController.js';
+export type { ApprovalResolver } from './features/workflow/application/StepByStepController.js';
 export type {
   StepByStepMode,
   StepByStepPort,

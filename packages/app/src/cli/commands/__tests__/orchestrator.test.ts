@@ -26,7 +26,7 @@ async function seedFixture(dir: string): Promise<void> {
 
 describe('orchestratorRunCommand', () => {
   let dir: string;
-  let origExitCode: number | string | undefined;
+  let origExitCode: number | string | null | undefined;
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'orch-cli-'));

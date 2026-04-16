@@ -82,10 +82,11 @@ export class SupervisorPlaybookLoader {
         if (olMatch) {
           const content = olMatch[1]?.trim() ?? '';
           const commandMatch = content.match(/`?(\/[a-z0-9-]+(?:[:.][a-z0-9-]+)*)`?/i);
-          if (commandMatch) {
+          const command = commandMatch?.[1];
+          if (commandMatch && command) {
             commands.push({
-              command: commandMatch[1],
-              note: content.replace(commandMatch[0], '').trim() || undefined,
+              command,
+              note: content.replace(commandMatch[0] ?? '', '').trim() || undefined,
             });
           }
         } else if (line.trim().length > 0) {

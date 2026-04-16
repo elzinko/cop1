@@ -8,6 +8,7 @@ import {
   extractStoryKeysForEpic,
   rewriteStoryStatus,
 } from '../application/OrchestratorService.js';
+import type { BMADCommandRunner } from '../application/OrchestratorService.js';
 import type { SupervisorPlaybook } from '../domain/SupervisorPlaybook.js';
 
 function samplePlaybook(): SupervisorPlaybook {
@@ -176,7 +177,7 @@ describe('OrchestratorService', () => {
     const runner = vi.fn(async () => ({ success: true, nextStatus: 'done' }));
     const svc = new OrchestratorService(runner, bus);
     await svc.run({
-      playbook: { ...samplePlaybook(), phases: [samplePlaybook().phases[0]] }, // single phase
+      playbook: { ...samplePlaybook(), phases: [samplePlaybook().phases[0]!] }, // single phase
       epicId: 'EA99',
       projectRoot,
       mode: 'normal',
@@ -190,7 +191,11 @@ describe('OrchestratorService', () => {
   it('falls back to DEFAULT_ORCHESTRATOR_CYCLE when phase has no commands (EA12-S3)', async () => {
     await seedStatusFile(projectRoot);
     const bus = new EventBus();
-    const runner = vi.fn(async () => ({ success: true, nextStatus: 'done' }));
+    const commandsInvoked: string[] = [];
+    const runner: BMADCommandRunner = async (input) => {
+      commandsInvoked.push(input.command);
+      return { success: true, nextStatus: 'done' };
+    };
     const svc = new OrchestratorService(runner, bus);
 
     // Prose-only playbook — phases have names but no commands.
@@ -211,7 +216,6 @@ describe('OrchestratorService', () => {
       mode: 'normal',
     });
 
-    const commandsInvoked = runner.mock.calls.map((c) => c[0].command);
     // Canonical cycle from sprint-core:
     //   Story Creation → /bmad-bmm-create-story
     //   Development Loop → /bmad-bmm-dev-story, /bmad-bmm-code-review
@@ -257,7 +261,7 @@ describe('OrchestratorService', () => {
       mode: 'normal',
     });
     expect(logger).toHaveBeenCalled();
-    expect(logger.mock.calls[0][0]).toMatchObject({ event: 'auto-decision' });
+    expect(logger.mock.calls[0]![0]).toMatchObject({ event: 'auto-decision' });
   });
 });
 

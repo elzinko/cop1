@@ -37,8 +37,13 @@ export class SessionTranscriptGenerator {
         a.path.localeCompare(b.path),
     );
 
-    const first = sorted[0].frontMatter;
-    const last = sorted[sorted.length - 1].frontMatter;
+    const firstFile = sorted[0];
+    const lastFile = sorted[sorted.length - 1];
+    if (!firstFile || !lastFile) {
+      throw new Error(`Unreachable: session ${sessionId} has empty sorted list after guard`);
+    }
+    const first = firstFile.frontMatter;
+    const last = lastFile.frontMatter;
 
     const header = [
       `# Session transcript — ${sessionId}`,

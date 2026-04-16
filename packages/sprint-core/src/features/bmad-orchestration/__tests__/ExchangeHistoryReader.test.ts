@@ -46,7 +46,7 @@ describe('ExchangeHistoryReader', () => {
     const reader = new ExchangeHistoryReader(dir);
     const all = await reader.listAll();
     expect(all).toHaveLength(2);
-    expect(all[0].frontMatter.startedAt < all[1].frontMatter.startedAt).toBe(true);
+    expect(all[0]!.frontMatter.startedAt < all[1]!.frontMatter.startedAt).toBe(true);
   });
 
   it('filters by sessionId', async () => {
@@ -56,7 +56,7 @@ describe('ExchangeHistoryReader', () => {
     const reader = new ExchangeHistoryReader(dir);
     const out = await reader.bySession('sess-a');
     expect(out).toHaveLength(1);
-    expect(out[0].frontMatter.sessionId).toBe('sess-a');
+    expect(out[0]!.frontMatter.sessionId).toBe('sess-a');
   });
 
   it('filters by storyId', async () => {
@@ -66,7 +66,7 @@ describe('ExchangeHistoryReader', () => {
     const reader = new ExchangeHistoryReader(dir);
     const out = await reader.byStory('EA11-S1');
     expect(out).toHaveLength(1);
-    expect(out[0].frontMatter.storyId).toBe('EA11-S1');
+    expect(out[0]!.frontMatter.storyId).toBe('EA11-S1');
   });
 
   it('returns empty list when history dir missing', async () => {

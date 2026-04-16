@@ -34,8 +34,8 @@ describe('MetricsWriter', () => {
     const raw = await readFile(path, 'utf-8');
     const lines = raw.trim().split('\n');
     expect(lines).toHaveLength(2);
-    expect(JSON.parse(lines[0])).toMatchObject({ event: 'session.started' });
-    expect(JSON.parse(lines[1])).toMatchObject({ event: 'session.turn.completed' });
+    expect(JSON.parse(lines[0]!)).toMatchObject({ event: 'session.started' });
+    expect(JSON.parse(lines[1]!)).toMatchObject({ event: 'session.turn.completed' });
   });
 
   it('rotates to a new file on a different date', async () => {

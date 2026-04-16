@@ -235,6 +235,7 @@ export function extractStoryKeysForEpic(yaml: string, epicId: string): string[] 
     const match = line.match(/^\s+([A-Za-z0-9]+-S[A-Za-z0-9]+):\s*[a-zA-Z-]+/);
     if (!match) continue;
     const key = match[1];
+    if (!key) continue;
     const prefix = key.split('-')[0]?.toLowerCase();
     if (prefix === epicLower) {
       result.push(key);
