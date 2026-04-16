@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { COP1_VERSION } from '../features/daemon/domain/DaemonState.js';
 import { healthCommand } from './commands/health.js';
 import { initBmadBridgeCommand } from './commands/init-bmad-bridge.js';
@@ -72,6 +72,15 @@ orchestrator
   .option('--step-by-step', 'Pause between commands for manual approval')
   .option('--abort-on-escalation', 'Stop cleanly when supervisor escalates')
   .option('--project-root <path>', 'Override project root (default: cwd)')
+  .addOption(
+    new Option(
+      '--runner <default|stub>',
+      'Command runner to use — default (real BMAD session) or stub (dev/test escape hatch)',
+    )
+      .choices(['default', 'stub'])
+      .default('default')
+      .hideHelp(),
+  )
   .action((options: Parameters<typeof orchestratorRunCommand>[0]) =>
     orchestratorRunCommand(options),
   );

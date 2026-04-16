@@ -209,6 +209,10 @@ export type {
   SupervisorQuestion,
   SupervisorResponse,
 } from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
+// Exposed under an alias to avoid clash with the EA11-S6 bootstrap
+// SupervisorContext (domain/SupervisorContext). This one is the per-question
+// context consumed by SupervisorService.setWorkflowContext / LLMPort.
+export type { SupervisorContext as SupervisorAnswerContext } from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
 // SupervisorContext is exported from the EA11-S6 bootstrap module below
 // (domain/SupervisorContext.js). The older `ports/SupervisorLLMPort.js`
 // also defines a SupervisorContext for backwards compatibility but is

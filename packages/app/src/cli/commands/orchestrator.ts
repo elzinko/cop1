@@ -2,12 +2,23 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EventBus } from '@cop1/shared-kernel';
 import {
+  AgentSdkSessionAdapter,
+  AgentSdkSupervisorAdapter,
+  type BMADSessionPort,
+  ClaudeResumeSessionAdapter,
+  SessionLogger,
+  SupervisorService,
+} from '@cop1/sprint-core';
+import { StructuredLogger } from '@cop1/observability';
+import {
   type BMADCommandRunner,
   type OrchestratorMode,
   OrchestratorService,
 } from '../../features/orchestrator/application/OrchestratorService.js';
 import { SupervisorPlaybookLoader } from '../../features/orchestrator/application/SupervisorPlaybookLoader.js';
+import { createDefaultBMADCommandRunner } from '../../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
 import { createInterCommandApprovalResolver } from '../../features/orchestrator/infrastructure/InterCommandApprovalResolver.js';
+import { stubBMADCommandRunner } from '../../features/orchestrator/infrastructure/testing/StubBMADCommandRunner.js';
 
 export interface OrchestratorRunCliOptions {
   playbook?: string;
@@ -15,21 +26,8 @@ export interface OrchestratorRunCliOptions {
   stepByStep?: boolean;
   abortOnEscalation?: boolean;
   projectRoot?: string;
+  runner?: 'default' | 'stub';
 }
-
-/**
- * Default `BMADCommandRunner` — no-op stub that returns a success transition.
- * Real wiring to `SprintRunner` / `BMADSessionPort` happens in a follow-up
- * integration story; the CLI accepts a custom runner via DI for tests.
- */
-const stubRunner: BMADCommandRunner = async ({ command }) => {
-  const nextStatus = command.includes('create-story')
-    ? 'ready-for-dev'
-    : command.includes('dev-story')
-      ? 'in-review'
-      : 'done';
-  return { success: true, nextStatus };
-};
 
 export async function orchestratorRunCommand(
   options: OrchestratorRunCliOptions,
@@ -65,7 +63,6 @@ export async function orchestratorRunCommand(
   const gate = async (ctx: { storyKey: string; nextCommand: string }) =>
     resolver({ phase: 'inter', label: `${ctx.storyKey}:${ctx.nextCommand}` });
 
-  // Auto-decision JSONL sink
   const logDir = join(projectRoot, '.cop1');
   await mkdir(logDir, { recursive: true });
   const logPath = join(logDir, `sprint-log-${new Date().toISOString().slice(0, 10)}.jsonl`);
@@ -73,12 +70,9 @@ export async function orchestratorRunCommand(
     void appendFile(logPath, `${JSON.stringify(payload)}\n`, 'utf-8');
   };
 
-  const svc = new OrchestratorService(
-    overrides.runner ?? stubRunner,
-    eventBus,
-    gate,
-    autoDecisionLogger,
-  );
+  const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);
+
+  const svc = new OrchestratorService(runner, eventBus, gate, autoDecisionLogger);
 
   try {
     const result = await svc.run({ playbook, epicId: options.epic, projectRoot, mode });
@@ -92,4 +86,38 @@ export async function orchestratorRunCommand(
     console.error('Orchestrator runtime error:', err);
     process.exitCode = 2;
   }
+}
+
+function resolveRunner(
+  options: OrchestratorRunCliOptions,
+  projectRoot: string,
+  eventBus: EventBus,
+): BMADCommandRunner {
+  if (options.runner === 'stub') {
+    console.log('Orchestrator runner: stub (--runner stub)');
+    return stubBMADCommandRunner;
+  }
+
+  // Default: real BMAD session-backed runner. Wiring mirrors sprint-run.ts.
+  const structuredLogger = new StructuredLogger(projectRoot);
+  const sessionLogger = new SessionLogger(structuredLogger, eventBus);
+  const supervisorAdapter = new AgentSdkSupervisorAdapter();
+  const supervisorService = new SupervisorService(supervisorAdapter, sessionLogger);
+  const questionHandler = supervisorService.createQuestionHandler();
+
+  const adapterChoice = (process.env.COP1_BMAD_ADAPTER ?? '').trim();
+  let sessionPort: BMADSessionPort;
+  if (adapterChoice === 'resume') {
+    console.log('BMAD adapter: claude --resume fallback (COP1_BMAD_ADAPTER=resume)');
+    sessionPort = new ClaudeResumeSessionAdapter(eventBus, { questionHandler });
+  } else {
+    if (adapterChoice && adapterChoice !== 'sdk') {
+      console.warn(
+        `Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`,
+      );
+    }
+    sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
+  }
+
+  return createDefaultBMADCommandRunner({ sessionPort, supervisorService });
 }

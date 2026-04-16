@@ -380,7 +380,7 @@ development_status:
   # Unblocks pnpm build + flips stub runner to real BMAD wiring + closes Story↔Session↔Commit triangle
   epic-ea13: backlog
   EA13-S1: done   # Fix pnpm build from clean clone (strict-null + ApprovalResolver export) — Sprint 14 (blocks: EA13-S2, EA13-S3)
-  EA13-S2: backlog   # Real BMADCommandRunner default wiring — Sprint 14 (depends: EA13-S1; blocks: EA13-S3)
+  EA13-S2: review   # Real BMADCommandRunner default wiring — Sprint 14 (depends: EA13-S1; blocks: EA13-S3)
   EA13-S3: backlog   # Validation re-run + integration test (EX1 cobaye) — Sprint 14 (depends: EA13-S1, EA13-S2)
   EA13-S4: backlog   # Story body auto-update on status transition — Sprint 14 (parallel to S2)
   epic-ea13-retrospective: optional
