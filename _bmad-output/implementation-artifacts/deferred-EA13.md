@@ -33,6 +33,21 @@ The 13 pre-existing errors are scattered across BMADSessionStep.test.ts, ClaudeR
 
 Priority: **MEDIUM** — matches the "not zero errors but no regression" posture that EA12-S1 used for TS errors (before EA13-S1 closed them).
 
+## Code/adversarial review findings — EA13-S2 (d497650 + HIGH fix)
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| A | HIGH | `--runner stub` re-opens the EA13 gap silently. | **APPLIED** — guarded behind `COP1_ALLOW_STUB_RUNNER=1` env flag + loud warning. Two new tests cover both branches. Follow-up commit. |
+| B | MEDIUM | Session lifecycle duplicated from `BMADSessionStep.runSession` — divergence risk. | Park — EA14 or later extraction story. Document debt in JSDoc (done). |
+| C | MEDIUM | `SupervisorService` recreated per command, not per epic (comment says "1 SDK session per epic"). | Park — revisit at EA13-S3 validation. May be the right behaviour for the multi-command orchestrator; confirm empirically. |
+| D | MEDIUM | `createDefaultBMADCommandRunner` ignores `epicId` — not passed to supervisor context or session context. | Park — supervisor prompt framing may need it; EA14 enrichment story. |
+| E | MEDIUM | Hardcoded `MAX_FOLLOWUP_TURNS = 3`. | Park — make it configurable via playbook frontmatter or env in a later story. |
+| F | MEDIUM | No automated test for `resolveRunner` choice logic itself (stub-guard tests cover the guard, not the default/resume choice). | Park — add coverage in an EA14 CLI-composition-root test pass. |
+| G | LOW | `inferNextStatus` substring-matches commands — collision possible with custom commands. | Park — whitelist mapping in V1.1 hardening. |
+| H | LOW | `InMemorySupervisorAdapter(new Map())` in tests never fires question interception. | Accept — unit tests cover runner contract; question flow is tested at integration level. |
+| I | LOW | `console.log` / `console.warn` uncontrolled output from `resolveRunner`. | Park — logger port injection is a broader CLI hygiene concern. |
+| J | LOW | `SupervisorAnswerContext` alias name is ad hoc. | Park — consider `SupervisorPerQuestionContext` or renaming the bootstrap one in V1.2. |
+
 ## Code/adversarial review findings — EA13-S1 (not auto-applied)
 
 From quality-control-enforcer code review + adversarial review of commit `d01746f`. All MEDIUM / LOW — no HIGH/BLOCKER. Parked here per execution rule.

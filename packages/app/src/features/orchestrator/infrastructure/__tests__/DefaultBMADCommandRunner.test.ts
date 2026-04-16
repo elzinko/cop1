@@ -198,3 +198,70 @@ describe('inferNextStatus', () => {
     expect(inferNextStatus('/anything-else')).toBe('done');
   });
 });
+
+describe('orchestrator CLI --runner stub guard (EA13-S2 adversarial fix)', () => {
+  let origEnv: string | undefined;
+
+  beforeEach(() => {
+    origEnv = process.env.COP1_ALLOW_STUB_RUNNER;
+    delete process.env.COP1_ALLOW_STUB_RUNNER;
+  });
+  afterEach(() => {
+    if (origEnv === undefined) delete process.env.COP1_ALLOW_STUB_RUNNER;
+    else process.env.COP1_ALLOW_STUB_RUNNER = origEnv;
+  });
+
+  it('--runner stub without COP1_ALLOW_STUB_RUNNER throws', async () => {
+    const { orchestratorRunCommand } = await import('../../../../cli/commands/orchestrator.js');
+    const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+
+    const projectRoot = await mkdtemp(join(tmpdir(), 'stub-guard-'));
+    await writeFile(join(projectRoot, 'supervisor-playbook.md'), '## Mission\ntest\n');
+    await mkdir(join(projectRoot, '_bmad-output', 'implementation-artifacts'), {
+      recursive: true,
+    });
+    await writeFile(
+      join(projectRoot, '_bmad-output', 'implementation-artifacts', 'sprint-status.yaml'),
+      'development_status:\n  epic-x: in-progress\n  X-S1: ready-for-dev\n',
+    );
+
+    const origExitCode = process.exitCode;
+    process.exitCode = 0;
+    try {
+      await orchestratorRunCommand({ epic: 'X', projectRoot, runner: 'stub' });
+      // The CLI catches the throw and maps it to exit code 2 (runtime error).
+      expect(process.exitCode).toBe(2);
+    } finally {
+      process.exitCode = origExitCode;
+    }
+  });
+
+  it('--runner stub with COP1_ALLOW_STUB_RUNNER=1 succeeds', async () => {
+    process.env.COP1_ALLOW_STUB_RUNNER = '1';
+    const { orchestratorRunCommand } = await import('../../../../cli/commands/orchestrator.js');
+    const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+
+    const projectRoot = await mkdtemp(join(tmpdir(), 'stub-guard-ok-'));
+    await writeFile(join(projectRoot, 'supervisor-playbook.md'), '## Mission\ntest\n');
+    await mkdir(join(projectRoot, '_bmad-output', 'implementation-artifacts'), {
+      recursive: true,
+    });
+    await writeFile(
+      join(projectRoot, '_bmad-output', 'implementation-artifacts', 'sprint-status.yaml'),
+      'development_status:\n  epic-x: in-progress\n  X-S1: ready-for-dev\n',
+    );
+
+    const origExitCode = process.exitCode;
+    process.exitCode = 0;
+    try {
+      await orchestratorRunCommand({ epic: 'X', projectRoot, runner: 'stub' });
+      expect(process.exitCode).toBe(0);
+    } finally {
+      process.exitCode = origExitCode;
+    }
+  });
+});

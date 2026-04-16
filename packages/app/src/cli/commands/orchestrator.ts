@@ -70,11 +70,9 @@ export async function orchestratorRunCommand(
     void appendFile(logPath, `${JSON.stringify(payload)}\n`, 'utf-8');
   };
 
-  const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);
-
-  const svc = new OrchestratorService(runner, eventBus, gate, autoDecisionLogger);
-
   try {
+    const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);
+    const svc = new OrchestratorService(runner, eventBus, gate, autoDecisionLogger);
     const result = await svc.run({ playbook, epicId: options.epic, projectRoot, mode });
     if (result.aborted) {
       process.exitCode = 3;
@@ -94,7 +92,17 @@ function resolveRunner(
   eventBus: EventBus,
 ): BMADCommandRunner {
   if (options.runner === 'stub') {
-    console.log('Orchestrator runner: stub (--runner stub)');
+    if (process.env.COP1_ALLOW_STUB_RUNNER !== '1') {
+      throw new Error(
+        '--runner stub produces fake success output and would re-open the gap EA13 ' +
+          'was designed to close. Set COP1_ALLOW_STUB_RUNNER=1 to explicitly opt in ' +
+          '(tests / smoke only — never in production).',
+      );
+    }
+    console.warn(
+      '[WARN] Orchestrator runner: stub (--runner stub, COP1_ALLOW_STUB_RUNNER=1). ' +
+        'No real BMAD commands will be invoked. Output is fiction — do not treat as a real sprint.',
+    );
     return stubBMADCommandRunner;
   }
 
