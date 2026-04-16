@@ -383,4 +383,4 @@ development_status:
   EA13-S2: done   # Real BMADCommandRunner default wiring — Sprint 14 (depends: EA13-S1; blocks: EA13-S3)
   EA13-S3: done   # Validation re-run + integration test (EX1 cobaye) — Sprint 14 (depends: EA13-S1, EA13-S2)
   EA13-S4: done   # Story body auto-update on status transition — Sprint 14 (parallel to S2)
-  epic-ea13-retrospective: optional
+  epic-ea13-retrospective: done
