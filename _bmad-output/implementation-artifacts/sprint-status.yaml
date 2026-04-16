@@ -378,9 +378,9 @@ development_status:
   # Added 2026-04-16 — SCP 2026-04-16 approved
   # Data-driven: all 4 stories map to gaps observed in real-run-report-2026-04-16.md
   # Unblocks pnpm build + flips stub runner to real BMAD wiring + closes Story↔Session↔Commit triangle
-  epic-ea13: backlog
+  epic-ea13: done
   EA13-S1: done   # Fix pnpm build from clean clone (strict-null + ApprovalResolver export) — Sprint 14 (blocks: EA13-S2, EA13-S3)
   EA13-S2: done   # Real BMADCommandRunner default wiring — Sprint 14 (depends: EA13-S1; blocks: EA13-S3)
   EA13-S3: done   # Validation re-run + integration test (EX1 cobaye) — Sprint 14 (depends: EA13-S1, EA13-S2)
-  EA13-S4: backlog   # Story body auto-update on status transition — Sprint 14 (parallel to S2)
+  EA13-S4: done   # Story body auto-update on status transition — Sprint 14 (parallel to S2)
   epic-ea13-retrospective: optional

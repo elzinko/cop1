@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { EventBus } from '@cop1/shared-kernel';
 import { defaultCommandsForPhase } from '@cop1/sprint-core';
 import type { SupervisorPlaybook } from '../domain/SupervisorPlaybook.js';
@@ -222,6 +222,22 @@ export class OrchestratorService {
     const current = await readFile(path, 'utf-8');
     const updated = rewriteStoryStatus(current, storyKey, nextStatus);
     await writeFile(path, updated, 'utf-8');
+
+    // EA13-S4 — mirror status into the story body file. Closes EA12 retro
+    // action item #4 (Story↔Session↔Commit triangle). No-op if the body file
+    // does not exist (hand-crafted stories / unrelated artefacts).
+    const bodyPath = join(dirname(path), `${storyKey}.md`);
+    try {
+      const body = await readFile(bodyPath, 'utf-8');
+      const mirrored = mirrorStoryStatusInBody(body, nextStatus);
+      if (mirrored !== body) {
+        await writeFile(bodyPath, mirrored, 'utf-8');
+      }
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException | undefined)?.code;
+      if (code !== 'ENOENT') throw err;
+      // ENOENT: no body file for this story — silent no-op.
+    }
   }
 }
 
@@ -257,6 +273,19 @@ function getStoryStatusFromFile(yaml: string, storyKey: string): string | undefi
 export function rewriteStoryStatus(yaml: string, storyKey: string, nextStatus: string): string {
   const re = new RegExp(`^(\\s+${escapeRegex(storyKey)}:\\s+)([a-zA-Z-]+)(.*)$`, 'm');
   return yaml.replace(re, `$1${nextStatus}$3`);
+}
+
+/**
+ * Rewrites the first `## Status: <value>` line in a story markdown body to
+ * `## Status: <nextStatus>`. Returns the body unchanged if no status line is
+ * present (zero-side-effect policy — see EA13-S4 dev notes for rationale).
+ *
+ * Exported for direct unit testing. Caller drives I/O.
+ */
+export function mirrorStoryStatusInBody(body: string, nextStatus: string): string {
+  const re = /^##\s+Status:\s*[^\n]*$/m;
+  if (!re.test(body)) return body;
+  return body.replace(re, `## Status: ${nextStatus}`);
 }
 
 function escapeRegex(s: string): string {
