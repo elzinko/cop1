@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EventBus } from '@cop1/shared-kernel';
@@ -104,6 +105,16 @@ function resolveRunner(
         'No real BMAD commands will be invoked. Output is fiction — do not treat as a real sprint.',
     );
     return stubBMADCommandRunner;
+  }
+
+  // Pre-flight: ensure _bmad/ exists at projectRoot before building the real runner.
+  const bmadDir = join(projectRoot, '_bmad');
+  if (!existsSync(bmadDir)) {
+    throw new Error(
+      `No BMAD installation found at ${bmadDir}. ` +
+        'The orchestrator requires BMAD workflows to execute real sprint commands. ' +
+        'Install BMAD or use --runner stub (with COP1_ALLOW_STUB_RUNNER=1) for testing.',
+    );
   }
 
   // Default: real BMAD session-backed runner. Wiring mirrors sprint-run.ts.

@@ -65,4 +65,35 @@ describe('orchestratorRunCommand', () => {
     await orchestratorRunCommand({ epic: 'EA99', projectRoot: dir });
     expect(process.exitCode).toBe(1);
   });
+
+  it('exits with code 2 when _bmad/ directory is absent and default runner is used (EA14-S1)', async () => {
+    await seedFixture(dir);
+    // seedFixture does NOT create _bmad/, so the default runner path should fail.
+    await orchestratorRunCommand({ epic: 'EA99', projectRoot: dir });
+    // resolveRunner throws → caught by orchestratorRunCommand → exitCode 2 (runtime error)
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('proceeds when _bmad/ directory exists and default runner resolves (EA14-S1)', async () => {
+    await seedFixture(dir);
+    // Create the _bmad/ directory so the guard passes
+    await mkdir(join(dir, '_bmad'), { recursive: true });
+    // Still use overrides.runner to avoid needing real BMAD session deps
+    const runner = vi.fn(async () => ({ success: true, nextStatus: 'done' as const }));
+    await orchestratorRunCommand({ epic: 'EA99', projectRoot: dir }, { runner });
+    expect(runner).toHaveBeenCalled();
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('skips _bmad/ check when --runner stub is used (EA14-S1 AC2)', async () => {
+    process.env.COP1_ALLOW_STUB_RUNNER = '1';
+    try {
+      await seedFixture(dir);
+      // No _bmad/ directory, but --runner stub should bypass the check
+      await orchestratorRunCommand({ epic: 'EA99', projectRoot: dir, runner: 'stub' });
+      expect(process.exitCode).toBe(0);
+    } finally {
+      delete process.env.COP1_ALLOW_STUB_RUNNER;
+    }
+  });
 });

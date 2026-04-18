@@ -389,8 +389,8 @@ development_status:
   # Added 2026-04-18 — SCP 2026-04-18 approved
   # Data-driven: stories map to real-run gaps from scripts/ea13-real-run.sh
   # Closes the remaining 50% of the empirical shakedown gaps
-  epic-ea14: backlog
-  EA14-S1: backlog   # BMAD bundle detection pre-flight guard — Sprint 15 (blocks: EA14-S3)
+  epic-ea14: in-progress
+  EA14-S1: done      # BMAD bundle detection pre-flight guard — Sprint 15 (blocks: EA14-S3)
   EA14-S2: backlog   # Wire ExchangeHistoryWriter into orchestrator session flow — Sprint 15 (blocks: EA14-S3)
   EA14-S3: backlog   # Supervisor prompt commit_anchor guidance — Sprint 15 (depends: EA14-S1, EA14-S2)
   EA14-S4: backlog   # SupervisorContext name clash resolution — Sprint 15
