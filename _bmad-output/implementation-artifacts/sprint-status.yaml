@@ -391,7 +391,7 @@ development_status:
   # Closes the remaining 50% of the empirical shakedown gaps
   epic-ea14: in-progress
   EA14-S1: done      # BMAD bundle detection pre-flight guard — Sprint 15 (blocks: EA14-S3)
-  EA14-S2: backlog   # Wire ExchangeHistoryWriter into orchestrator session flow — Sprint 15 (blocks: EA14-S3)
+  EA14-S2: done      # Wire ExchangeHistoryWriter into orchestrator session flow — Sprint 15 (blocks: EA14-S3)
   EA14-S3: backlog   # Supervisor prompt commit_anchor guidance — Sprint 15 (depends: EA14-S1, EA14-S2)
   EA14-S4: backlog   # SupervisorContext name clash resolution — Sprint 15
   EA14-S5: backlog   # Investigate + fix 9 pre-existing SprintRunner test failures — Sprint 15

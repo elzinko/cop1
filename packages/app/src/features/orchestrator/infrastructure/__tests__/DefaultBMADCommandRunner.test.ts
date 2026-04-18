@@ -1,12 +1,15 @@
 import { EventBus } from '@cop1/shared-kernel';
 import {
+  ExchangeHistoryWriter,
   InMemorySessionAdapter,
   InMemorySupervisorAdapter,
+  SessionInteractionCollector,
   SessionLogger,
   SupervisorService,
 } from '@cop1/sprint-core';
 import { StructuredLogger } from '@cop1/observability';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -196,6 +199,103 @@ describe('inferNextStatus', () => {
     expect(inferNextStatus('/bmad-bmm-code-review')).toBe('done');
     expect(inferNextStatus('/bmad-bmm-qa-automate')).toBe('done');
     expect(inferNextStatus('/anything-else')).toBe('done');
+  });
+});
+
+describe('EA14-S2 — ExchangeHistoryWriter integration', () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'exchange-writer-runner-'));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  function buildCollectingSupervisorService(projectRoot: string) {
+    const eventBus = new EventBus();
+    const structuredLogger = new StructuredLogger(projectRoot);
+    const interactionCollector = new SessionInteractionCollector(structuredLogger, eventBus);
+    const supervisorAdapter = new InMemorySupervisorAdapter(new Map());
+    const supervisorService = new SupervisorService(supervisorAdapter, interactionCollector);
+    return { supervisorService, interactionCollector, eventBus };
+  }
+
+  it('creates .cop1/history/ directory with Track 2 markdown after successful session', async () => {
+    const { supervisorService, interactionCollector } = buildCollectingSupervisorService(dir);
+    const exchangeHistoryWriter = new ExchangeHistoryWriter(dir);
+    const sessionPort = new InMemorySessionAdapter([
+      { completed: true, output: 'done', durationMs: 10 },
+    ]);
+    const runner = createDefaultBMADCommandRunner({
+      sessionPort,
+      supervisorService,
+      exchangeHistoryWriter,
+      interactionCollector,
+    });
+
+    const result = await runner({
+      command: '/bmad-bmm-dev-story',
+      storyKey: 'EA14-S2',
+      epicId: 'EA14',
+      projectRoot: dir,
+    });
+
+    expect(result.success).toBe(true);
+
+    // Verify .cop1/history/ directory was created with Track 2 content.
+    const historyDir = join(dir, '.cop1', 'history', 'EA14', 'EA14-S2');
+    expect(existsSync(historyDir)).toBe(true);
+    const files = await readdir(historyDir);
+    expect(files.length).toBeGreaterThanOrEqual(1);
+    expect(files[0]).toMatch(/\.md$/);
+  });
+
+  it('writes Track 2 markdown even on failed session', async () => {
+    const { supervisorService, interactionCollector } = buildCollectingSupervisorService(dir);
+    const exchangeHistoryWriter = new ExchangeHistoryWriter(dir);
+    const sessionPort = new InMemorySessionAdapter([
+      { completed: false, output: '', error: true, errorMessage: 'boom', durationMs: 1 },
+    ]);
+    const runner = createDefaultBMADCommandRunner({
+      sessionPort,
+      supervisorService,
+      exchangeHistoryWriter,
+      interactionCollector,
+    });
+
+    const result = await runner({
+      command: '/bmad-bmm-dev-story',
+      storyKey: 'EA14-S2',
+      epicId: 'EA14',
+      projectRoot: dir,
+    });
+
+    expect(result.success).toBe(false);
+
+    // Track 2 file should still be written for failed sessions.
+    const historyDir = join(dir, '.cop1', 'history', 'EA14', 'EA14-S2');
+    expect(existsSync(historyDir)).toBe(true);
+  });
+
+  it('works without writer (backwards compatible)', async () => {
+    const { supervisorService } = buildSupervisorService(dir);
+    const sessionPort = new InMemorySessionAdapter([
+      { completed: true, output: 'ok', durationMs: 10 },
+    ]);
+    const runner = createDefaultBMADCommandRunner({ sessionPort, supervisorService });
+
+    const result = await runner({
+      command: '/bmad-bmm-dev-story',
+      storyKey: 'EA14-S2',
+      epicId: 'EA14',
+      projectRoot: dir,
+    });
+
+    expect(result.success).toBe(true);
+    // No .cop1/history/ should be created when writer is not provided.
+    expect(existsSync(join(dir, '.cop1', 'history'))).toBe(false);
   });
 });
 

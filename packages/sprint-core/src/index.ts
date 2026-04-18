@@ -260,6 +260,7 @@ export {
   deriveEpicId,
 } from './features/bmad-orchestration/application/SessionLogger.js';
 export type { SessionInteraction } from './features/bmad-orchestration/application/SessionLogger.js';
+export { SessionInteractionCollector } from './features/bmad-orchestration/application/SessionInteractionCollector.js';
 export { SessionHistoryReader } from './features/bmad-orchestration/application/SessionHistoryReader.js';
 export type { SessionHistoryFilter } from './features/bmad-orchestration/application/SessionHistoryReader.js';
 // EA11-S3 / S6 / S7 / S8 — history + supervisor context + transcript

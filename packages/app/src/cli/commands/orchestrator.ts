@@ -7,7 +7,8 @@ import {
   AgentSdkSupervisorAdapter,
   type BMADSessionPort,
   ClaudeResumeSessionAdapter,
-  SessionLogger,
+  ExchangeHistoryWriter,
+  SessionInteractionCollector,
   SupervisorService,
 } from '@cop1/sprint-core';
 import { StructuredLogger } from '@cop1/observability';
@@ -119,9 +120,11 @@ function resolveRunner(
 
   // Default: real BMAD session-backed runner. Wiring mirrors sprint-run.ts.
   const structuredLogger = new StructuredLogger(projectRoot);
-  const sessionLogger = new SessionLogger(structuredLogger, eventBus);
+  // EA14-S2: Use SessionInteractionCollector (extends SessionLogger) so that
+  // interactions are captured for the ExchangeHistoryWriter Track 2 output.
+  const interactionCollector = new SessionInteractionCollector(structuredLogger, eventBus);
   const supervisorAdapter = new AgentSdkSupervisorAdapter();
-  const supervisorService = new SupervisorService(supervisorAdapter, sessionLogger);
+  const supervisorService = new SupervisorService(supervisorAdapter, interactionCollector);
   const questionHandler = supervisorService.createQuestionHandler();
 
   const adapterChoice = (process.env.COP1_BMAD_ADAPTER ?? '').trim();
@@ -138,5 +141,13 @@ function resolveRunner(
     sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
   }
 
-  return createDefaultBMADCommandRunner({ sessionPort, supervisorService });
+  // EA14-S2: Wire ExchangeHistoryWriter for Track 2 per-session markdown files.
+  const exchangeHistoryWriter = new ExchangeHistoryWriter(projectRoot);
+
+  return createDefaultBMADCommandRunner({
+    sessionPort,
+    supervisorService,
+    exchangeHistoryWriter,
+    interactionCollector,
+  });
 }
