@@ -90,4 +90,40 @@ describe('SupervisorPromptBuilder', () => {
     expect(prompt).toContain('continuation prompt');
     expect(prompt).toContain('ESCALATE');
   });
+
+  it('should include commit_anchor guidance for dev-story workflow command', () => {
+    const prompt = buildSupervisorPrompt(
+      createContext({ workflowCommand: '/bmad-bmm-dev-story' }),
+    );
+
+    expect(prompt).toContain('commit_anchor');
+    expect(prompt).toContain('Commit Anchor');
+    expect(prompt).toContain('Co-Authored-By');
+    expect(prompt).toContain('nothing_to_commit');
+  });
+
+  it('should include commit_anchor guidance for any command containing dev-story', () => {
+    const prompt = buildSupervisorPrompt(
+      createContext({ workflowCommand: 'bmad-bmm-dev-story' }),
+    );
+
+    expect(prompt).toContain('commit_anchor');
+  });
+
+  it('should NOT include commit_anchor guidance for non-dev-story commands', () => {
+    const prompt = buildSupervisorPrompt(
+      createContext({ workflowCommand: '/bmad-bmm-code-review' }),
+    );
+
+    expect(prompt).not.toContain('commit_anchor');
+    expect(prompt).not.toContain('Commit Anchor');
+  });
+
+  it('should NOT include commit_anchor guidance for create-story command', () => {
+    const prompt = buildSupervisorPrompt(
+      createContext({ workflowCommand: '/bmad-bmm-create-story' }),
+    );
+
+    expect(prompt).not.toContain('commit_anchor');
+  });
 });

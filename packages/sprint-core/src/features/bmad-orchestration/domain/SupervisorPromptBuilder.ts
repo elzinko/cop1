@@ -7,6 +7,30 @@ const SCRUM_CYCLE_GUIDANCE = DEFAULT_ORCHESTRATOR_CYCLE.map(
 ).join('\n');
 
 /**
+ * Returns commit_anchor tool guidance when the current workflow command is
+ * `/bmad-bmm-dev-story`. Empty string for all other commands.
+ *
+ * EA14-S3: the supervisor must know to call `commit_anchor` after successful
+ * implementation so that work is anchored in git history with a
+ * `Co-Authored-By` trailer.
+ */
+function commitAnchorGuidance(workflowCommand: string): string {
+  if (!workflowCommand.includes('dev-story')) return '';
+  return `
+## Commit Anchor (post-implementation)
+After the dev-story implementation completes successfully (all acceptance
+criteria met, build passes, tests green), you MUST invoke the \`commit_anchor\`
+tool to produce a git commit anchoring the work. Call it with:
+- \`message\`: a concise commit message summarising the story changes (e.g.
+  "feat(EA14-S3): add commit_anchor prompt guidance").
+- \`worktreePath\`: omit unless the story runs in a dedicated worktree.
+The tool appends a \`Co-Authored-By\` trailer automatically. If the tool
+returns \`nothing_to_commit\`, ensure changes were staged (\`git add\`) first.
+Do NOT skip this step — unanchored work is invisible to the project history.
+`;
+}
+
+/**
  * Builds the supervisor system prompt from a SupervisorContext.
  * Implements the ADR-012 §4.4 decision framework + EA12-S3 scrum-cycle guidance.
  */
@@ -15,6 +39,8 @@ export function buildSupervisorPrompt(context: SupervisorContext): string {
     context.sessionHistory.length > 0
       ? context.sessionHistory.map((entry) => `[${entry.role}]: ${entry.content}`).join('\n')
       : 'No prior conversation.';
+
+  const commitGuidance = commitAnchorGuidance(context.workflowCommand);
 
   return `You are the cop1 Supervisor — an autonomous decision-maker replacing the human developer during BMAD workflow execution.
 
@@ -30,7 +56,7 @@ The canonical cop1 orchestrator cycle, provided as scrum guidance (you may
 substitute any BMAD command at runtime via /bmad-help or completion — the
 command surface is not constrained by an allowlist):
 ${SCRUM_CYCLE_GUIDANCE}
-
+${commitGuidance}
 ## Story Content
 ${context.storyContent}
 
