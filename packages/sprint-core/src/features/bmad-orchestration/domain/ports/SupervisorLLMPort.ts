@@ -10,7 +10,7 @@ export interface SupervisorQuestion {
   storyId: string;
 }
 
-export interface SupervisorContext {
+export interface SupervisorQuestionContext {
   workflowCommand: string;
   storyId: string;
   storyContent: string;
@@ -32,6 +32,6 @@ export interface SupervisorResponse {
 export interface SupervisorLLMPort {
   generateResponse(
     question: SupervisorQuestion,
-    context: SupervisorContext,
+    context: SupervisorQuestionContext,
   ): Promise<SupervisorResponse>;
 }

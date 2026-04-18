@@ -124,10 +124,10 @@ export class SprintRunner {
     }
 
     // Build workflow steps
-    if (!this.customSteps && !this.stepFactory) {
+    const steps = this.customSteps ?? this.stepFactory?.build(config, configLoader);
+    if (!steps) {
       throw new Error('SprintRunner requires either steps or stepFactory');
     }
-    const steps = this.customSteps ?? this.stepFactory!.build(config, configLoader);
 
     let done = 0;
     let failed = 0;

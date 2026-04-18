@@ -5,7 +5,7 @@ import type {
   SessionHandle,
   SessionInteractionCollector,
   SessionTurnResult,
-  SupervisorAnswerContext,
+  SupervisorQuestionContext,
   SupervisorService,
 } from '@cop1/sprint-core';
 import type { ExchangeHistoryWriter } from '@cop1/sprint-core';
@@ -43,7 +43,7 @@ export function createDefaultBMADCommandRunner(
     // Drain any stale interactions from a previous command.
     deps.interactionCollector?.drain();
 
-    const supervisorContext: SupervisorAnswerContext = {
+    const supervisorContext: SupervisorQuestionContext = {
       workflowCommand: command,
       storyId: storyKey,
       storyContent: '',

@@ -207,17 +207,9 @@ export { BudgetExhaustedError } from './features/bmad-orchestration/domain/error
 export type {
   SupervisorLLMPort,
   SupervisorQuestion,
+  SupervisorQuestionContext,
   SupervisorResponse,
 } from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
-// Exposed under an alias to avoid clash with the EA11-S6 bootstrap
-// SupervisorContext (domain/SupervisorContext). This one is the per-question
-// context consumed by SupervisorService.setWorkflowContext / LLMPort.
-export type { SupervisorContext as SupervisorAnswerContext } from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
-// SupervisorContext is exported from the EA11-S6 bootstrap module below
-// (domain/SupervisorContext.js). The older `ports/SupervisorLLMPort.js`
-// also defines a SupervisorContext for backwards compatibility but is
-// intentionally not re-exported here to avoid the duplicate-identifier
-// build error — import it directly from its module if needed.
 export { buildSupervisorPrompt } from './features/bmad-orchestration/domain/SupervisorPromptBuilder.js';
 export {
   DEFAULT_BMAD_PIPELINE_COMMANDS,

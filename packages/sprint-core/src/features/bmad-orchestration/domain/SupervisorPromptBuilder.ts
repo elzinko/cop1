@@ -1,5 +1,5 @@
 import { DEFAULT_ORCHESTRATOR_CYCLE } from './BmadCycle.js';
-import type { SupervisorContext } from './ports/SupervisorLLMPort.js';
+import type { SupervisorQuestionContext } from './ports/SupervisorLLMPort.js';
 
 const SCRUM_CYCLE_GUIDANCE = DEFAULT_ORCHESTRATOR_CYCLE.map(
   (phase, i) =>
@@ -31,10 +31,10 @@ Do NOT skip this step — unanchored work is invisible to the project history.
 }
 
 /**
- * Builds the supervisor system prompt from a SupervisorContext.
+ * Builds the supervisor system prompt from a SupervisorQuestionContext.
  * Implements the ADR-012 §4.4 decision framework + EA12-S3 scrum-cycle guidance.
  */
-export function buildSupervisorPrompt(context: SupervisorContext): string {
+export function buildSupervisorPrompt(context: SupervisorQuestionContext): string {
   const historySection =
     context.sessionHistory.length > 0
       ? context.sessionHistory.map((entry) => `[${entry.role}]: ${entry.content}`).join('\n')

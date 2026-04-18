@@ -261,7 +261,7 @@ describe('OrchestratorService', () => {
       mode: 'normal',
     });
     expect(logger).toHaveBeenCalled();
-    expect(logger.mock.calls[0]![0]).toMatchObject({ event: 'auto-decision' });
+    expect(logger.mock.calls[0]?.[0]).toMatchObject({ event: 'auto-decision' });
   });
 });
 

@@ -1,8 +1,8 @@
 import type { QuestionHandler } from '../domain/ports/BMADSessionPort.js';
 import type {
-  SupervisorContext,
   SupervisorLLMPort,
   SupervisorQuestion,
+  SupervisorQuestionContext,
   SupervisorResponse,
 } from '../domain/ports/SupervisorLLMPort.js';
 import type { SessionHistoryReader } from './SessionHistoryReader.js';
@@ -10,7 +10,7 @@ import { type SessionInteraction, type SessionLogger, deriveEpicId } from './Ses
 
 export interface DeterministicPattern {
   pattern: RegExp;
-  answer: string | ((ctx: SupervisorContext) => string);
+  answer: string | ((ctx: SupervisorQuestionContext) => string);
 }
 
 // Anchored patterns: require word boundaries or bracket markers to avoid
@@ -46,7 +46,7 @@ export class SupervisorService {
   private currentWorkflowCommand = '';
   private currentStoryId = '';
   private currentSessionId = '';
-  private currentContext: SupervisorContext | null = null;
+  private currentContext: SupervisorQuestionContext | null = null;
   private turnCounter = 0;
   private historyFetchedForStory: string | null = null;
 
@@ -62,7 +62,7 @@ export class SupervisorService {
   setWorkflowContext(
     workflowCommand: string,
     storyId: string,
-    context: SupervisorContext,
+    context: SupervisorQuestionContext,
     sessionId?: string,
   ): void {
     this.currentWorkflowCommand = workflowCommand;
@@ -75,7 +75,7 @@ export class SupervisorService {
 
   async respond(
     question: SupervisorQuestion,
-    context: SupervisorContext,
+    context: SupervisorQuestionContext,
   ): Promise<SupervisorResponse> {
     this.turnCounter++;
     const startTime = Date.now();
@@ -109,6 +109,7 @@ export class SupervisorService {
 
     // Enrich context with session history if available (without mutating caller's context).
     // Cached per story so we only hit disk once per setWorkflowContext() cycle.
+    let enrichedContext = context;
     if (
       this.historyReader &&
       context.sessionHistory.length === 0 &&
@@ -118,7 +119,7 @@ export class SupervisorService {
       try {
         const history = await this.historyReader.getHistoryForStory(question.storyId);
         if (history.length > 0) {
-          context = {
+          enrichedContext = {
             ...context,
             sessionHistory: history.map((entry) => ({
               role: entry.role === 'workflow' ? ('workflow' as const) : ('supervisor' as const),
@@ -133,7 +134,7 @@ export class SupervisorService {
 
     // Level 2: LLM Supervisor
     try {
-      const llmResponse = await this.llmPort.generateResponse(question, context);
+      const llmResponse = await this.llmPort.generateResponse(question, enrichedContext);
 
       // Level 3: Escalation detection from LLM response
       if (llmResponse.answer.startsWith('ESCALATE:')) {
@@ -218,7 +219,10 @@ export class SupervisorService {
     };
   }
 
-  private matchDeterministic(questionText: string, context: SupervisorContext): string | null {
+  private matchDeterministic(
+    questionText: string,
+    context: SupervisorQuestionContext,
+  ): string | null {
     for (const { pattern, answer } of this.patterns) {
       if (pattern.test(questionText)) {
         return typeof answer === 'function' ? answer(context) : answer;

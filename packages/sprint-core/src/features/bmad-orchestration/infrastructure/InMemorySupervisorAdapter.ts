@@ -1,7 +1,7 @@
 import type {
-  SupervisorContext,
   SupervisorLLMPort,
   SupervisorQuestion,
+  SupervisorQuestionContext,
   SupervisorResponse,
 } from '../domain/ports/SupervisorLLMPort.js';
 
@@ -25,7 +25,7 @@ export class InMemorySupervisorAdapter implements SupervisorLLMPort {
 
   async generateResponse(
     question: SupervisorQuestion,
-    _context: SupervisorContext,
+    _context: SupervisorQuestionContext,
   ): Promise<SupervisorResponse> {
     const questionLower = question.currentQuestion.toLowerCase();
 

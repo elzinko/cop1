@@ -93,7 +93,7 @@ describe('orchestratorRunCommand', () => {
       await orchestratorRunCommand({ epic: 'EA99', projectRoot: dir, runner: 'stub' });
       expect(process.exitCode).toBe(0);
     } finally {
-      delete process.env.COP1_ALLOW_STUB_RUNNER;
+      process.env.COP1_ALLOW_STUB_RUNNER = undefined;
     }
   });
 });

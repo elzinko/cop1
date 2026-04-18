@@ -1,7 +1,4 @@
-import type { StructuredLogger } from '@cop1/observability';
-import type { EventBus } from '@cop1/shared-kernel';
-import type { MetricsWriter } from '../infrastructure/MetricsWriter.js';
-import { SessionLogger, type SessionInteraction } from './SessionLogger.js';
+import { type SessionInteraction, SessionLogger } from './SessionLogger.js';
 
 /**
  * Decorates `SessionLogger` to collect `SessionInteraction` entries in memory
@@ -15,14 +12,6 @@ import { SessionLogger, type SessionInteraction } from './SessionLogger.js';
  */
 export class SessionInteractionCollector extends SessionLogger {
   private collected: SessionInteraction[] = [];
-
-  constructor(
-    logger: StructuredLogger,
-    eventBus?: EventBus,
-    metricsWriter?: MetricsWriter,
-  ) {
-    super(logger, eventBus, metricsWriter);
-  }
 
   override logInteraction(entry: SessionInteraction): void {
     this.collected.push(entry);

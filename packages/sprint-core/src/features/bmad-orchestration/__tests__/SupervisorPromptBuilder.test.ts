@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildSupervisorPrompt } from '../domain/SupervisorPromptBuilder.js';
-import type { SupervisorContext } from '../domain/ports/SupervisorLLMPort.js';
+import type { SupervisorQuestionContext } from '../domain/ports/SupervisorLLMPort.js';
 
-function createContext(overrides?: Partial<SupervisorContext>): SupervisorContext {
+function createContext(overrides?: Partial<SupervisorQuestionContext>): SupervisorQuestionContext {
   return {
     workflowCommand: 'bmad-bmm-dev-story',
     storyId: 'EA2-S3',
@@ -92,9 +92,7 @@ describe('SupervisorPromptBuilder', () => {
   });
 
   it('should include commit_anchor guidance for dev-story workflow command', () => {
-    const prompt = buildSupervisorPrompt(
-      createContext({ workflowCommand: '/bmad-bmm-dev-story' }),
-    );
+    const prompt = buildSupervisorPrompt(createContext({ workflowCommand: '/bmad-bmm-dev-story' }));
 
     expect(prompt).toContain('commit_anchor');
     expect(prompt).toContain('Commit Anchor');
@@ -103,9 +101,7 @@ describe('SupervisorPromptBuilder', () => {
   });
 
   it('should include commit_anchor guidance for any command containing dev-story', () => {
-    const prompt = buildSupervisorPrompt(
-      createContext({ workflowCommand: 'bmad-bmm-dev-story' }),
-    );
+    const prompt = buildSupervisorPrompt(createContext({ workflowCommand: 'bmad-bmm-dev-story' }));
 
     expect(prompt).toContain('commit_anchor');
   });

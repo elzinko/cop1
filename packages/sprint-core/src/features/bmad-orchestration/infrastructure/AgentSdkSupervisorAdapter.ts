@@ -2,9 +2,9 @@ import { buildSupervisorPrompt } from '../domain/SupervisorPromptBuilder.js';
 import { SupervisorRateLimitError } from '../domain/errors/SupervisorRateLimitError.js';
 import { SupervisorTimeoutError } from '../domain/errors/SupervisorTimeoutError.js';
 import type {
-  SupervisorContext,
   SupervisorLLMPort,
   SupervisorQuestion,
+  SupervisorQuestionContext,
   SupervisorResponse,
 } from '../domain/ports/SupervisorLLMPort.js';
 
@@ -90,7 +90,7 @@ export class AgentSdkSupervisorAdapter implements SupervisorLLMPort {
 
   async generateResponse(
     _question: SupervisorQuestion,
-    context: SupervisorContext,
+    context: SupervisorQuestionContext,
   ): Promise<SupervisorResponse> {
     const startTime = Date.now();
     const prompt = buildSupervisorPrompt(context);

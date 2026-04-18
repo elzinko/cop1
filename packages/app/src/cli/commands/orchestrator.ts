@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   AgentSdkSessionAdapter,
@@ -11,13 +12,13 @@ import {
   SessionInteractionCollector,
   SupervisorService,
 } from '@cop1/sprint-core';
-import { StructuredLogger } from '@cop1/observability';
 import {
   type BMADCommandRunner,
   type OrchestratorMode,
   OrchestratorService,
 } from '../../features/orchestrator/application/OrchestratorService.js';
 import { SupervisorPlaybookLoader } from '../../features/orchestrator/application/SupervisorPlaybookLoader.js';
+import type { SupervisorPlaybook } from '../../features/orchestrator/domain/SupervisorPlaybook.js';
 import { createDefaultBMADCommandRunner } from '../../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
 import { createInterCommandApprovalResolver } from '../../features/orchestrator/infrastructure/InterCommandApprovalResolver.js';
 import { stubBMADCommandRunner } from '../../features/orchestrator/infrastructure/testing/StubBMADCommandRunner.js';
@@ -45,7 +46,7 @@ export async function orchestratorRunCommand(
   const playbookPath = options.playbook ?? join(projectRoot, 'supervisor-playbook.md');
 
   const loader = new SupervisorPlaybookLoader({ projectRoot });
-  let playbook;
+  let playbook: SupervisorPlaybook;
   try {
     playbook = await loader.load(playbookPath);
   } catch (err) {
@@ -112,9 +113,7 @@ function resolveRunner(
   const bmadDir = join(projectRoot, '_bmad');
   if (!existsSync(bmadDir)) {
     throw new Error(
-      `No BMAD installation found at ${bmadDir}. ` +
-        'The orchestrator requires BMAD workflows to execute real sprint commands. ' +
-        'Install BMAD or use --runner stub (with COP1_ALLOW_STUB_RUNNER=1) for testing.',
+      `No BMAD installation found at ${bmadDir}. The orchestrator requires BMAD workflows to execute real sprint commands. Install BMAD or use --runner stub (with COP1_ALLOW_STUB_RUNNER=1) for testing.`,
     );
   }
 
@@ -134,9 +133,7 @@ function resolveRunner(
     sessionPort = new ClaudeResumeSessionAdapter(eventBus, { questionHandler });
   } else {
     if (adapterChoice && adapterChoice !== 'sdk') {
-      console.warn(
-        `Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`,
-      );
+      console.warn(`Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`);
     }
     sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
   }

@@ -1,3 +1,8 @@
+import { existsSync } from 'node:fs';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   ExchangeHistoryWriter,
@@ -7,16 +12,8 @@ import {
   SessionLogger,
   SupervisorService,
 } from '@cop1/sprint-core';
-import { StructuredLogger } from '@cop1/observability';
-import { existsSync } from 'node:fs';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  createDefaultBMADCommandRunner,
-  inferNextStatus,
-} from '../DefaultBMADCommandRunner.js';
+import { createDefaultBMADCommandRunner, inferNextStatus } from '../DefaultBMADCommandRunner.js';
 
 function buildSupervisorService(projectRoot: string): {
   supervisorService: SupervisorService;
@@ -304,10 +301,10 @@ describe('orchestrator CLI --runner stub guard (EA13-S2 adversarial fix)', () =>
 
   beforeEach(() => {
     origEnv = process.env.COP1_ALLOW_STUB_RUNNER;
-    delete process.env.COP1_ALLOW_STUB_RUNNER;
+    process.env.COP1_ALLOW_STUB_RUNNER = undefined;
   });
   afterEach(() => {
-    if (origEnv === undefined) delete process.env.COP1_ALLOW_STUB_RUNNER;
+    if (origEnv === undefined) process.env.COP1_ALLOW_STUB_RUNNER = undefined;
     else process.env.COP1_ALLOW_STUB_RUNNER = origEnv;
   });
 

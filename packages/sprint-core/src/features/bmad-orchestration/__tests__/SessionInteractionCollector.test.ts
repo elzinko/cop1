@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { StructuredLogger } from '@cop1/observability';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { SessionInteraction } from '../application/SessionLogger.js';
 import { SessionInteractionCollector } from '../application/SessionInteractionCollector.js';
+import type { SessionInteraction } from '../application/SessionLogger.js';
 
 function interaction(turn: number): SessionInteraction {
   return {

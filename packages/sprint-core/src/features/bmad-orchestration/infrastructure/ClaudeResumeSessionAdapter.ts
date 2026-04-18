@@ -193,12 +193,12 @@ export class ClaudeResumeSessionAdapter implements BMADSessionPort {
 
     const updated = handlerResult.updatedInput as Record<string, unknown>;
     const answersField = updated.answers as Record<string, string> | undefined;
-    const answer = (answersField && answersField[question]) || 'C';
+    const answer = answersField?.[question] || 'C';
 
     const next = await this.continueInternal(sessionId, answer, autoReplyDepth + 1);
     return {
       completed: next.completed,
-      output: result.output + '\n' + next.output,
+      output: `${result.output}\n${next.output}`,
       tokensUsed: (result.tokensUsed ?? 0) + (next.tokensUsed ?? 0) || undefined,
       durationMs: result.durationMs + next.durationMs,
       ...(next.error ? { error: true, errorMessage: next.errorMessage } : {}),

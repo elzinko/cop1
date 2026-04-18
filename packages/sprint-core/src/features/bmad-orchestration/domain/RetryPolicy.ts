@@ -35,7 +35,7 @@ export class RetryPolicy {
 
   /** Calculate delay in ms for the given attempt (0-indexed). */
   getDelayMs(attempt: number): number {
-    return this.baseDelayMs * Math.pow(this.backoffMultiplier, attempt);
+    return this.baseDelayMs * this.backoffMultiplier ** attempt;
   }
 
   /** Determine if an error message indicates a transient failure. */

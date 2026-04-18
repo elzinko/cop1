@@ -449,7 +449,7 @@ describe('BMADSessionStep', () => {
     await step.run(makeContext());
 
     expect(setSpy.mock.invocationCallOrder[0]!).toBeLessThan(startSpy.mock.invocationCallOrder[0]!);
-    expect(setSpy.mock.calls[0]![3]).toBeUndefined();
+    expect(setSpy.mock.calls[0]?.[3]).toBeUndefined();
   });
 
   it.each([

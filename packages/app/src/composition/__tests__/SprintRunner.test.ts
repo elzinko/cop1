@@ -24,8 +24,8 @@ function createTempProject(): string {
   mkdirSync(dir, { recursive: true });
   mkdirSync(join(dir, '.cop1'), { recursive: true });
 
-  // Create minimal stories
-  const storiesDir = join(dir, '_bmad-output', 'planning-artifacts', 'stories', 'sprint-0');
+  // Create minimal stories (BMADReader scans _bmad-output/implementation-artifacts/)
+  const storiesDir = join(dir, '_bmad-output', 'implementation-artifacts');
   mkdirSync(storiesDir, { recursive: true });
 
   writeFileSync(

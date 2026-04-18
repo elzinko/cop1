@@ -1,6 +1,6 @@
 import type {
-  SupervisorContext,
   SupervisorQuestion,
+  SupervisorQuestionContext,
   SupervisorResponse,
 } from '../domain/ports/SupervisorLLMPort.js';
 import type { SupervisorToolHandlers } from '../infrastructure/tools/toolCatalog.js';
@@ -66,7 +66,7 @@ export class MultiStepResolutionLoop {
 
   async resolve(
     question: SupervisorQuestion,
-    context: SupervisorContext,
+    context: SupervisorQuestionContext,
   ): Promise<SupervisorResponse & { finalState: ResolutionState }> {
     this.transition('idle', 'deterministic');
     const first = await this.supervisor.respond(question, context);

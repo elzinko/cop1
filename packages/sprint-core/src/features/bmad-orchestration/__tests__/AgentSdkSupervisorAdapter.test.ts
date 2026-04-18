@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { SupervisorRateLimitError } from '../domain/errors/SupervisorRateLimitError.js';
 import { SupervisorTimeoutError } from '../domain/errors/SupervisorTimeoutError.js';
-import type { SupervisorContext, SupervisorQuestion } from '../domain/ports/SupervisorLLMPort.js';
+import type {
+  SupervisorQuestion,
+  SupervisorQuestionContext,
+} from '../domain/ports/SupervisorLLMPort.js';
 import {
   AgentSdkSupervisorAdapter,
   type SupervisorQueryFunction,
@@ -16,7 +19,7 @@ function createQuestion(currentQuestion: string): SupervisorQuestion {
   };
 }
 
-function createContext(currentQuestion: string): SupervisorContext {
+function createContext(currentQuestion: string): SupervisorQuestionContext {
   return {
     workflowCommand: 'bmad-bmm-dev-story',
     storyId: 'EA2-S3',
