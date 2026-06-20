@@ -2,6 +2,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { EventBus } from '@cop1/shared-kernel';
 import { defaultCommandsForPhase } from '@cop1/sprint-core';
+import type { WorktreePort } from '@cop1/sprint-core';
+import type { BudgetGuard } from '../domain/RunBudget.js';
 import type { SupervisorPlaybook } from '../domain/SupervisorPlaybook.js';
 
 // NOTE — `sprint-status.yaml` file-level coupling is intentional and localized
@@ -74,6 +76,8 @@ export class OrchestratorService {
     private readonly eventBus: EventBus,
     private readonly gate: InterCommandGate = async () => 'continue',
     private readonly autoDecisionLogger?: (payload: Record<string, unknown>) => void,
+    private readonly budgetGuard?: BudgetGuard,
+    private readonly worktreePort?: WorktreePort,
   ) {}
 
   async run(options: OrchestratorRunOptions): Promise<OrchestratorRunResult> {
@@ -105,6 +109,28 @@ export class OrchestratorService {
       this.eventBus.emit('orchestrator.story.started', { storyKey, ts: new Date().toISOString() });
       const commandsRun: string[] = [];
 
+      // ADR-018 — isolate the story's code in a dedicated git worktree. The
+      // runner runs against `worktreePath`; status (sprint-status.yaml + the
+      // `<storyKey>.md` mirror) stays on `options.projectRoot` (main tree).
+      // Without a worktreePort, `worktreePath` is the main tree (unchanged).
+      let worktreePath = options.projectRoot;
+      if (this.worktreePort) {
+        try {
+          worktreePath = this.worktreePort.create(options.projectRoot, storyKey);
+        } catch (err) {
+          const note = err instanceof Error ? err.message : String(err);
+          outcomes.push({
+            storyKey,
+            previousStatus,
+            nextStatus: 'blocked',
+            commandsRun,
+            error: `worktree create failed: ${note}`,
+          });
+          await this.persistStatus(statusPath, storyKey, 'blocked');
+          continue;
+        }
+      }
+
       for (const phase of options.playbook.phases) {
         // EA12-S3 / A5 pivot: if the playbook doesn't enumerate phase commands,
         // fall back to the canonical cycle from sprint-core. Unknown phase names
@@ -113,6 +139,28 @@ export class OrchestratorService {
           phase.commands ?? defaultCommandsForPhase(phase.name)?.map((command) => ({ command }));
         if (!phaseCommands || phaseCommands.length === 0) continue;
         for (const cmd of phaseCommands) {
+          // Budget / kill-switch: stop the whole run cleanly before each command.
+          // No status is persisted — the run is interrupted, not the story.
+          if (this.budgetGuard) {
+            const budget = this.budgetGuard.status();
+            if (budget.tripped) {
+              aborted = true;
+              outcomes.push({
+                storyKey,
+                previousStatus,
+                nextStatus: previousStatus,
+                commandsRun,
+                error: `budget tripped: ${budget.reason}`,
+              });
+              this.eventBus.emit('orchestrator.run.aborted', {
+                reason: budget.reason,
+                ts: new Date().toISOString(),
+              });
+              this.finalizeWorktree(options.projectRoot, storyKey, worktreePath, true);
+              break storyLoop;
+            }
+          }
+
           if (options.mode === 'step-by-step') {
             const gate = await this.gate({ storyKey, nextCommand: cmd.command });
             if (gate === 'abort') {
@@ -124,6 +172,7 @@ export class OrchestratorService {
                 commandsRun,
                 error: 'aborted by step-by-step gate',
               });
+              this.finalizeWorktree(options.projectRoot, storyKey, worktreePath, true);
               break storyLoop;
             }
             if (gate === 'skip') continue;
@@ -138,7 +187,7 @@ export class OrchestratorService {
             command: cmd.command,
             storyKey,
             epicId: options.epicId,
-            projectRoot: options.projectRoot,
+            projectRoot: worktreePath,
           });
           commandsRun.push(cmd.command);
 
@@ -171,6 +220,7 @@ export class OrchestratorService {
               });
               await this.persistStatus(statusPath, storyKey, 'blocked');
               aborted = true;
+              this.finalizeWorktree(options.projectRoot, storyKey, worktreePath, true);
               break storyLoop;
             }
           }
@@ -184,6 +234,7 @@ export class OrchestratorService {
               error: result.note ?? 'command failed',
             });
             await this.persistStatus(statusPath, storyKey, 'blocked');
+            this.finalizeWorktree(options.projectRoot, storyKey, worktreePath, true);
             continue storyLoop;
           }
 
@@ -200,6 +251,7 @@ export class OrchestratorService {
         nextStatus: finalStatus ?? previousStatus,
         commandsRun,
       });
+      this.finalizeWorktree(options.projectRoot, storyKey, worktreePath, false);
       this.eventBus.emit('orchestrator.story.completed', {
         storyKey,
         finalStatus,
@@ -216,6 +268,32 @@ export class OrchestratorService {
     });
 
     return { epicId: options.epicId, storiesProcessed: outcomes, escalated, aborted };
+  }
+
+  /**
+   * ADR-018 worktree lifecycle finalizer. No-op unless a `worktreePort` is
+   * injected AND the story actually ran in a dedicated worktree (guards against
+   * ever cleaning up the main tree when `worktreePath === options.projectRoot`).
+   *
+   * `keep=false` (success) → `cleanup`. `keep=true` (failure / escalation /
+   * abort) → preserve the worktree for debug and emit `orchestrator.worktree.kept`.
+   */
+  private finalizeWorktree(
+    mainProjectRoot: string,
+    storyKey: string,
+    worktreePath: string,
+    keep: boolean,
+  ): void {
+    if (!this.worktreePort || worktreePath === mainProjectRoot) return;
+    if (keep) {
+      this.eventBus.emit('orchestrator.worktree.kept', {
+        storyKey,
+        worktreePath,
+        ts: new Date().toISOString(),
+      });
+      return;
+    }
+    this.worktreePort.cleanup(mainProjectRoot, worktreePath);
   }
 
   private async persistStatus(path: string, storyKey: string, nextStatus: string): Promise<void> {

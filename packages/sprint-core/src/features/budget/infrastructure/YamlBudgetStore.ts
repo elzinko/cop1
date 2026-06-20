@@ -21,11 +21,11 @@ export class YamlBudgetStore implements BudgetStorePort {
     if (!raw) return undefined;
 
     return {
-      date: String(raw['date'] ?? date),
-      totalConsumed: Number(raw['total_consumed'] ?? 0),
-      breakdownByCommand: (raw['breakdown_by_command'] as Record<string, number>) ?? {},
-      breakdownByAgent: (raw['breakdown_by_agent'] as Record<string, number>) ?? {},
-      events: (raw['events'] as BudgetData['events']) ?? [],
+      date: String(raw.date ?? date),
+      totalConsumed: Number(raw.total_consumed ?? 0),
+      breakdownByCommand: (raw.breakdown_by_command as Record<string, number>) ?? {},
+      breakdownByAgent: (raw.breakdown_by_agent as Record<string, number>) ?? {},
+      events: (raw.events as BudgetData['events']) ?? [],
     };
   }
 

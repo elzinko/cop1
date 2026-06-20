@@ -50,15 +50,12 @@ budget:
 `;
   writeFileSync(join(dir, 'cop1.config.yaml'), cfg);
 
-  const storiesDir = join(dir, '_bmad-output', 'planning-artifacts', 'stories', 'sprint-0');
-  mkdirSync(storiesDir, { recursive: true });
-  writeFileSync(
-    join(storiesDir, 'E1-S1.md'),
-    '# E1-S1: Test Story\n\nStatus: ready-for-dev\n\n## Acceptance Criteria\n- Works\n',
-  );
-
   const implDir = join(dir, '_bmad-output', 'implementation-artifacts');
   mkdirSync(implDir, { recursive: true });
+  writeFileSync(
+    join(implDir, 'E1-S1.md'),
+    '# E1-S1: Test Story\n\nStatus: ready-for-dev\n\n## Acceptance Criteria\n- Works\n',
+  );
   writeFileSync(
     join(implDir, 'sprint-status.yaml'),
     'development_status:\n  E1-S1: ready-for-dev\n',

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  SupervisorContext,
   SupervisorLLMPort,
   SupervisorQuestion,
+  SupervisorQuestionContext,
 } from '../domain/ports/SupervisorLLMPort.js';
 import { InMemorySupervisorAdapter } from '../infrastructure/InMemorySupervisorAdapter.js';
 
@@ -14,7 +14,7 @@ function createQuestion(currentQuestion: string): SupervisorQuestion {
   };
 }
 
-function createContext(currentQuestion: string): SupervisorContext {
+function createContext(currentQuestion: string): SupervisorQuestionContext {
   return {
     workflowCommand: 'bmad-bmm-dev-story',
     storyId: 'EA2-S3',

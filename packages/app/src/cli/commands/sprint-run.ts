@@ -1,13 +1,13 @@
+import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   AgentSdkSessionAdapter,
   AgentSdkSupervisorAdapter,
+  type BMADSessionPort,
   ClaudeResumeSessionAdapter,
   SessionLogger,
   SupervisorService,
-  type BMADSessionPort,
 } from '@cop1/sprint-core';
-import { StructuredLogger } from '@cop1/observability';
 import { PipelineStepFactory } from '../../composition/PipelineStepFactory.js';
 import { SprintRunner } from '../../composition/SprintRunner.js';
 import { SprintFormatter } from '../formatters/SprintFormatter.js';
@@ -45,9 +45,7 @@ export async function sprintRunCommand(options: {
     sessionPort = new ClaudeResumeSessionAdapter(eventBus, { questionHandler });
   } else {
     if (adapterChoice && adapterChoice !== 'sdk') {
-      console.warn(
-        `Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`,
-      );
+      console.warn(`Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`);
     }
     sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
   }

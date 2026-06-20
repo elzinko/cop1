@@ -119,6 +119,39 @@ describe('AgentSdkSessionAdapter', () => {
     expect(handle.firstTurn.durationMs).toBeGreaterThanOrEqual(0);
   });
 
+  it('should emit tokensUsed in the session.workflow.completed event', async () => {
+    const queryFn = createMockQuery([
+      makeAssistantMessage('Working...'),
+      makeResultSuccess('Done!'),
+    ]);
+    eventBus = new EventBus();
+    const completed: { tokensUsed?: unknown }[] = [];
+    eventBus.on('session.workflow.completed', (p) => completed.push(p as { tokensUsed?: unknown }));
+    const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
+
+    await adapter.startSession('/bmad-bmm-dev-story EA9-S1', makeContext());
+
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.tokensUsed).toBe(150);
+  });
+
+  it('should emit tokensUsed in the session.workflow.failed event', async () => {
+    const queryFn = createMockQuery([
+      makeAssistantMessage('Working...'),
+      makeResultError('error_max_turns', ['Max turns exceeded']),
+    ]);
+    eventBus = new EventBus();
+    const failed: { tokensUsed?: unknown }[] = [];
+    eventBus.on('session.workflow.failed', (p) => failed.push(p as { tokensUsed?: unknown }));
+    const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
+
+    await adapter.startSession('/bmad-bmm-dev-story EA9-S1', makeContext());
+
+    expect(failed).toHaveLength(1);
+    // makeResultError reports usage { input_tokens: 50, output_tokens: 10 } => 60
+    expect(failed[0]?.tokensUsed).toBe(60);
+  });
+
   it('should pass correct SDK options to query function', async () => {
     const { queryFn, captured } = createCapturingQuery([makeResultSuccess('ok')]);
     const adapter = new AgentSdkSessionAdapter(
@@ -310,6 +343,27 @@ describe('AgentSdkSessionAdapter', () => {
     expect(handle.firstTurn.errorMessage).toBe('AsyncGenerator crashed mid-stream');
   });
 
+  it('should emit tokensUsed in session.workflow.failed when crashing after a result (ADR-017)', async () => {
+    // A result arrives (recording 150 tokens), then the stream crashes — the
+    // catch path must still carry tokensUsed so the budget is credited.
+    const queryFn: QueryFunction = (_params) => {
+      return (async function* () {
+        yield makeResultSuccess('partial');
+        throw new Error('crash after result');
+      })();
+    };
+    eventBus = new EventBus();
+    const failed: { tokensUsed?: unknown }[] = [];
+    eventBus.on('session.workflow.failed', (p) => failed.push(p as { tokensUsed?: unknown }));
+    const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
+
+    const handle = await adapter.startSession('/test', makeContext());
+
+    expect(handle.firstTurn.error).toBe(true);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.tokensUsed).toBe(150);
+  });
+
   it('should emit correct events on successful session lifecycle', async () => {
     const queryFn = createMockQuery([
       makeAssistantMessage('Working...'),
@@ -406,6 +460,126 @@ describe('AgentSdkSessionAdapter', () => {
     expect(opts.cwd).toBeUndefined();
     expect(result.completed).toBe(true);
     expect(result.output).toBe('ok');
+  });
+
+  it('should forward disallowedTools into the SDK options when provided (ADR-018)', async () => {
+    const { queryFn, captured } = createCapturingQuery([makeResultSuccess('ok')]);
+    const disallowedTools = ['Bash(rm *)', 'Bash(git reset --hard *)', 'Bash(git clean *)'];
+    const adapter = new AgentSdkSessionAdapter(undefined, { disallowedTools }, queryFn);
+
+    await adapter.startSession('/test', makeContext());
+
+    const opts = captured[0]?.options as Record<string, unknown>;
+    expect(opts.disallowedTools).toEqual(disallowedTools);
+  });
+
+  it('should omit disallowedTools from SDK options when not provided (ADR-018)', async () => {
+    const { queryFn, captured } = createCapturingQuery([makeResultSuccess('ok')]);
+    const adapter = new AgentSdkSessionAdapter(undefined, {}, queryFn);
+
+    await adapter.startSession('/test', makeContext());
+
+    const opts = captured[0]?.options as Record<string, unknown>;
+    expect('disallowedTools' in opts).toBe(false);
+  });
+
+  it('should NOT pass permissionMode dontAsk (would bypass canUseTool / AskUserQuestion) (ADR-018)', async () => {
+    const { queryFn, captured } = createCapturingQuery([makeResultSuccess('ok')]);
+    const adapter = new AgentSdkSessionAdapter(
+      undefined,
+      { disallowedTools: ['Bash(rm *)'] },
+      queryFn,
+    );
+
+    await adapter.startSession('/test', makeContext());
+
+    const opts = captured[0]?.options as Record<string, unknown>;
+    expect(opts.permissionMode).toBeUndefined();
+    expect(opts.canUseTool).toBeDefined();
+  });
+
+  it('should deny a destructive Bash command via canUseTool defensive guard (ADR-018)', async () => {
+    let capturedCanUseTool: ((...args: unknown[]) => Promise<unknown>) | undefined;
+    const queryFn: QueryFunction = (params) => {
+      const opts = params.options as Record<string, unknown>;
+      capturedCanUseTool = opts.canUseTool as (...args: unknown[]) => Promise<unknown>;
+      return (async function* () {
+        yield makeResultSuccess('done');
+      })();
+    };
+
+    const adapter = new AgentSdkSessionAdapter(undefined, {}, queryFn);
+    await adapter.startSession('/test', makeContext());
+
+    const callOptions = { signal: new AbortController().signal, toolUseID: 'tu-rm' };
+    for (const command of ['rm -rf /', 'rm somefile', 'git reset --hard HEAD~1', 'git clean -fd']) {
+      const result = (await capturedCanUseTool?.('Bash', { command }, callOptions)) as {
+        behavior: string;
+        message?: string;
+      };
+      expect(result.behavior).toBe('deny');
+      expect(result.message).toBeDefined();
+    }
+  });
+
+  it('should still allow a benign Bash command despite the defensive guard (ADR-018)', async () => {
+    let capturedCanUseTool: ((...args: unknown[]) => Promise<unknown>) | undefined;
+    const queryFn: QueryFunction = (params) => {
+      const opts = params.options as Record<string, unknown>;
+      capturedCanUseTool = opts.canUseTool as (...args: unknown[]) => Promise<unknown>;
+      return (async function* () {
+        yield makeResultSuccess('done');
+      })();
+    };
+
+    const adapter = new AgentSdkSessionAdapter(undefined, {}, queryFn);
+    await adapter.startSession('/test', makeContext());
+
+    const benignInput = { command: 'ls -la' };
+    const result = await capturedCanUseTool?.('Bash', benignInput, {
+      signal: new AbortController().signal,
+      toolUseID: 'tu-ls',
+    });
+
+    expect(result).toEqual({ behavior: 'allow', updatedInput: benignInput });
+  });
+
+  it('should still intercept AskUserQuestion after adding the defensive Bash guard (ADR-018)', async () => {
+    let interceptedInput: unknown;
+    const questionHandler: QuestionHandler = async (_toolName, input) => {
+      interceptedInput = input;
+      return {
+        behavior: 'allow' as const,
+        updatedInput: { questions: ['Q'], answers: { Q: 'A' } },
+      };
+    };
+    let capturedCanUseTool: ((...args: unknown[]) => Promise<unknown>) | undefined;
+    const queryFn: QueryFunction = (params) => {
+      const opts = params.options as Record<string, unknown>;
+      capturedCanUseTool = opts.canUseTool as (...args: unknown[]) => Promise<unknown>;
+      return (async function* () {
+        yield makeResultSuccess('done');
+      })();
+    };
+
+    const adapter = new AgentSdkSessionAdapter(
+      undefined,
+      { questionHandler, disallowedTools: ['Bash(rm *)'] },
+      queryFn,
+    );
+    await adapter.startSession('/test', makeContext());
+
+    const askInput = { questions: ['Q'] };
+    const result = await capturedCanUseTool?.('AskUserQuestion', askInput, {
+      signal: new AbortController().signal,
+      toolUseID: 'tu-ask',
+    });
+
+    expect(interceptedInput).toEqual(askInput);
+    expect(result).toEqual({
+      behavior: 'allow',
+      updatedInput: { questions: ['Q'], answers: { Q: 'A' } },
+    });
   });
 
   it('should preserve context (cwd, storyId) across continueSession calls', async () => {

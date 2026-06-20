@@ -35,10 +35,7 @@ describe('BMADReader', () => {
     );
     // Non-story markdown at the same level must be ignored (project-context,
     // SCPs, retros, etc.).
-    writeFileSync(
-      join(storiesDir, 'project-context.md'),
-      '# Project Context\n\nNot a story.\n',
-    );
+    writeFileSync(join(storiesDir, 'project-context.md'), '# Project Context\n\nNot a story.\n');
 
     reader = new BMADReader();
   });

@@ -11,7 +11,7 @@ import type {
   SessionHandle,
   SessionTurnResult,
 } from '../domain/ports/BMADSessionPort.js';
-import type { SupervisorContext } from '../domain/ports/SupervisorLLMPort.js';
+import type { SupervisorQuestionContext } from '../domain/ports/SupervisorLLMPort.js';
 import type { BudgetChecker } from './BMADCommandStep.js';
 import type { SupervisorService } from './SupervisorService.js';
 
@@ -173,7 +173,7 @@ export class BMADSessionStep implements WorkflowStep {
     const storyContent = context.storyContent ?? '';
     const storyId = context.storyId;
 
-    const supervisorContext: SupervisorContext = {
+    const supervisorContext: SupervisorQuestionContext = {
       workflowCommand: this.command,
       storyId,
       storyContent,

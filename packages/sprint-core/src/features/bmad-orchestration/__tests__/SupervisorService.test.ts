@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SessionHistoryReader } from '../application/SessionHistoryReader.js';
 import { type SessionInteraction, SessionLogger } from '../application/SessionLogger.js';
 import { SupervisorService } from '../application/SupervisorService.js';
-import type { SupervisorContext, SupervisorQuestion } from '../domain/ports/SupervisorLLMPort.js';
+import type {
+  SupervisorQuestion,
+  SupervisorQuestionContext,
+} from '../domain/ports/SupervisorLLMPort.js';
 import { InMemorySupervisorAdapter } from '../infrastructure/InMemorySupervisorAdapter.js';
 
 function createMockLogger(): SessionLogger {
@@ -11,7 +14,9 @@ function createMockLogger(): SessionLogger {
   return new SessionLogger(mockStructuredLogger as unknown as StructuredLogger);
 }
 
-function makeContext(overrides: Partial<SupervisorContext> = {}): SupervisorContext {
+function makeContext(
+  overrides: Partial<SupervisorQuestionContext> = {},
+): SupervisorQuestionContext {
   return {
     workflowCommand: '/bmad-bmm-dev-story',
     storyId: 'EA9-S3',
@@ -371,7 +376,7 @@ describe('SupervisorService', () => {
         getHistoryForStory: vi.fn().mockResolvedValue(mockHistory),
       };
 
-      const capturedContexts: SupervisorContext[] = [];
+      const capturedContexts: SupervisorQuestionContext[] = [];
       const adapter = new InMemorySupervisorAdapter(new Map());
       adapter.generateResponse = async (_q, ctx) => {
         capturedContexts.push(ctx);

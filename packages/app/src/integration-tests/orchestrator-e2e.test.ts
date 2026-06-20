@@ -118,7 +118,7 @@ describe('EA10-S9 — Orchestrator E2E on local fixture', () => {
       'run.completed',
     ]);
     expect(result.storiesProcessed).toHaveLength(1);
-    expect(result.storiesProcessed[0]!.nextStatus).toBe('done');
+    expect(result.storiesProcessed[0]?.nextStatus).toBe('done');
 
     // AC4 — state transitions persisted
     const status = await readFile(
@@ -129,7 +129,7 @@ describe('EA10-S9 — Orchestrator E2E on local fixture', () => {
 
     // AC5 — auto-decision log captured per command
     expect(autoDecisions).toHaveLength(3);
-    expect(autoDecisions[0]!.event).toBe('auto-decision');
+    expect(autoDecisions[0]?.event).toBe('auto-decision');
     expect(autoDecisions.map((d) => d.command)).toEqual([
       '/bmad-bmm-create-story',
       '/bmad-bmm-dev-story',

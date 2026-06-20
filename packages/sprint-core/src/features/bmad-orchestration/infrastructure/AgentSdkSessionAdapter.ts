@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Options, SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { EventBus } from '@cop1/shared-kernel';
+import type { ModelTier, ModelTierRouter } from '../domain/ModelTierRouter.js';
 import type {
   BMADSessionContext,
   BMADSessionPort,
@@ -16,6 +17,31 @@ export interface AgentSdkSessionAdapterOptions {
   maxBudgetUsd?: number;
   /** Question handler for intercepted AskUserQuestion tool calls. */
   questionHandler?: QuestionHandler;
+  /** Optional policy mapping a BMAD command to a Claude model tier (per session). */
+  modelRouter?: ModelTierRouter;
+  /**
+   * Tool-permission denylist forwarded to the SDK `Options.disallowedTools`
+   * (ADR-018 guardrails). Paired with a defensive `canUseTool` deny — we never
+   * set `permissionMode: 'dontAsk'`, which would bypass `canUseTool` and break
+   * AskUserQuestion supervisor interception.
+   */
+  disallowedTools?: string[];
+}
+
+/**
+ * Patterns that must never run unattended inside a story worktree (ADR-018).
+ * Belt-and-braces with `disallowedTools`: `canUseTool` denies these defensively.
+ */
+const DESTRUCTIVE_BASH_PATTERNS: readonly RegExp[] = [
+  /\brm\s+-rf\b/,
+  /\brm\s+/,
+  /\bgit\s+reset\s+--hard\b/,
+  /\bgit\s+clean\b/,
+];
+
+/** Returns true when a Bash command matches a known destructive pattern. */
+function isDestructiveBashCommand(command: string): boolean {
+  return DESTRUCTIVE_BASH_PATTERNS.some((pattern) => pattern.test(command));
 }
 
 /** Injectable query function type, matching the SDK's query() signature for testability. */
@@ -51,6 +77,12 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
   private readonly sdkSessionIds = new Map<string, string>();
   /** Stores session context for reuse in continueSession. */
   private readonly sessionContexts = new Map<string, BMADSessionContext>();
+  /** Resolves the Claude model tier per command (optional; omitted → SDK default). */
+  private readonly modelRouter?: ModelTierRouter;
+  /** Maps adapter sessionId → resolved model tier, reused across follow-up turns. */
+  private readonly sessionModels = new Map<string, ModelTier>();
+  /** SDK tool denylist (ADR-018 guardrails); omitted from Options when undefined. */
+  private readonly disallowedTools?: string[];
 
   constructor(
     eventBus?: EventBus,
@@ -61,6 +93,8 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     this.maxTurns = options?.maxTurns ?? 30;
     this.maxBudgetUsd = options?.maxBudgetUsd;
     this.questionHandler = options?.questionHandler ?? defaultQuestionHandler;
+    this.modelRouter = options?.modelRouter;
+    this.disallowedTools = options?.disallowedTools;
     this.queryFn = queryFn ?? AgentSdkSessionAdapter.loadSdkQuery();
   }
 
@@ -111,6 +145,9 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     const startTime = Date.now();
 
     this.sessionContexts.set(sessionId, context);
+    if (this.modelRouter) {
+      this.sessionModels.set(sessionId, this.modelRouter.resolve(command));
+    }
 
     this.eventBus?.emit('session.started', {
       sessionId,
@@ -139,6 +176,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
   ): Promise<SessionTurnResult> {
     const questionHandler = this.questionHandler;
     const sdkSessionId = isResume ? this.sdkSessionIds.get(sessionId) : undefined;
+    const model = this.sessionModels.get(sessionId);
 
     const options: Options = {
       systemPrompt: { type: 'preset', preset: 'claude_code' },
@@ -146,22 +184,38 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
       allowedTools: ['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep'],
       tools: ['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'AskUserQuestion'],
       maxTurns: this.maxTurns,
+      ...(model ? { model } : {}),
       ...(this.maxBudgetUsd !== undefined && { maxBudgetUsd: this.maxBudgetUsd }),
+      ...(this.disallowedTools ? { disallowedTools: this.disallowedTools } : {}),
       ...(context?.projectPath && { cwd: context.projectPath }),
       ...(isResume && sdkSessionId ? { resume: sdkSessionId } : {}),
       canUseTool: async (toolName, input, _callOptions) => {
         if (toolName === 'AskUserQuestion') {
           return questionHandler(toolName, input);
         }
+        // ADR-018 defensive guard: deny destructive Bash commands even if a
+        // disallowedTools entry is missing or mis-typed (belt-and-braces).
+        if (toolName === 'Bash') {
+          const command = (input as { command?: unknown }).command;
+          if (typeof command === 'string' && isDestructiveBashCommand(command)) {
+            return {
+              behavior: 'deny',
+              message: `Destructive command blocked by ADR-018 guardrail: ${command}`,
+            };
+          }
+        }
         return { behavior: 'allow', updatedInput: input as Record<string, unknown> };
       },
     };
+
+    // Declared outside the try so the catch block can still credit any tokens
+    // recorded before a mid-stream crash (ADR-017 budget accounting).
+    let tokensUsed: number | undefined;
 
     try {
       const iterable = this.queryFn({ prompt, options });
       let output = '';
       let completed = false;
-      let tokensUsed: number | undefined;
       let turn = 0;
 
       for await (const message of iterable) {
@@ -208,6 +262,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
               storyId: context?.storyId,
               error: errorMsg,
               turn,
+              tokensUsed,
             });
 
             return {
@@ -230,6 +285,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
           storyId: context?.storyId,
           totalTurns: turn,
           totalDurationMs: durationMs,
+          tokensUsed,
         });
       }
 
@@ -248,6 +304,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
         storyId: context?.storyId,
         error: errorMsg,
         turn: 0,
+        tokensUsed,
       });
 
       return {

@@ -207,17 +207,9 @@ export { BudgetExhaustedError } from './features/bmad-orchestration/domain/error
 export type {
   SupervisorLLMPort,
   SupervisorQuestion,
+  SupervisorQuestionContext,
   SupervisorResponse,
 } from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
-// Exposed under an alias to avoid clash with the EA11-S6 bootstrap
-// SupervisorContext (domain/SupervisorContext). This one is the per-question
-// context consumed by SupervisorService.setWorkflowContext / LLMPort.
-export type { SupervisorContext as SupervisorAnswerContext } from './features/bmad-orchestration/domain/ports/SupervisorLLMPort.js';
-// SupervisorContext is exported from the EA11-S6 bootstrap module below
-// (domain/SupervisorContext.js). The older `ports/SupervisorLLMPort.js`
-// also defines a SupervisorContext for backwards compatibility but is
-// intentionally not re-exported here to avoid the duplicate-identifier
-// build error — import it directly from its module if needed.
 export { buildSupervisorPrompt } from './features/bmad-orchestration/domain/SupervisorPromptBuilder.js';
 export {
   DEFAULT_BMAD_PIPELINE_COMMANDS,
@@ -228,6 +220,16 @@ export type {
   BmadCyclePhase,
   BmadPipelineCommand,
 } from './features/bmad-orchestration/domain/BmadCycle.js';
+export {
+  DEFAULT_MODEL_TIER_CONFIG,
+  DefaultModelTierRouter,
+} from './features/bmad-orchestration/domain/ModelTierRouter.js';
+export type {
+  ModelTier,
+  ModelTierRouter,
+  ModelTierRule,
+  ModelTierRouterConfig,
+} from './features/bmad-orchestration/domain/ModelTierRouter.js';
 export { SupervisorTimeoutError } from './features/bmad-orchestration/domain/errors/SupervisorTimeoutError.js';
 export type {
   BMADSessionPort,
@@ -260,6 +262,7 @@ export {
   deriveEpicId,
 } from './features/bmad-orchestration/application/SessionLogger.js';
 export type { SessionInteraction } from './features/bmad-orchestration/application/SessionLogger.js';
+export { SessionInteractionCollector } from './features/bmad-orchestration/application/SessionInteractionCollector.js';
 export { SessionHistoryReader } from './features/bmad-orchestration/application/SessionHistoryReader.js';
 export type { SessionHistoryFilter } from './features/bmad-orchestration/application/SessionHistoryReader.js';
 // EA11-S3 / S6 / S7 / S8 — history + supervisor context + transcript

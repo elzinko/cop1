@@ -1,21 +1,29 @@
+import { existsSync } from 'node:fs';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   AgentSdkSessionAdapter,
   AgentSdkSupervisorAdapter,
   type BMADSessionPort,
   ClaudeResumeSessionAdapter,
-  SessionLogger,
+  DefaultModelTierRouter,
+  ExchangeHistoryWriter,
+  SessionInteractionCollector,
   SupervisorService,
+  WorktreeService,
 } from '@cop1/sprint-core';
-import { StructuredLogger } from '@cop1/observability';
 import {
   type BMADCommandRunner,
   type OrchestratorMode,
   OrchestratorService,
 } from '../../features/orchestrator/application/OrchestratorService.js';
 import { SupervisorPlaybookLoader } from '../../features/orchestrator/application/SupervisorPlaybookLoader.js';
+import { RunBudget } from '../../features/orchestrator/domain/RunBudget.js';
+import type { SupervisorPlaybook } from '../../features/orchestrator/domain/SupervisorPlaybook.js';
+import { createAbortFilePredicate } from '../../features/orchestrator/infrastructure/AbortFile.js';
+import { CommandVerificationGate } from '../../features/orchestrator/infrastructure/CommandVerificationGate.js';
 import { createDefaultBMADCommandRunner } from '../../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
 import { createInterCommandApprovalResolver } from '../../features/orchestrator/infrastructure/InterCommandApprovalResolver.js';
 import { stubBMADCommandRunner } from '../../features/orchestrator/infrastructure/testing/StubBMADCommandRunner.js';
@@ -28,6 +36,12 @@ export interface OrchestratorRunCliOptions {
   projectRoot?: string;
   runner?: 'default' | 'stub';
 }
+
+/**
+ * ADR-018 default tool denylist forwarded to the BMAD session SDK adapter.
+ * Paired with the adapter's defensive `canUseTool` guard (belt-and-braces).
+ */
+const DEFAULT_DISALLOWED_TOOLS = ['Bash(rm *)', 'Bash(git reset --hard *)', 'Bash(git clean *)'];
 
 export async function orchestratorRunCommand(
   options: OrchestratorRunCliOptions,
@@ -43,7 +57,7 @@ export async function orchestratorRunCommand(
   const playbookPath = options.playbook ?? join(projectRoot, 'supervisor-playbook.md');
 
   const loader = new SupervisorPlaybookLoader({ projectRoot });
-  let playbook;
+  let playbook: SupervisorPlaybook;
   try {
     playbook = await loader.load(playbookPath);
   } catch (err) {
@@ -70,9 +84,36 @@ export async function orchestratorRunCommand(
     void appendFile(logPath, `${JSON.stringify(payload)}\n`, 'utf-8');
   };
 
+  // Budget / kill-switch: token cap, wall-clock deadline, and external abort file.
+  const budget = new RunBudget({
+    maxTokens: parseEnvInt('COP1_MAX_TOKENS'),
+    deadlineMs: parseEnvMinToMs('COP1_DEADLINE_MIN'),
+    externalAbort: createAbortFilePredicate(join(logDir, 'abort')),
+  });
+  // `completed` and `failed` are mutually exclusive per command execution, so
+  // crediting the budget on both paths records tokens for failed commands too
+  // without any risk of double-counting a single run.
+  const creditBudget = (p: unknown) => {
+    const tokens = (p as { tokensUsed?: unknown }).tokensUsed;
+    if (typeof tokens === 'number') budget.recordTokens(tokens);
+  };
+  eventBus.on('session.workflow.completed', creditBudget);
+  eventBus.on('session.workflow.failed', creditBudget);
+
   try {
     const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);
-    const svc = new OrchestratorService(runner, eventBus, gate, autoDecisionLogger);
+    // ADR-018 — opt-in per-story git worktree isolation. Off by default to keep
+    // the V1.1 behavior; enable with COP1_WORKTREE_ISOLATION=1.
+    const worktreePort =
+      process.env.COP1_WORKTREE_ISOLATION === '1' ? new WorktreeService() : undefined;
+    const svc = new OrchestratorService(
+      runner,
+      eventBus,
+      gate,
+      autoDecisionLogger,
+      budget,
+      worktreePort,
+    );
     const result = await svc.run({ playbook, epicId: options.epic, projectRoot, mode });
     if (result.aborted) {
       process.exitCode = 3;
@@ -106,12 +147,26 @@ function resolveRunner(
     return stubBMADCommandRunner;
   }
 
+  // Pre-flight: ensure _bmad/ exists at projectRoot before building the real runner.
+  const bmadDir = join(projectRoot, '_bmad');
+  if (!existsSync(bmadDir)) {
+    throw new Error(
+      `No BMAD installation found at ${bmadDir}. The orchestrator requires BMAD workflows to execute real sprint commands. Install BMAD or use --runner stub (with COP1_ALLOW_STUB_RUNNER=1) for testing.`,
+    );
+  }
+
   // Default: real BMAD session-backed runner. Wiring mirrors sprint-run.ts.
   const structuredLogger = new StructuredLogger(projectRoot);
-  const sessionLogger = new SessionLogger(structuredLogger, eventBus);
+  // EA14-S2: Use SessionInteractionCollector (extends SessionLogger) so that
+  // interactions are captured for the ExchangeHistoryWriter Track 2 output.
+  const interactionCollector = new SessionInteractionCollector(structuredLogger, eventBus);
   const supervisorAdapter = new AgentSdkSupervisorAdapter();
-  const supervisorService = new SupervisorService(supervisorAdapter, sessionLogger);
+  const supervisorService = new SupervisorService(supervisorAdapter, interactionCollector);
   const questionHandler = supervisorService.createQuestionHandler();
+
+  // Per-session USD ceiling: forwarded to the SDK adapter's native maxBudgetUsd.
+  const parsedUsd = Number.parseFloat(process.env.COP1_MAX_USD_PER_SESSION ?? '');
+  const maxBudgetUsd = Number.isFinite(parsedUsd) ? parsedUsd : undefined;
 
   const adapterChoice = (process.env.COP1_BMAD_ADAPTER ?? '').trim();
   let sessionPort: BMADSessionPort;
@@ -120,12 +175,38 @@ function resolveRunner(
     sessionPort = new ClaudeResumeSessionAdapter(eventBus, { questionHandler });
   } else {
     if (adapterChoice && adapterChoice !== 'sdk') {
-      console.warn(
-        `Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`,
-      );
+      console.warn(`Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`);
     }
-    sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
+    sessionPort = new AgentSdkSessionAdapter(eventBus, {
+      questionHandler,
+      modelRouter: new DefaultModelTierRouter(),
+      disallowedTools: DEFAULT_DISALLOWED_TOOLS,
+      ...(maxBudgetUsd !== undefined && { maxBudgetUsd }),
+    });
   }
 
-  return createDefaultBMADCommandRunner({ sessionPort, supervisorService });
+  // EA14-S2: Wire ExchangeHistoryWriter for Track 2 per-session markdown files.
+  const exchangeHistoryWriter = new ExchangeHistoryWriter(projectRoot);
+
+  return createDefaultBMADCommandRunner({
+    sessionPort,
+    supervisorService,
+    exchangeHistoryWriter,
+    interactionCollector,
+    verificationGate: new CommandVerificationGate(),
+  });
+}
+
+/** Reads an env var as a positive integer; returns undefined if absent or NaN. */
+function parseEnvInt(name: string): number | undefined {
+  const raw = process.env[name];
+  if (raw === undefined) return undefined;
+  const value = Number.parseInt(raw, 10);
+  return Number.isNaN(value) ? undefined : value;
+}
+
+/** Reads an env var as minutes and converts to milliseconds; undefined if absent or NaN. */
+function parseEnvMinToMs(name: string): number | undefined {
+  const minutes = parseEnvInt(name);
+  return minutes === undefined ? undefined : minutes * 60_000;
 }

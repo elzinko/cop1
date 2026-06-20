@@ -5,13 +5,13 @@ import {
 } from '../application/MultiStepResolutionLoop.js';
 import type { SupervisorService } from '../application/SupervisorService.js';
 import type {
-  SupervisorContext,
   SupervisorQuestion,
+  SupervisorQuestionContext,
   SupervisorResponse,
 } from '../domain/ports/SupervisorLLMPort.js';
 import type { SupervisorToolHandlers } from '../infrastructure/tools/toolCatalog.js';
 
-function makeContext(): SupervisorContext {
+function makeContext(): SupervisorQuestionContext {
   return {
     workflowCommand: '/bmad-bmm-dev-story',
     storyId: 'EA10-S8',
@@ -26,7 +26,7 @@ function makeContext(): SupervisorContext {
 
 function makeSupervisor(respondResult: SupervisorResponse): SupervisorService {
   return {
-    respond: vi.fn(async (_q: SupervisorQuestion, _c: SupervisorContext) => respondResult),
+    respond: vi.fn(async (_q: SupervisorQuestion, _c: SupervisorQuestionContext) => respondResult),
   } as unknown as SupervisorService;
 }
 

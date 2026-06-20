@@ -1,3 +1,7 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
 import {
   InMemorySessionAdapter,
@@ -5,10 +9,6 @@ import {
   SessionLogger,
   SupervisorService,
 } from '@cop1/sprint-core';
-import { StructuredLogger } from '@cop1/observability';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { orchestratorRunCommand } from '../cli/commands/orchestrator.js';
 import { createDefaultBMADCommandRunner } from '../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
@@ -114,9 +114,7 @@ describe('orchestrator real-run (EA13-S3 CI-sized replay)', () => {
       expect(parsed[0]).toHaveProperty('event', 'auto-decision');
       // At least one entry must carry a command — proves the runner actually
       // routed through, not just returned canned responses.
-      expect(parsed.some((p) => typeof p.command === 'string' && p.command.length > 0)).toBe(
-        true,
-      );
+      expect(parsed.some((p) => typeof p.command === 'string' && p.command.length > 0)).toBe(true);
     } finally {
       process.exitCode = origExitCode;
     }
