@@ -208,11 +208,14 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
       },
     };
 
+    // Declared outside the try so the catch block can still credit any tokens
+    // recorded before a mid-stream crash (ADR-017 budget accounting).
+    let tokensUsed: number | undefined;
+
     try {
       const iterable = this.queryFn({ prompt, options });
       let output = '';
       let completed = false;
-      let tokensUsed: number | undefined;
       let turn = 0;
 
       for await (const message of iterable) {
@@ -301,6 +304,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
         storyId: context?.storyId,
         error: errorMsg,
         turn: 0,
+        tokensUsed,
       });
 
       return {

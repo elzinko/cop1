@@ -343,6 +343,27 @@ describe('AgentSdkSessionAdapter', () => {
     expect(handle.firstTurn.errorMessage).toBe('AsyncGenerator crashed mid-stream');
   });
 
+  it('should emit tokensUsed in session.workflow.failed when crashing after a result (ADR-017)', async () => {
+    // A result arrives (recording 150 tokens), then the stream crashes — the
+    // catch path must still carry tokensUsed so the budget is credited.
+    const queryFn: QueryFunction = (_params) => {
+      return (async function* () {
+        yield makeResultSuccess('partial');
+        throw new Error('crash after result');
+      })();
+    };
+    eventBus = new EventBus();
+    const failed: { tokensUsed?: unknown }[] = [];
+    eventBus.on('session.workflow.failed', (p) => failed.push(p as { tokensUsed?: unknown }));
+    const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
+
+    const handle = await adapter.startSession('/test', makeContext());
+
+    expect(handle.firstTurn.error).toBe(true);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.tokensUsed).toBe(150);
+  });
+
   it('should emit correct events on successful session lifecycle', async () => {
     const queryFn = createMockQuery([
       makeAssistantMessage('Working...'),
