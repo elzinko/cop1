@@ -220,6 +220,16 @@ export type {
   BmadCyclePhase,
   BmadPipelineCommand,
 } from './features/bmad-orchestration/domain/BmadCycle.js';
+export {
+  DEFAULT_MODEL_TIER_CONFIG,
+  DefaultModelTierRouter,
+} from './features/bmad-orchestration/domain/ModelTierRouter.js';
+export type {
+  ModelTier,
+  ModelTierRouter,
+  ModelTierRule,
+  ModelTierRouterConfig,
+} from './features/bmad-orchestration/domain/ModelTierRouter.js';
 export { SupervisorTimeoutError } from './features/bmad-orchestration/domain/errors/SupervisorTimeoutError.js';
 export type {
   BMADSessionPort,

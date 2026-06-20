@@ -8,6 +8,7 @@ import {
   AgentSdkSupervisorAdapter,
   type BMADSessionPort,
   ClaudeResumeSessionAdapter,
+  DefaultModelTierRouter,
   ExchangeHistoryWriter,
   SessionInteractionCollector,
   SupervisorService,
@@ -135,7 +136,10 @@ function resolveRunner(
     if (adapterChoice && adapterChoice !== 'sdk') {
       console.warn(`Unknown COP1_BMAD_ADAPTER value '${adapterChoice}', falling back to 'sdk'`);
     }
-    sessionPort = new AgentSdkSessionAdapter(eventBus, { questionHandler });
+    sessionPort = new AgentSdkSessionAdapter(eventBus, {
+      questionHandler,
+      modelRouter: new DefaultModelTierRouter(),
+    });
   }
 
   // EA14-S2: Wire ExchangeHistoryWriter for Track 2 per-session markdown files.
