@@ -40,12 +40,7 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # Some tests spin up throwaway local git repos and commit into them;
-      # CI runners have no global git identity, so give them one.
-      - name: Configure git identity
-        run: |
-          git config --global user.email "ci@cop1.local"
-          git config --global user.name "cop1 CI"
-
+      # Tests that spin up throwaway git repos set their own LOCAL identity, so
+      # no global git config is needed here (proves the tests are hermetic).
       - name: Test
         run: pnpm test
