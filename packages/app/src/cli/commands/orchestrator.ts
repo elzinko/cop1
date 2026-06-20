@@ -166,7 +166,7 @@ function resolveRunner(
 
   // Per-session USD ceiling: forwarded to the SDK adapter's native maxBudgetUsd.
   const parsedUsd = Number.parseFloat(process.env.COP1_MAX_USD_PER_SESSION ?? '');
-  const maxBudgetUsd = Number.isFinite(parsedUsd) ? parsedUsd : undefined;
+  const maxBudgetUsd = Number.isFinite(parsedUsd) && parsedUsd > 0 ? parsedUsd : undefined;
 
   const adapterChoice = (process.env.COP1_BMAD_ADAPTER ?? '').trim();
   let sessionPort: BMADSessionPort;
@@ -197,16 +197,20 @@ function resolveRunner(
   });
 }
 
-/** Reads an env var as a positive integer; returns undefined if absent or NaN. */
-function parseEnvInt(name: string): number | undefined {
+/**
+ * Reads an env var as a strictly-positive integer. Returns undefined if absent,
+ * NaN, or <= 0 — a zero/negative budget cap is treated as "no cap" rather than a
+ * cap that would trip immediately (or never).
+ */
+export function parseEnvInt(name: string): number | undefined {
   const raw = process.env[name];
   if (raw === undefined) return undefined;
   const value = Number.parseInt(raw, 10);
-  return Number.isNaN(value) ? undefined : value;
+  return Number.isNaN(value) || value <= 0 ? undefined : value;
 }
 
-/** Reads an env var as minutes and converts to milliseconds; undefined if absent or NaN. */
-function parseEnvMinToMs(name: string): number | undefined {
+/** Reads an env var as minutes and converts to milliseconds; undefined if absent or <= 0. */
+export function parseEnvMinToMs(name: string): number | undefined {
   const minutes = parseEnvInt(name);
   return minutes === undefined ? undefined : minutes * 60_000;
 }

@@ -33,14 +33,16 @@ export interface AgentSdkSessionAdapterOptions {
  * Belt-and-braces with `disallowedTools`: `canUseTool` denies these defensively.
  */
 const DESTRUCTIVE_BASH_PATTERNS: readonly RegExp[] = [
-  /\brm\s+-rf\b/,
-  /\brm\s+/,
+  // `rm` with a recursive flag (-r, -rf, -fr, -Rf…). Single-file `rm <file>` and
+  // package-manager subcommands such as `npm rm` / `pnpm rm <pkg>` carry no
+  // recursive flag, so they are not matched (worktree isolation covers them).
+  /\brm\s+-[a-z]*r/i,
   /\bgit\s+reset\s+--hard\b/,
   /\bgit\s+clean\b/,
 ];
 
 /** Returns true when a Bash command matches a known destructive pattern. */
-function isDestructiveBashCommand(command: string): boolean {
+export function isDestructiveBashCommand(command: string): boolean {
   return DESTRUCTIVE_BASH_PATTERNS.some((pattern) => pattern.test(command));
 }
 
