@@ -19,7 +19,9 @@ import {
   OrchestratorService,
 } from '../../features/orchestrator/application/OrchestratorService.js';
 import { SupervisorPlaybookLoader } from '../../features/orchestrator/application/SupervisorPlaybookLoader.js';
+import { RunBudget } from '../../features/orchestrator/domain/RunBudget.js';
 import type { SupervisorPlaybook } from '../../features/orchestrator/domain/SupervisorPlaybook.js';
+import { createAbortFilePredicate } from '../../features/orchestrator/infrastructure/AbortFile.js';
 import { CommandVerificationGate } from '../../features/orchestrator/infrastructure/CommandVerificationGate.js';
 import { createDefaultBMADCommandRunner } from '../../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
 import { createInterCommandApprovalResolver } from '../../features/orchestrator/infrastructure/InterCommandApprovalResolver.js';
@@ -75,9 +77,20 @@ export async function orchestratorRunCommand(
     void appendFile(logPath, `${JSON.stringify(payload)}\n`, 'utf-8');
   };
 
+  // Budget / kill-switch: token cap, wall-clock deadline, and external abort file.
+  const budget = new RunBudget({
+    maxTokens: parseEnvInt('COP1_MAX_TOKENS'),
+    deadlineMs: parseEnvMinToMs('COP1_DEADLINE_MIN'),
+    externalAbort: createAbortFilePredicate(join(logDir, 'abort')),
+  });
+  eventBus.on('session.workflow.completed', (p) => {
+    const tokens = (p as { tokensUsed?: unknown }).tokensUsed;
+    if (typeof tokens === 'number') budget.recordTokens(tokens);
+  });
+
   try {
     const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);
-    const svc = new OrchestratorService(runner, eventBus, gate, autoDecisionLogger);
+    const svc = new OrchestratorService(runner, eventBus, gate, autoDecisionLogger, budget);
     const result = await svc.run({ playbook, epicId: options.epic, projectRoot, mode });
     if (result.aborted) {
       process.exitCode = 3;
@@ -128,6 +141,10 @@ function resolveRunner(
   const supervisorService = new SupervisorService(supervisorAdapter, interactionCollector);
   const questionHandler = supervisorService.createQuestionHandler();
 
+  // Per-session USD ceiling: forwarded to the SDK adapter's native maxBudgetUsd.
+  const parsedUsd = Number.parseFloat(process.env.COP1_MAX_USD_PER_SESSION ?? '');
+  const maxBudgetUsd = Number.isFinite(parsedUsd) ? parsedUsd : undefined;
+
   const adapterChoice = (process.env.COP1_BMAD_ADAPTER ?? '').trim();
   let sessionPort: BMADSessionPort;
   if (adapterChoice === 'resume') {
@@ -140,6 +157,7 @@ function resolveRunner(
     sessionPort = new AgentSdkSessionAdapter(eventBus, {
       questionHandler,
       modelRouter: new DefaultModelTierRouter(),
+      ...(maxBudgetUsd !== undefined && { maxBudgetUsd }),
     });
   }
 
@@ -153,4 +171,18 @@ function resolveRunner(
     interactionCollector,
     verificationGate: new CommandVerificationGate(),
   });
+}
+
+/** Reads an env var as a positive integer; returns undefined if absent or NaN. */
+function parseEnvInt(name: string): number | undefined {
+  const raw = process.env[name];
+  if (raw === undefined) return undefined;
+  const value = Number.parseInt(raw, 10);
+  return Number.isNaN(value) ? undefined : value;
+}
+
+/** Reads an env var as minutes and converts to milliseconds; undefined if absent or NaN. */
+function parseEnvMinToMs(name: string): number | undefined {
+  const minutes = parseEnvInt(name);
+  return minutes === undefined ? undefined : minutes * 60_000;
 }

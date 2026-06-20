@@ -1,10 +1,10 @@
 # Sprint 1 — Model tiering sur le chemin de run live
-Périmètre : 1 feature (POC), borné.   Statut : en attente de validation (checkpoint sprint 1)
+Périmètre : 1 feature (POC) par sprint.   Statut : sprint 3 en cours (S1+S2 mergés)
 
 ## Backlog  (1 ligne = 1 feature = 1 PR)
-- [x] feat: model tiering Opus/Sonnet par commande BMAD      (committé — gate verte, revue GO, en attente PR)
-- [x] feat: gate de vérif tests/lint avant transition         (sprint 2 — gate verte, revue GO, PR)
-- [ ] feat: budget + kill-switch                              (sprint 3)
+- [x] feat: model tiering Opus/Sonnet par commande BMAD      (mergée — PR #1)
+- [x] feat: gate de vérif tests/lint avant transition         (mergée — PR #3)
+- [x] feat: budget + kill-switch                              (sprint 3 — gate verte, revue GO, PR)
 - [ ] feat: isolation worktree dans la boucle                 (sprint 4)
 - [ ] chore: run réel contrôlé sur petit epic                 (sprint 5)
 - [ ] feat: NightScheduler + tier B local (LiteLLM→Ollama)    (sprint 6)
@@ -31,3 +31,6 @@ Périmètre : 1 feature (POC), borné.   Statut : en attente de validation (chec
 - [ ] test placement : `VerificationGatePolicy.test.ts` (teste le domaine) à ranger sous `domain/__tests__/` (revue S2, non bloquant).
 - [ ] test intégration orchestrateur↔gate : « dev-story + gate KO ⇒ status fichier = blocked » bout-à-bout (revue S2 ceinture-bretelles, S3).
 - [ ] verify gate : checks par défaut codés en dur → lire depuis `cop1.config` ; timeout/kill par check (à coupler au budget S3).
+- [ ] budget (S3) : kill au niveau BOUCLE seulement ; timeout/`AbortSignal` intra-commande (threading `AbortController` dans la query SDK) → story dédiée. `TokenBudgetService` dormant à retirer.
+- [ ] budget (revue S3, prioritaire) : les tokens des commandes ÉCHOUÉES ne sont pas comptés → sous-comptage du cap. Compter aussi les sessions en échec.
+- [ ] budget (revue S3) : `tokensUsed` absent silencieusement ignoré (ajouter un warn) ; cap tokens hors cache (`maxBudgetUsd` couvre le coût $) ; test d'intégration du wiring CLI (abonnement event + parse env).

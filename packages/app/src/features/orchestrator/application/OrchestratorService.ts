@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { EventBus } from '@cop1/shared-kernel';
 import { defaultCommandsForPhase } from '@cop1/sprint-core';
+import type { BudgetGuard } from '../domain/RunBudget.js';
 import type { SupervisorPlaybook } from '../domain/SupervisorPlaybook.js';
 
 // NOTE — `sprint-status.yaml` file-level coupling is intentional and localized
@@ -74,6 +75,7 @@ export class OrchestratorService {
     private readonly eventBus: EventBus,
     private readonly gate: InterCommandGate = async () => 'continue',
     private readonly autoDecisionLogger?: (payload: Record<string, unknown>) => void,
+    private readonly budgetGuard?: BudgetGuard,
   ) {}
 
   async run(options: OrchestratorRunOptions): Promise<OrchestratorRunResult> {
@@ -113,6 +115,27 @@ export class OrchestratorService {
           phase.commands ?? defaultCommandsForPhase(phase.name)?.map((command) => ({ command }));
         if (!phaseCommands || phaseCommands.length === 0) continue;
         for (const cmd of phaseCommands) {
+          // Budget / kill-switch: stop the whole run cleanly before each command.
+          // No status is persisted — the run is interrupted, not the story.
+          if (this.budgetGuard) {
+            const budget = this.budgetGuard.status();
+            if (budget.tripped) {
+              aborted = true;
+              outcomes.push({
+                storyKey,
+                previousStatus,
+                nextStatus: previousStatus,
+                commandsRun,
+                error: `budget tripped: ${budget.reason}`,
+              });
+              this.eventBus.emit('orchestrator.run.aborted', {
+                reason: budget.reason,
+                ts: new Date().toISOString(),
+              });
+              break storyLoop;
+            }
+          }
+
           if (options.mode === 'step-by-step') {
             const gate = await this.gate({ storyKey, nextCommand: cmd.command });
             if (gate === 'abort') {

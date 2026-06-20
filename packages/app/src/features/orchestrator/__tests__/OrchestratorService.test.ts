@@ -247,6 +247,42 @@ describe('OrchestratorService', () => {
     expect(runner).not.toHaveBeenCalled();
   });
 
+  it('aborts the run before any command when the budget guard trips', async () => {
+    const statusPath = await seedStatusFile(projectRoot);
+    const bus = new EventBus();
+    const aborts: { reason?: string }[] = [];
+    bus.on('orchestrator.run.aborted', (p) => aborts.push(p as { reason?: string }));
+
+    const runner = vi.fn(async () => ({ success: true, nextStatus: 'done' }));
+    const trippedGuard = {
+      recordTokens: () => {},
+      status: () => ({
+        tripped: true as const,
+        reason: 'tokens' as const,
+        spentTokens: 1,
+        elapsedMs: 0,
+      }),
+    };
+    const svc = new OrchestratorService(runner, bus, undefined, undefined, trippedGuard);
+
+    const result = await svc.run({
+      playbook: samplePlaybook(),
+      epicId: 'EA99',
+      projectRoot,
+      mode: 'normal',
+    });
+
+    expect(result.aborted).toBe(true);
+    expect(runner).not.toHaveBeenCalled();
+    expect(aborts).toHaveLength(1);
+    expect(aborts[0]?.reason).toBe('tokens');
+    // No story advanced — statuses untouched.
+    const finalStatus = await readFile(statusPath, 'utf-8');
+    expect(finalStatus).toContain('EA99-S1: ready-for-dev');
+    expect(finalStatus).toContain('EA99-S2: ready-for-dev');
+    expect(result.storiesProcessed.every((o) => o.nextStatus === o.previousStatus)).toBe(true);
+  });
+
   it('calls auto-decision logger per command', async () => {
     await seedStatusFile(projectRoot);
     const bus = new EventBus();
