@@ -153,6 +153,9 @@ export abstract class BMADCommandStep implements WorkflowStep {
       throw new BMADRetryExhaustedError(this.retryPolicy.maxRetries + 1, lastError);
     }
 
-    return lastResult!;
+    if (lastResult === undefined) {
+      throw new Error('BMADCommandStep: retry loop produced no result');
+    }
+    return lastResult;
   }
 }
