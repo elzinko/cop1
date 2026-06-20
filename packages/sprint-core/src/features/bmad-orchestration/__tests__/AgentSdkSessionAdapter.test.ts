@@ -512,13 +512,25 @@ describe('AgentSdkSessionAdapter', () => {
     await adapter.startSession('/test', makeContext());
 
     const callOptions = { signal: new AbortController().signal, toolUseID: 'tu-rm' };
-    for (const command of ['rm -rf /', 'rm somefile', 'git reset --hard HEAD~1', 'git clean -fd']) {
+    for (const command of [
+      'rm -rf /',
+      'sudo rm -rf /tmp/x',
+      'git reset --hard HEAD~1',
+      'git clean -fd',
+    ]) {
       const result = (await capturedCanUseTool?.('Bash', { command }, callOptions)) as {
         behavior: string;
         message?: string;
       };
       expect(result.behavior).toBe('deny');
       expect(result.message).toBeDefined();
+    }
+    // Narrowed (item 5): single-file `rm` and package-manager subcommands are allowed.
+    for (const command of ['rm somefile', 'npm rm left-pad']) {
+      const result = (await capturedCanUseTool?.('Bash', { command }, callOptions)) as {
+        behavior: string;
+      };
+      expect(result.behavior).toBe('allow');
     }
   });
 
