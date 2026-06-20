@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Options, SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { EventBus } from '@cop1/shared-kernel';
+import type { ModelTier, ModelTierRouter } from '../domain/ModelTierRouter.js';
 import type {
   BMADSessionContext,
   BMADSessionPort,
@@ -16,6 +17,8 @@ export interface AgentSdkSessionAdapterOptions {
   maxBudgetUsd?: number;
   /** Question handler for intercepted AskUserQuestion tool calls. */
   questionHandler?: QuestionHandler;
+  /** Optional policy mapping a BMAD command to a Claude model tier (per session). */
+  modelRouter?: ModelTierRouter;
 }
 
 /** Injectable query function type, matching the SDK's query() signature for testability. */
@@ -51,6 +54,10 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
   private readonly sdkSessionIds = new Map<string, string>();
   /** Stores session context for reuse in continueSession. */
   private readonly sessionContexts = new Map<string, BMADSessionContext>();
+  /** Resolves the Claude model tier per command (optional; omitted → SDK default). */
+  private readonly modelRouter?: ModelTierRouter;
+  /** Maps adapter sessionId → resolved model tier, reused across follow-up turns. */
+  private readonly sessionModels = new Map<string, ModelTier>();
 
   constructor(
     eventBus?: EventBus,
@@ -61,6 +68,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     this.maxTurns = options?.maxTurns ?? 30;
     this.maxBudgetUsd = options?.maxBudgetUsd;
     this.questionHandler = options?.questionHandler ?? defaultQuestionHandler;
+    this.modelRouter = options?.modelRouter;
     this.queryFn = queryFn ?? AgentSdkSessionAdapter.loadSdkQuery();
   }
 
@@ -111,6 +119,9 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     const startTime = Date.now();
 
     this.sessionContexts.set(sessionId, context);
+    if (this.modelRouter) {
+      this.sessionModels.set(sessionId, this.modelRouter.resolve(command));
+    }
 
     this.eventBus?.emit('session.started', {
       sessionId,
@@ -139,6 +150,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
   ): Promise<SessionTurnResult> {
     const questionHandler = this.questionHandler;
     const sdkSessionId = isResume ? this.sdkSessionIds.get(sessionId) : undefined;
+    const model = this.sessionModels.get(sessionId);
 
     const options: Options = {
       systemPrompt: { type: 'preset', preset: 'claude_code' },
@@ -146,6 +158,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
       allowedTools: ['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep'],
       tools: ['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'AskUserQuestion'],
       maxTurns: this.maxTurns,
+      ...(model ? { model } : {}),
       ...(this.maxBudgetUsd !== undefined && { maxBudgetUsd: this.maxBudgetUsd }),
       ...(context?.projectPath && { cwd: context.projectPath }),
       ...(isResume && sdkSessionId ? { resume: sdkSessionId } : {}),
