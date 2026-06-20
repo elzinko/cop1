@@ -377,8 +377,8 @@ export class ClaudeResumeSessionAdapter implements BMADSessionPort {
   /** Heuristic question detection — see AC4. Returns the question text or null. */
   detectQuestion(output: string): string | null {
     const lines = output.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (lines.length === 0) return null;
-    const last = lines[lines.length - 1]!.trim();
+    const last = lines.at(-1)?.trim();
+    if (last === undefined) return null;
     if (last.endsWith('?')) return last;
     if (/\b(continue|proceed|confirm|approve|y\/n|\[Y\/n\]|\[y\/N\])\b/i.test(last)) {
       return last;
@@ -389,7 +389,7 @@ export class ClaudeResumeSessionAdapter implements BMADSessionPort {
   /** Heuristic completion detection — see AC4. */
   detectCompletion(output: string, stopReason?: string): boolean {
     const lines = output.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    const last = lines.length > 0 ? lines[lines.length - 1]!.trim() : '';
+    const last = lines.at(-1)?.trim() ?? '';
     if (/\b(workflow complete|done|finished|story.*ready[- ]for[- ]review)\b/i.test(last)) {
       return true;
     }
