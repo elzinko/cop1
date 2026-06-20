@@ -90,10 +90,15 @@ export async function orchestratorRunCommand(
     deadlineMs: parseEnvMinToMs('COP1_DEADLINE_MIN'),
     externalAbort: createAbortFilePredicate(join(logDir, 'abort')),
   });
-  eventBus.on('session.workflow.completed', (p) => {
+  // `completed` and `failed` are mutually exclusive per command execution, so
+  // crediting the budget on both paths records tokens for failed commands too
+  // without any risk of double-counting a single run.
+  const creditBudget = (p: unknown) => {
     const tokens = (p as { tokensUsed?: unknown }).tokensUsed;
     if (typeof tokens === 'number') budget.recordTokens(tokens);
-  });
+  };
+  eventBus.on('session.workflow.completed', creditBudget);
+  eventBus.on('session.workflow.failed', creditBudget);
 
   try {
     const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);

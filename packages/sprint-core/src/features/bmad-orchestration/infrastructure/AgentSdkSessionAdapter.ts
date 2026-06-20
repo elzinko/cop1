@@ -259,6 +259,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
               storyId: context?.storyId,
               error: errorMsg,
               turn,
+              tokensUsed,
             });
 
             return {

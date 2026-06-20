@@ -135,6 +135,23 @@ describe('AgentSdkSessionAdapter', () => {
     expect(completed[0]?.tokensUsed).toBe(150);
   });
 
+  it('should emit tokensUsed in the session.workflow.failed event', async () => {
+    const queryFn = createMockQuery([
+      makeAssistantMessage('Working...'),
+      makeResultError('error_max_turns', ['Max turns exceeded']),
+    ]);
+    eventBus = new EventBus();
+    const failed: { tokensUsed?: unknown }[] = [];
+    eventBus.on('session.workflow.failed', (p) => failed.push(p as { tokensUsed?: unknown }));
+    const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
+
+    await adapter.startSession('/bmad-bmm-dev-story EA9-S1', makeContext());
+
+    expect(failed).toHaveLength(1);
+    // makeResultError reports usage { input_tokens: 50, output_tokens: 10 } => 60
+    expect(failed[0]?.tokensUsed).toBe(60);
+  });
+
   it('should pass correct SDK options to query function', async () => {
     const { queryFn, captured } = createCapturingQuery([makeResultSuccess('ok')]);
     const adapter = new AgentSdkSessionAdapter(
