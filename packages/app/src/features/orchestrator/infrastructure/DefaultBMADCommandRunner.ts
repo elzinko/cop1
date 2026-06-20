@@ -10,6 +10,7 @@ import type {
 } from '@cop1/sprint-core';
 import type { ExchangeHistoryWriter } from '@cop1/sprint-core';
 import type { BMADCommandRunner } from '../application/OrchestratorService.js';
+import { type VerificationGate, shouldVerify } from '../domain/VerificationGate.js';
 
 const MAX_FOLLOWUP_TURNS = 3;
 
@@ -20,6 +21,8 @@ export interface DefaultBMADCommandRunnerDeps {
   exchangeHistoryWriter?: ExchangeHistoryWriter;
   /** EA14-S2: collector that captures interactions for Track 2. */
   interactionCollector?: SessionInteractionCollector;
+  /** Sprint 2 (ADR-016): optional verification gate run after code-producing commands. */
+  verificationGate?: VerificationGate;
 }
 
 /**
@@ -166,6 +169,21 @@ export function createDefaultBMADCommandRunner(
         status: 'escalated',
       });
       return result;
+    }
+
+    if (deps.verificationGate && shouldVerify(command)) {
+      const verification = await deps.verificationGate.verify({ projectRoot, command, storyKey });
+      if (!verification.passed) {
+        await writeExchangeRecord(deps, {
+          sessionId: handle.sessionId,
+          storyId: storyKey,
+          sprintId: epicId,
+          command,
+          startedAt,
+          status: 'failed',
+        });
+        return { success: false, escalated: true, note: verification.summary };
+      }
     }
 
     const nextStatus = inferNextStatus(command);

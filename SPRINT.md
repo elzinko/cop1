@@ -3,7 +3,7 @@ Périmètre : 1 feature (POC), borné.   Statut : en attente de validation (chec
 
 ## Backlog  (1 ligne = 1 feature = 1 PR)
 - [x] feat: model tiering Opus/Sonnet par commande BMAD      (committé — gate verte, revue GO, en attente PR)
-- [ ] feat: gate de vérif tests/lint avant transition         (sprint 2)
+- [x] feat: gate de vérif tests/lint avant transition         (sprint 2 — gate verte, revue GO, PR)
 - [ ] feat: budget + kill-switch                              (sprint 3)
 - [ ] feat: isolation worktree dans la boucle                 (sprint 4)
 - [ ] chore: run réel contrôlé sur petit epic                 (sprint 5)
@@ -27,4 +27,7 @@ Périmètre : 1 feature (POC), borné.   Statut : en attente de validation (chec
 ## Suivi backlog (issu de la revue GO — non bloquant)
 - [ ] recovery: `restoreSession` ne repose pas le tier modèle (`sessionModels`) → le tiering serait perdu sur le chemin de reprise après crash. Latent (aucun appelant prod). À corriger quand le recovery sera câblé dans l'orchestrateur (sprint 3/4).
 - [ ] policy: confirmer l'intention produit pour `/bmad-bmm-review-story` (route vers sonnet via le fallback ; seul `code-review` monte en opus). OK pour le cycle orchestrateur actuel (create-story / dev-story / code-review).
-- [ ] tooling (pré-existant, hors feature) : `pnpm typecheck` cassé (TS6310, `tsc -b --noEmit` + TS 5.9.3). Gate de type assurée par `pnpm build` en attendant. À réparer (sprint 2 ou chore dédié).
+- [ ] tooling (pré-existant, hors feature) : `pnpm typecheck` cassé (TS6310, `tsc -b --noEmit` + TS 5.9.3). Gate de type assurée par `pnpm build` en attendant. À réparer (chore dédié).
+- [ ] test placement : `VerificationGatePolicy.test.ts` (teste le domaine) à ranger sous `domain/__tests__/` (revue S2, non bloquant).
+- [ ] test intégration orchestrateur↔gate : « dev-story + gate KO ⇒ status fichier = blocked » bout-à-bout (revue S2 ceinture-bretelles, S3).
+- [ ] verify gate : checks par défaut codés en dur → lire depuis `cop1.config` ; timeout/kill par check (à coupler au budget S3).
