@@ -47,8 +47,12 @@ function createTempProject(): string {
 function createGitProject(): string {
   const dir = createTempProject();
 
-  // Initialize git repo for worktree support
+  // Initialize git repo for worktree support. Set a LOCAL identity so the commit
+  // is hermetic — no dependency on ambient global git config (a fresh CI runner
+  // or a new contributor's machine has none).
   execSync('git init', { cwd: dir, stdio: 'pipe' });
+  execSync('git config user.email "test@cop1.local"', { cwd: dir, stdio: 'pipe' });
+  execSync('git config user.name "cop1 test"', { cwd: dir, stdio: 'pipe' });
   execSync('git add -A', { cwd: dir, stdio: 'pipe' });
   execSync('git commit -m "init" --no-gpg-sign', { cwd: dir, stdio: 'pipe' });
 
