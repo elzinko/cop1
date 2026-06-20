@@ -12,6 +12,7 @@ import {
   ExchangeHistoryWriter,
   SessionInteractionCollector,
   SupervisorService,
+  WorktreeService,
 } from '@cop1/sprint-core';
 import {
   type BMADCommandRunner,
@@ -35,6 +36,12 @@ export interface OrchestratorRunCliOptions {
   projectRoot?: string;
   runner?: 'default' | 'stub';
 }
+
+/**
+ * ADR-018 default tool denylist forwarded to the BMAD session SDK adapter.
+ * Paired with the adapter's defensive `canUseTool` guard (belt-and-braces).
+ */
+const DEFAULT_DISALLOWED_TOOLS = ['Bash(rm *)', 'Bash(git reset --hard *)', 'Bash(git clean *)'];
 
 export async function orchestratorRunCommand(
   options: OrchestratorRunCliOptions,
@@ -90,7 +97,18 @@ export async function orchestratorRunCommand(
 
   try {
     const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);
-    const svc = new OrchestratorService(runner, eventBus, gate, autoDecisionLogger, budget);
+    // ADR-018 — opt-in per-story git worktree isolation. Off by default to keep
+    // the V1.1 behavior; enable with COP1_WORKTREE_ISOLATION=1.
+    const worktreePort =
+      process.env.COP1_WORKTREE_ISOLATION === '1' ? new WorktreeService() : undefined;
+    const svc = new OrchestratorService(
+      runner,
+      eventBus,
+      gate,
+      autoDecisionLogger,
+      budget,
+      worktreePort,
+    );
     const result = await svc.run({ playbook, epicId: options.epic, projectRoot, mode });
     if (result.aborted) {
       process.exitCode = 3;
@@ -157,6 +175,7 @@ function resolveRunner(
     sessionPort = new AgentSdkSessionAdapter(eventBus, {
       questionHandler,
       modelRouter: new DefaultModelTierRouter(),
+      disallowedTools: DEFAULT_DISALLOWED_TOOLS,
       ...(maxBudgetUsd !== undefined && { maxBudgetUsd }),
     });
   }

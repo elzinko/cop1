@@ -5,7 +5,7 @@ Périmètre : 1 feature (POC) par sprint.   Statut : sprint 3 en cours (S1+S2 me
 - [x] feat: model tiering Opus/Sonnet par commande BMAD      (mergée — PR #1)
 - [x] feat: gate de vérif tests/lint avant transition         (mergée — PR #3)
 - [x] feat: budget + kill-switch                              (sprint 3 — gate verte, revue GO, PR)
-- [ ] feat: isolation worktree dans la boucle                 (sprint 4)
+- [x] feat: isolation worktree dans la boucle                 (sprint 4 — gate verte, revue GO, PR)
 - [ ] chore: run réel contrôlé sur petit epic                 (sprint 5)
 - [ ] feat: NightScheduler + tier B local (LiteLLM→Ollama)    (sprint 6)
 
@@ -34,3 +34,6 @@ Périmètre : 1 feature (POC) par sprint.   Statut : sprint 3 en cours (S1+S2 me
 - [ ] budget (S3) : kill au niveau BOUCLE seulement ; timeout/`AbortSignal` intra-commande (threading `AbortController` dans la query SDK) → story dédiée. `TokenBudgetService` dormant à retirer.
 - [ ] budget (revue S3, prioritaire) : les tokens des commandes ÉCHOUÉES ne sont pas comptés → sous-comptage du cap. Compter aussi les sessions en échec.
 - [ ] budget (revue S3) : `tokensUsed` absent silencieusement ignoré (ajouter un warn) ; cap tokens hors cache (`maxBudgetUsd` couvre le coût $) ; test d'intégration du wiring CLI (abonnement event + parse env).
+- [ ] **worktree (revue S4, PRÉREQUIS sprint 5)** : `WorktreeManager` place les worktrees sous `<projectRoot>/agent/...` = DANS l'arbre versionné → keep-on-failure pollue `git status`. Déplacer hors arbre (`../.cop1-worktrees/`) ou gitignore `agent/` AVANT le 1er vrai run avec isolation activée.
+- [ ] worktree (revue S4) : ADR-018 dit « escalade → keep » mais le code cleanup une story qui escalade ET réussit (comportement voulu) → clarifier l'ADR (keep = échec/abort uniquement).
+- [ ] worktree (revue S4) : deny Bash `rm` trop large/contournable (best-effort ; l'isolation est la vraie barrière) → calibrer `rm -r…` ou documenter.
