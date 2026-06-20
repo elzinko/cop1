@@ -20,6 +20,7 @@ import {
 } from '../../features/orchestrator/application/OrchestratorService.js';
 import { SupervisorPlaybookLoader } from '../../features/orchestrator/application/SupervisorPlaybookLoader.js';
 import type { SupervisorPlaybook } from '../../features/orchestrator/domain/SupervisorPlaybook.js';
+import { CommandVerificationGate } from '../../features/orchestrator/infrastructure/CommandVerificationGate.js';
 import { createDefaultBMADCommandRunner } from '../../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
 import { createInterCommandApprovalResolver } from '../../features/orchestrator/infrastructure/InterCommandApprovalResolver.js';
 import { stubBMADCommandRunner } from '../../features/orchestrator/infrastructure/testing/StubBMADCommandRunner.js';
@@ -150,5 +151,6 @@ function resolveRunner(
     supervisorService,
     exchangeHistoryWriter,
     interactionCollector,
+    verificationGate: new CommandVerificationGate(),
   });
 }
