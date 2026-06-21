@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   ci:
-    name: lint · build · test
+    name: lint · build · test (incl. web)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,3 +44,8 @@ jobs:
       # no global git config is needed here (proves the tests are hermetic).
       - name: Test
         run: pnpm test
+
+      # The root vitest config excludes packages/web (its jsdom environment lives
+      # in the web package's own vitest.config.ts), so its tests run separately.
+      - name: Test (web)
+        run: pnpm --filter @cop1/web test
