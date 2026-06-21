@@ -2,8 +2,13 @@
 Périmètre : 1 feature (POC) par sprint.   Statut : Story A en cours
 
 ## Backlog  (1 ligne = 1 feature = 1 PR)
-- [~] feat: Story A — panneau auth (auth-check + feu tricolore)   <- en cours
+- [x] feat: Story A — panneau auth (auth-check + feu tricolore)   (PR #11, CI verte, revue GO)
 - [ ] feat: Story B — lanceur de run + mission-control live
+
+## Suivi (revue Story A — non bloquant)
+- CI : les tests `packages/web` ne sont pas dans le `pnpm test` racine (vitest racine exclut web) → câbler un job web dans la CI (chore).
+- sécurité : sanitiser/tronquer le champ `error` de `/api/auth/check` (défense en profondeur).
+- E2E : validation Playwright du panneau (🟢) + de la dark-mode cobaye → à faire une fois l'auth Claude rétablie.
 
 ## Definition of Done (Story A)
 - `AuthChecker.checkAuth()` (backend, import SDK propre, modèle lu sur le message `system`/init) — AC-A1/A4
