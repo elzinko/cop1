@@ -1,6 +1,7 @@
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http';
 import type { EventBus } from '@cop1/shared-kernel';
 import { COP1_VERSION, type HealthInfo } from '../domain/DaemonState.js';
+import type { AuthCheckResult } from './AuthChecker.js';
 
 const MAX_BODY_SIZE = 10_240; // 10 KB
 const VALID_STATUSES = ['pending', 'approved', 'rejected', 'debated'] as const;
@@ -33,6 +34,7 @@ export class HttpServer {
   private sseClients: Set<ServerResponse> = new Set();
   private sprintStatusProvider: SprintStatusProvider | null = null;
   private ruleProposalProvider: RuleProposalProvider | null = null;
+  private authChecker: (() => Promise<AuthCheckResult>) | null = null;
 
   setSprintStatusProvider(provider: SprintStatusProvider): void {
     this.sprintStatusProvider = provider;
@@ -40,6 +42,10 @@ export class HttpServer {
 
   setRuleProposalProvider(provider: RuleProposalProvider): void {
     this.ruleProposalProvider = provider;
+  }
+
+  setAuthChecker(checker: () => Promise<AuthCheckResult>): void {
+    this.authChecker = checker;
   }
 
   setEventBus(eventBus: EventBus): void {
@@ -113,8 +119,21 @@ export class HttpServer {
       return;
     }
 
+    if (req.method === 'GET' && req.url === '/api/auth/check') {
+      void this.handleAuthCheck(res);
+      return;
+    }
+
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'not_found' }));
+  }
+
+  private async handleAuthCheck(res: ServerResponse): Promise<void> {
+    const result: AuthCheckResult = this.authChecker
+      ? await this.authChecker()
+      : { ok: false, model: null, error: 'auth checker not configured' };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
   }
 
   private handleRuleProposalPatch(req: IncomingMessage, res: ServerResponse, ruleId: string): void {

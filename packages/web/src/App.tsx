@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AuthPanel } from './AuthPanel.js';
 import { RuleProposalsView } from './RuleProposalsView.js';
 
 interface Project {
@@ -27,7 +28,7 @@ interface Task {
   createdAt: string;
 }
 
-type Tab = 'projects' | 'agents' | 'tasks' | 'rules';
+type Tab = 'projects' | 'agents' | 'tasks' | 'rules' | 'connexion';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('projects');
@@ -42,7 +43,7 @@ function App() {
   }, [activeTab]);
 
   const fetchData = async () => {
-    if (activeTab === 'rules') {
+    if (activeTab === 'rules' || activeTab === 'connexion') {
       setLoading(false);
       return;
     }
@@ -174,6 +175,12 @@ function App() {
           >
             Rules
           </button>
+          <button
+            className={`tab ${activeTab === 'connexion' ? 'active' : ''}`}
+            onClick={() => setActiveTab('connexion')}
+          >
+            Connexion
+          </button>
         </div>
 
         {error && (
@@ -190,6 +197,7 @@ function App() {
             {activeTab === 'agents' && renderAgents()}
             {activeTab === 'tasks' && renderTasks()}
             {activeTab === 'rules' && <RuleProposalsView />}
+            {activeTab === 'connexion' && <AuthPanel />}
           </>
         )}
       </div>
