@@ -1,6 +1,7 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { EventBus } from '@cop1/shared-kernel';
 import { afterEach, describe, expect, it } from 'vitest';
+import { RetryPolicy } from '../domain/RetryPolicy.js';
 import type { BMADSessionContext, QuestionHandler } from '../domain/ports/BMADSessionPort.js';
 import {
   AgentSdkSessionAdapter,
@@ -74,6 +75,19 @@ function createMockQuery(messages: SDKMessage[]): QueryFunction {
         yield msg;
       }
     })();
+  };
+}
+
+/** An async iterable that rejects on first iteration — models an SDK throw. */
+function throwingIterable(message: string): AsyncIterable<SDKMessage> {
+  return {
+    [Symbol.asyncIterator]() {
+      return {
+        next(): Promise<IteratorResult<SDKMessage>> {
+          return Promise.reject(new Error(message));
+        },
+      };
+    },
   };
 }
 
@@ -694,5 +708,90 @@ describe('AgentSdkSessionAdapter', () => {
     // Events from continueSession should have storyId
     expect(events).toHaveLength(2);
     expect((events[1]?.payload as Record<string, unknown>).storyId).toBe('EA9-S1');
+  });
+
+  it('retries a transient failure with backoff, then succeeds (claude.status degraded → ok)', async () => {
+    let calls = 0;
+    const queryFn: QueryFunction = () => {
+      calls++;
+      if (calls === 1) {
+        return throwingIterable('API Error: 529 {"type":"overloaded_error"}');
+      }
+      return (async function* () {
+        yield makeResultSuccess('done');
+      })();
+    };
+    eventBus = new EventBus();
+    const statuses: Record<string, unknown>[] = [];
+    eventBus.on('claude.status', (p) => statuses.push(p as Record<string, unknown>));
+    const sleeps: number[] = [];
+    const adapter = new AgentSdkSessionAdapter(
+      eventBus,
+      {
+        retryPolicy: new RetryPolicy({ maxRetries: 2, baseDelayMs: 10, backoffMultiplier: 2 }),
+        sleep: async (ms) => {
+          sleeps.push(ms);
+        },
+      },
+      queryFn,
+    );
+
+    const handle = await adapter.startSession('/test', makeContext());
+
+    expect(calls).toBe(2);
+    expect(handle.firstTurn.completed).toBe(true);
+    expect(handle.firstTurn.error).toBeUndefined();
+    expect(handle.firstTurn.output).toBe('done');
+    expect(sleeps).toEqual([10]); // getDelayMs(0) = baseDelay
+    expect(statuses.map((s) => s.status)).toEqual(['degraded', 'ok']);
+    expect(statuses[0]?.attempt).toBe(1);
+    expect(String(statuses[0]?.detail)).toContain('overloaded');
+  });
+
+  it('exhausts transient retries → claude.status unavailable and an error result', async () => {
+    let calls = 0;
+    const queryFn: QueryFunction = () => {
+      calls++;
+      return throwingIterable('HTTP 429 rate limit exceeded');
+    };
+    eventBus = new EventBus();
+    const statuses: Record<string, unknown>[] = [];
+    const failed: unknown[] = [];
+    eventBus.on('claude.status', (p) => statuses.push(p as Record<string, unknown>));
+    eventBus.on('session.workflow.failed', (p) => failed.push(p));
+    const adapter = new AgentSdkSessionAdapter(
+      eventBus,
+      { retryPolicy: new RetryPolicy({ maxRetries: 2, baseDelayMs: 1 }), sleep: async () => {} },
+      queryFn,
+    );
+
+    const handle = await adapter.startSession('/test', makeContext());
+
+    expect(calls).toBe(3); // initial attempt + 2 retries
+    expect(handle.firstTurn.error).toBe(true);
+    expect(failed).toHaveLength(1);
+    expect(statuses.map((s) => s.status)).toEqual(['degraded', 'degraded', 'unavailable']);
+  });
+
+  it('does not retry a non-transient error', async () => {
+    let calls = 0;
+    const queryFn: QueryFunction = () => {
+      calls++;
+      return throwingIterable('invalid_request_error: bad input');
+    };
+    eventBus = new EventBus();
+    const statuses: unknown[] = [];
+    eventBus.on('claude.status', (p) => statuses.push(p));
+    const adapter = new AgentSdkSessionAdapter(
+      eventBus,
+      { retryPolicy: new RetryPolicy({ maxRetries: 3, baseDelayMs: 1 }), sleep: async () => {} },
+      queryFn,
+    );
+
+    const handle = await adapter.startSession('/test', makeContext());
+
+    expect(calls).toBe(1);
+    expect(handle.firstTurn.error).toBe(true);
+    expect(statuses).toHaveLength(0);
   });
 });
