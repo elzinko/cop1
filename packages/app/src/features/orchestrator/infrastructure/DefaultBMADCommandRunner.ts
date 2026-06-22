@@ -11,8 +11,22 @@ import type {
 import type { ExchangeHistoryWriter } from '@cop1/sprint-core';
 import type { BMADCommandRunner } from '../application/OrchestratorService.js';
 import { type VerificationGate, shouldVerify } from '../domain/VerificationGate.js';
+import {
+  type WorkspaceInspectionPort,
+  hasImplementationChanges,
+  shouldHaveCodeChanges,
+} from '../domain/WorkspaceChanges.js';
 
 const MAX_FOLLOWUP_TURNS = 3;
+
+/** Corrective "implement now" continuations when a dev command wrote no code. */
+const DEFAULT_MAX_IMPLEMENTATION_RETRIES = 2;
+
+/** Forcing prompt sent when a code-producing command only planned (no edits). */
+const IMPLEMENT_NOW_PROMPT =
+  'You have not modified any source files — only a plan was produced. Implement ' +
+  "the story's acceptance criteria NOW by actually editing the project files with " +
+  'the Write/Edit tools. Do not output another plan; make the concrete code changes.';
 
 export interface DefaultBMADCommandRunnerDeps {
   sessionPort: BMADSessionPort;
@@ -23,6 +37,14 @@ export interface DefaultBMADCommandRunnerDeps {
   interactionCollector?: SessionInteractionCollector;
   /** Sprint 2 (ADR-016): optional verification gate run after code-producing commands. */
   verificationGate?: VerificationGate;
+  /**
+   * Evidence gate (2026-06-22 post-mortem): inspects the working tree to prove a
+   * code-producing command actually wrote source. Without it, a dev-story that
+   * only prints a plan is accepted as done.
+   */
+  workspaceInspection?: WorkspaceInspectionPort;
+  /** Max corrective "implement now" continuations (default 2). */
+  maxImplementationRetries?: number;
 }
 
 /**
@@ -169,6 +191,68 @@ export function createDefaultBMADCommandRunner(
         status: 'escalated',
       });
       return result;
+    }
+
+    // Evidence gate (2026-06-22 post-mortem): a code-producing command must
+    // actually change source files. If the session only planned, drive
+    // corrective "implement now" continuations; if still nothing changed, block
+    // rather than advance the story on a self-reported (fictional) success.
+    if (deps.workspaceInspection && shouldHaveCodeChanges(command)) {
+      const maxAttempts = deps.maxImplementationRetries ?? DEFAULT_MAX_IMPLEMENTATION_RETRIES;
+      let changedPaths = await deps.workspaceInspection.changedPaths(projectRoot);
+      let attempts = 0;
+      while (!hasImplementationChanges(changedPaths) && attempts < maxAttempts) {
+        attempts++;
+        try {
+          lastTurn = await deps.sessionPort.continueSession(handle.sessionId, IMPLEMENT_NOW_PROMPT);
+        } catch (error) {
+          await writeExchangeRecord(deps, {
+            sessionId: handle.sessionId,
+            storyId: storyKey,
+            sprintId: epicId,
+            command,
+            startedAt,
+            status: 'failed',
+          });
+          return {
+            success: false,
+            escalated: true,
+            note: error instanceof Error ? error.message : String(error),
+          };
+        }
+        if (lastTurn.output.length > 0) outputs.push(lastTurn.output);
+        if (lastTurn.error === true) {
+          await writeExchangeRecord(deps, {
+            sessionId: handle.sessionId,
+            storyId: storyKey,
+            sprintId: epicId,
+            command,
+            startedAt,
+            status: 'failed',
+          });
+          return {
+            success: false,
+            escalated: true,
+            note: lastTurn.errorMessage ?? lastTurn.output ?? 'session error',
+          };
+        }
+        changedPaths = await deps.workspaceInspection.changedPaths(projectRoot);
+      }
+      if (!hasImplementationChanges(changedPaths)) {
+        await writeExchangeRecord(deps, {
+          sessionId: handle.sessionId,
+          storyId: storyKey,
+          sprintId: epicId,
+          command,
+          startedAt,
+          status: 'failed',
+        });
+        return {
+          success: false,
+          escalated: true,
+          note: `no source changes after ${command} (${maxAttempts} corrective attempt(s)) — refusing to mark done`,
+        };
+      }
     }
 
     if (deps.verificationGate && shouldVerify(command)) {
