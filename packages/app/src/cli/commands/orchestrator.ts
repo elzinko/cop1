@@ -7,6 +7,7 @@ import {
   AgentSdkSessionAdapter,
   AgentSdkSupervisorAdapter,
   type BMADSessionPort,
+  CLAUDE_STATUS_EVENT,
   ClaudeResumeSessionAdapter,
   DefaultModelTierRouter,
   ExchangeHistoryWriter,
@@ -100,6 +101,27 @@ export async function orchestratorRunCommand(
   };
   eventBus.on('session.workflow.completed', creditBudget);
   eventBus.on('session.workflow.failed', creditBudget);
+
+  // Surface Claude availability: a transient blockage (overloaded / rate-limit /
+  // 5xx / network) is retried with backoff inside the adapter and reported here,
+  // so an operator sees a temporary degradation instead of a silent stall. The
+  // web traffic-light panel will consume the same event once Story A lands.
+  eventBus.on(CLAUDE_STATUS_EVENT, (p) => {
+    const e = p as { status?: string; attempt?: number; detail?: string; storyId?: string };
+    autoDecisionLogger({
+      ts: new Date().toISOString(),
+      event: 'claude-status',
+      status: e.status,
+      attempt: e.attempt,
+      storyId: e.storyId,
+      detail: e.detail,
+    });
+    if (e.status === 'degraded' || e.status === 'unavailable') {
+      console.warn(
+        `[claude:${e.status}] attempt ${e.attempt}${e.storyId ? ` (${e.storyId})` : ''}: ${e.detail ?? ''}`,
+      );
+    }
+  });
 
   try {
     const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);

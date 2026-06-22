@@ -12,6 +12,7 @@ status: working — the deep artefact is `brownfield-snapshot.md`; this index is
 
 - [Brownfield Snapshot](./brownfield-snapshot.md) — identity, real package map, execution flows, ADR inventory, drift ledger, open confrontation points.
 - [Getting Started](./GETTING_STARTED.md) — current user-facing contract (V1-light as of 2026-04-14).
+- [Running cop1 on a project](./running-cop1-on-a-project.md) — practical run guide: auth setup, the run command, safety gates (evidence / verify / review-verdict), transient `claude.status` handling, observability, reset.
 
 ## Authoritative planning artefacts
 
