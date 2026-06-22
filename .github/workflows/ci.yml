@@ -40,15 +40,18 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # The web package (@cop1/web) is a Vite app excluded from the root `build`
-      # and `test` scripts, so its own typecheck + build run here to close that
-      # CI-coverage gap — a type or bundler error in packages/web would otherwise
-      # slip through the pipeline.
+      # The web package (@cop1/web) is a Vite app excluded from the root `build`,
+      # `test`, and `lint` scripts, so its own typecheck, build, and tests run here
+      # to close that CI-coverage gap — a type, bundler, or test failure in
+      # packages/web would otherwise slip through the pipeline.
       - name: Typecheck (web)
         run: pnpm --filter @cop1/web typecheck
 
       - name: Build (web)
         run: pnpm --filter @cop1/web build
+
+      - name: Test (web)
+        run: pnpm --filter @cop1/web test
 
       # Tests that spin up throwaway git repos set their own LOCAL identity, so
       # no global git config is needed here (proves the tests are hermetic).
