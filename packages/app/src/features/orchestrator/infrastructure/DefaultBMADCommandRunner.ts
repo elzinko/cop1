@@ -10,6 +10,7 @@ import type {
 } from '@cop1/sprint-core';
 import type { ExchangeHistoryWriter } from '@cop1/sprint-core';
 import type { BMADCommandRunner } from '../application/OrchestratorService.js';
+import { classifyReviewVerdict, isReviewCommand } from '../domain/ReviewVerdict.js';
 import { type VerificationGate, shouldVerify } from '../domain/VerificationGate.js';
 import {
   type WorkspaceInspectionPort,
@@ -282,8 +283,29 @@ export function createDefaultBMADCommandRunner(
       }
     }
 
-    const nextStatus = inferNextStatus(command);
     const joined = outputs.join('\n');
+
+    // Review-verdict gate (2b): honor an explicit blocking code-review verdict
+    // instead of advancing to done on a self-reported success. Conservative —
+    // only an explicit rejection blocks; approved/ambiguous reviews advance (the
+    // evidence + verification gates already catch non-implementation).
+    if (isReviewCommand(command) && classifyReviewVerdict(joined) === 'changes-requested') {
+      await writeExchangeRecord(deps, {
+        sessionId: handle.sessionId,
+        storyId: storyKey,
+        sprintId: epicId,
+        command,
+        startedAt,
+        status: 'failed',
+      });
+      return {
+        success: false,
+        escalated: true,
+        note: `code-review requested changes — not advancing to done: ${joined.slice(0, 300)}`,
+      };
+    }
+
+    const nextStatus = inferNextStatus(command);
 
     await writeExchangeRecord(deps, {
       sessionId: handle.sessionId,
