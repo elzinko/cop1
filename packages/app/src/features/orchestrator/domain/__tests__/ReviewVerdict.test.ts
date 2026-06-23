@@ -48,6 +48,27 @@ describe('classifyReviewVerdict', () => {
       classifyReviewVerdict('All tests pass and there are no blockers. Nice work — looks good.'),
     ).toBe('unknown');
   });
+
+  describe('negated blocking phrases must not be read as rejections (Codex P2)', () => {
+    it('classifies an approving review that says "no changes requested" as approved', () => {
+      expect(classifyReviewVerdict('Verdict: PASS — no changes requested.')).toBe('approved');
+      expect(classifyReviewVerdict('Approved. No further changes needed.')).toBe('approved');
+      expect(classifyReviewVerdict('Verdict : validé — aucune modification demandée.')).toBe(
+        'approved',
+      );
+    });
+
+    it('never classifies a negated phrase as changes-requested (advances at worst as unknown)', () => {
+      // No approval marker → unknown, but crucially NOT a block.
+      expect(classifyReviewVerdict('No requested changes; ship it.')).not.toBe('changes-requested');
+    });
+
+    it('still blocks a genuine rejection that is NOT negated', () => {
+      expect(classifyReviewVerdict('Changes requested: fix the off-by-one.')).toBe(
+        'changes-requested',
+      );
+    });
+  });
 });
 
 describe('isReviewCommand', () => {

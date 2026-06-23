@@ -38,9 +38,24 @@ const APPROVAL_PATTERNS: readonly RegExp[] = [
   /✅/,
 ];
 
+/**
+ * Negated blocking phrases (EN + FR) — an approving review often says "no
+ * changes requested" / "aucune modification demandée". These are stripped
+ * before blocking detection so a negation is never read as a rejection.
+ */
+const NEGATED_BLOCKING_PATTERNS: readonly RegExp[] = [
+  /\bno\s+(?:further\s+)?changes?\s+(?:requested|required|needed)\b/gi,
+  /\bno\s+requested\s+changes\b/gi,
+  /\baucune\s+modification\s+(?:demand[ée]e?|requise)\b/gi,
+];
+
 export function classifyReviewVerdict(output: string): ReviewVerdict {
   if (!output) return 'unknown';
-  if (BLOCKING_PATTERNS.some((p) => p.test(output))) return 'changes-requested';
+  const withoutNegations = NEGATED_BLOCKING_PATTERNS.reduce(
+    (text, pattern) => text.replace(pattern, ' '),
+    output,
+  );
+  if (BLOCKING_PATTERNS.some((p) => p.test(withoutNegations))) return 'changes-requested';
   if (APPROVAL_PATTERNS.some((p) => p.test(output))) return 'approved';
   return 'unknown';
 }
