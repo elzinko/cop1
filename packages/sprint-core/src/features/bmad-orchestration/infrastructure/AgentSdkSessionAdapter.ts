@@ -230,6 +230,11 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
       const transient = this.retryPolicy.isTransientError(a.errorMsg);
       if (transient && attempt < this.retryPolicy.maxRetries) {
         this.emitClaudeStatus('degraded', attempt + 1, sessionId, context, a.errorMsg);
+        // Drop a partial SDK session id captured by the failed *fresh* start so
+        // the retry re-binds to the new session — otherwise a later
+        // continueSession would resume the failed conversation, not the retry.
+        // (A resume retry keeps its target id.)
+        if (!isResume) this.sdkSessionIds.delete(sessionId);
         await this.sleep(this.retryPolicy.getDelayMs(attempt));
         continue;
       }

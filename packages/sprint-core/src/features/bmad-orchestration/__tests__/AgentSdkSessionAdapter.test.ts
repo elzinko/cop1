@@ -794,4 +794,46 @@ describe('AgentSdkSessionAdapter', () => {
     expect(handle.firstTurn.error).toBe(true);
     expect(statuses).toHaveLength(0);
   });
+
+  it('rebinds the SDK session after a retried fresh start (resume targets the retry, not the failed attempt)', async () => {
+    const captured: Record<string, unknown>[] = [];
+    let calls = 0;
+    const queryFn: QueryFunction = (params) => {
+      calls++;
+      captured.push(params.options as Record<string, unknown>);
+      if (calls === 1) {
+        // First start: emits session id S1, then a transient throw.
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield makeAssistantMessage('partial', 'S1');
+            throw new Error('API Error: 529 overloaded');
+          },
+        } as AsyncIterable<SDKMessage> & { session_id?: string };
+      }
+      if (calls === 2) {
+        // Retry: a brand-new session S2 that succeeds.
+        return (async function* () {
+          yield makeAssistantMessage('working', 'S2');
+          yield makeResultSuccess('done', 'S2');
+        })();
+      }
+      // continueSession turn.
+      return (async function* () {
+        yield makeResultSuccess('continued', 'S2');
+      })();
+    };
+    const adapter = new AgentSdkSessionAdapter(
+      undefined,
+      { retryPolicy: new RetryPolicy({ maxRetries: 2, baseDelayMs: 1 }), sleep: async () => {} },
+      queryFn,
+    );
+
+    const handle = await adapter.startSession('/test', makeContext());
+    expect(handle.firstTurn.completed).toBe(true);
+    // The successful retry's id wins, not the failed attempt's S1.
+    expect(adapter.getSdkSessionId(handle.sessionId)).toBe('S2');
+
+    await adapter.continueSession(handle.sessionId, 'next');
+    expect((captured[2] as Record<string, unknown>).resume).toBe('S2');
+  });
 });
