@@ -10,15 +10,26 @@ const DEFAULT_OPTIONS: RetryPolicyOptions = {
   backoffMultiplier: 2,
 };
 
-/** Transient error patterns that warrant retry. */
+/**
+ * Transient error patterns that warrant retry. Covers HTTP rate-limit / 5xx,
+ * Anthropic `overloaded_error` (529), generic "temporarily unavailable"
+ * blockages, and Node network errors. Deliberately excludes ambiguous failures
+ * (plain `exited with code 1`, 4xx invalid-request) which are not safe to retry.
+ */
 const TRANSIENT_PATTERNS = [
   /\b429\b/,
   /rate.?limit/i,
-  /\b503\b/,
+  /\b5(?:00|02|03|04|29)\b/,
   /service.?unavailable/i,
+  /overloaded/i,
+  /temporarily unavailable/i,
   /timed?\s*out/i,
   /ECONNRESET/i,
   /ECONNREFUSED/i,
+  /ETIMEDOUT/i,
+  /ENOTFOUND/i,
+  /EAI_AGAIN/i,
+  /socket hang up/i,
   /exited with code (?:130|137|139|134|143)\b/,
 ];
 

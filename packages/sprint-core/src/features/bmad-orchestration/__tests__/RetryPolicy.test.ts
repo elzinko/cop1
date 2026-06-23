@@ -66,5 +66,37 @@ describe('RetryPolicy', () => {
         false,
       );
     });
+
+    it('detects Anthropic overloaded_error (529)', () => {
+      const policy = new RetryPolicy();
+      expect(policy.isTransientError('API Error: 529 {"type":"overloaded_error"}')).toBe(true);
+      expect(policy.isTransientError('the service is overloaded, try again')).toBe(true);
+    });
+
+    it('detects 5xx server errors (500/502/504)', () => {
+      const policy = new RetryPolicy();
+      expect(policy.isTransientError('API Error: 500 internal server error')).toBe(true);
+      expect(policy.isTransientError('502 Bad Gateway')).toBe(true);
+      expect(policy.isTransientError('504 Gateway Timeout')).toBe(true);
+    });
+
+    it('detects generic "temporarily unavailable" blockage', () => {
+      expect(new RetryPolicy().isTransientError('claude-opus-4-8 is temporarily unavailable')).toBe(
+        true,
+      );
+    });
+
+    it('detects more network errors (ETIMEDOUT, ENOTFOUND, socket hang up)', () => {
+      const policy = new RetryPolicy();
+      expect(policy.isTransientError('connect ETIMEDOUT 1.2.3.4:443')).toBe(true);
+      expect(policy.isTransientError('getaddrinfo ENOTFOUND api.anthropic.com')).toBe(true);
+      expect(policy.isTransientError('socket hang up')).toBe(true);
+    });
+
+    it('keeps the "tool_use ids must be unique" 400 non-transient (a hard bug, not a blip)', () => {
+      expect(
+        new RetryPolicy().isTransientError('API Error: 400 `tool_use` ids must be unique'),
+      ).toBe(false);
+    });
   });
 });

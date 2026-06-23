@@ -220,6 +220,11 @@ export type {
   BmadCyclePhase,
   BmadPipelineCommand,
 } from './features/bmad-orchestration/domain/BmadCycle.js';
+export { CLAUDE_STATUS_EVENT } from './features/bmad-orchestration/domain/ClaudeAvailability.js';
+export type {
+  ClaudeAvailability,
+  ClaudeStatusEvent,
+} from './features/bmad-orchestration/domain/ClaudeAvailability.js';
 export {
   DEFAULT_MODEL_TIER_CONFIG,
   DefaultModelTierRouter,

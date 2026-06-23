@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { Options, SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { EventBus } from '@cop1/shared-kernel';
+import { CLAUDE_STATUS_EVENT, type ClaudeAvailability } from '../domain/ClaudeAvailability.js';
 import type { ModelTier, ModelTierRouter } from '../domain/ModelTierRouter.js';
+import { RetryPolicy } from '../domain/RetryPolicy.js';
 import type {
   BMADSessionContext,
   BMADSessionPort,
@@ -26,6 +28,14 @@ export interface AgentSdkSessionAdapterOptions {
    * AskUserQuestion supervisor interception.
    */
   disallowedTools?: string[];
+  /**
+   * Retry policy for *transient* Claude blockages (overloaded / rate-limit /
+   * 5xx / network). Defaults to `new RetryPolicy()`. A failed attempt whose
+   * error matches `isTransientError` is retried with exponential backoff.
+   */
+  retryPolicy?: RetryPolicy;
+  /** Injectable backoff sleep (default: real `setTimeout`). Overridden in tests. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 /**
@@ -51,6 +61,14 @@ export type QueryFunction = (params: {
   prompt: string;
   options?: Options;
 }) => AsyncIterable<SDKMessage> & { session_id?: string };
+
+/**
+ * Result of a single query attempt (no terminal events, no retry) — the
+ * retry wrapper interprets this to decide success / retry / terminal failure.
+ */
+type QueryAttemptOutcome =
+  | { ok: true; result: SessionTurnResult; turn: number; teardownExitIgnored?: string }
+  | { ok: false; errorMsg: string; turn: number; tokensUsed?: number; durationMs: number };
 
 /**
  * Default question handler: auto-answers "C" (continue) for all questions.
@@ -85,6 +103,10 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
   private readonly sessionModels = new Map<string, ModelTier>();
   /** SDK tool denylist (ADR-018 guardrails); omitted from Options when undefined. */
   private readonly disallowedTools?: string[];
+  /** Retry policy for transient Claude blockages (overloaded / 5xx / network). */
+  private readonly retryPolicy: RetryPolicy;
+  /** Backoff sleep between retries; injectable so tests run without real delays. */
+  private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(
     eventBus?: EventBus,
@@ -97,6 +119,8 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     this.questionHandler = options?.questionHandler ?? defaultQuestionHandler;
     this.modelRouter = options?.modelRouter;
     this.disallowedTools = options?.disallowedTools;
+    this.retryPolicy = options?.retryPolicy ?? new RetryPolicy();
+    this.sleep = options?.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.queryFn = queryFn ?? AgentSdkSessionAdapter.loadSdkQuery();
   }
 
@@ -169,6 +193,14 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     return this.executeQuery(sessionId, message, context, startTime, true);
   }
 
+  /**
+   * Retry wrapper around {@link runQueryAttempt}. On a *transient* failure
+   * (overloaded / rate-limit / 5xx / network — see {@link RetryPolicy}) it
+   * retries with exponential backoff, emitting `claude.status` so a temporary
+   * Claude blockage is observable instead of silent. Success or a non-transient
+   * failure returns immediately. Terminal `session.workflow.*` events are
+   * emitted here, exactly once per turn.
+   */
   private async executeQuery(
     sessionId: string,
     prompt: string,
@@ -176,6 +208,87 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     startTime: number,
     isResume: boolean,
   ): Promise<SessionTurnResult> {
+    for (let attempt = 0; ; attempt++) {
+      const a = await this.runQueryAttempt(sessionId, prompt, context, startTime, isResume);
+
+      if (a.ok) {
+        if (a.result.completed) {
+          this.eventBus?.emit('session.workflow.completed', {
+            sessionId,
+            storyId: context?.storyId,
+            totalTurns: a.turn,
+            totalDurationMs: a.result.durationMs,
+            tokensUsed: a.result.tokensUsed,
+            ...(a.teardownExitIgnored ? { teardownExitIgnored: a.teardownExitIgnored } : {}),
+          });
+          // Recovered after one or more transient retries.
+          if (attempt > 0) this.emitClaudeStatus('ok', attempt, sessionId, context);
+        }
+        return a.result;
+      }
+
+      const transient = this.retryPolicy.isTransientError(a.errorMsg);
+      if (transient && attempt < this.retryPolicy.maxRetries) {
+        this.emitClaudeStatus('degraded', attempt + 1, sessionId, context, a.errorMsg);
+        // Drop a partial SDK session id captured by the failed *fresh* start so
+        // the retry re-binds to the new session — otherwise a later
+        // continueSession would resume the failed conversation, not the retry.
+        // (A resume retry keeps its target id.)
+        if (!isResume) this.sdkSessionIds.delete(sessionId);
+        await this.sleep(this.retryPolicy.getDelayMs(attempt));
+        continue;
+      }
+      if (transient)
+        this.emitClaudeStatus('unavailable', attempt + 1, sessionId, context, a.errorMsg);
+
+      this.eventBus?.emit('session.workflow.failed', {
+        sessionId,
+        storyId: context?.storyId,
+        error: a.errorMsg,
+        turn: a.turn,
+        tokensUsed: a.tokensUsed,
+      });
+      return {
+        completed: true,
+        output: a.errorMsg,
+        error: true,
+        errorMessage: a.errorMsg,
+        tokensUsed: a.tokensUsed,
+        durationMs: a.durationMs,
+      };
+    }
+  }
+
+  /** Emits a {@link ClaudeStatusEvent} on the bus (no-op without an eventBus). */
+  private emitClaudeStatus(
+    status: ClaudeAvailability,
+    attempt: number,
+    sessionId: string,
+    context: BMADSessionContext | undefined,
+    detail?: string,
+  ): void {
+    this.eventBus?.emit(CLAUDE_STATUS_EVENT, {
+      status,
+      attempt,
+      ...(detail ? { detail: detail.slice(0, 300) } : {}),
+      sessionId,
+      storyId: context?.storyId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Runs ONE query attempt. Emits per-turn telemetry only; the caller
+   * ({@link executeQuery}) owns terminal events and retry decisions. Never
+   * throws — a thrown SDK error becomes an `{ ok: false }` outcome.
+   */
+  private async runQueryAttempt(
+    sessionId: string,
+    prompt: string,
+    context: BMADSessionContext | undefined,
+    startTime: number,
+    isResume: boolean,
+  ): Promise<QueryAttemptOutcome> {
     const questionHandler = this.questionHandler;
     const sdkSessionId = isResume ? this.sdkSessionIds.get(sessionId) : undefined;
     const model = this.sessionModels.get(sessionId);
@@ -279,44 +392,13 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
             const errorMsg =
               errorMessages.join('; ') || resultText || `Session ended with: ${message.subtype}`;
 
-            this.eventBus?.emit('session.workflow.failed', {
-              sessionId,
-              storyId: context?.storyId,
-              error: errorMsg,
-              turn,
-              tokensUsed,
-            });
-
-            return {
-              completed: true,
-              output: errorMsg,
-              error: true,
-              errorMessage: errorMsg,
-              tokensUsed,
-              durationMs,
-            };
+            return { ok: false, errorMsg, turn, tokensUsed, durationMs };
           }
         }
       }
 
       const durationMs = Date.now() - startTime;
-
-      if (completed) {
-        this.eventBus?.emit('session.workflow.completed', {
-          sessionId,
-          storyId: context?.storyId,
-          totalTurns: turn,
-          totalDurationMs: durationMs,
-          tokensUsed,
-        });
-      }
-
-      return {
-        completed,
-        output,
-        tokensUsed,
-        durationMs,
-      };
+      return { ok: true, result: { completed, output, tokensUsed, durationMs }, turn };
     } catch (error) {
       const durationMs = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -327,33 +409,15 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
       // teardown exit flip a completed story to `failed` (which would escalate
       // and abort an otherwise-green run). See AgentSdkSessionAdapter tests.
       if (sawSuccessResult) {
-        this.eventBus?.emit('session.workflow.completed', {
-          sessionId,
-          storyId: context?.storyId,
-          totalTurns: turn,
-          totalDurationMs: durationMs,
-          tokensUsed,
+        return {
+          ok: true,
+          result: { completed: true, output, tokensUsed, durationMs },
+          turn,
           teardownExitIgnored: errorMsg,
-        });
-        return { completed: true, output, tokensUsed, durationMs };
+        };
       }
 
-      this.eventBus?.emit('session.workflow.failed', {
-        sessionId,
-        storyId: context?.storyId,
-        error: errorMsg,
-        turn,
-        tokensUsed,
-      });
-
-      return {
-        completed: true,
-        output: errorMsg,
-        error: true,
-        errorMessage: errorMsg,
-        tokensUsed,
-        durationMs,
-      };
+      return { ok: false, errorMsg, turn, tokensUsed, durationMs };
     }
   }
 }
