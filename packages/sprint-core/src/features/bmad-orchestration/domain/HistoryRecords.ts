@@ -16,6 +16,13 @@ export interface ExchangeFrontMatter {
 export interface ExchangeRecord {
   frontMatter: ExchangeFrontMatter;
   interactions: SessionInteraction[];
+  /**
+   * The agent's accumulated session output (or failure note). Captured so a
+   * NON-interactive session — one that never triggered `AskUserQuestion`, hence
+   * has zero supervisor interactions — still produces a meaningful Track 2
+   * record instead of "_No interactions recorded._".
+   */
+  agentOutput?: string;
 }
 
 export interface MetricRecord {
