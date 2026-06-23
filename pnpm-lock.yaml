@@ -27,8 +27,8 @@ importers:
   packages/app:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.1.0
-        version: 0.1.77(zod@4.3.6)
+        specifier: ^0.3.185
+        version: 0.3.186(@anthropic-ai/sdk@0.105.0(zod@4.3.6))(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(zod@4.3.6)
       '@cop1/ceremony-engine':
         specifier: workspace:*
         version: link:../ceremony-engine
