@@ -26,6 +26,7 @@ import type { SupervisorPlaybook } from '../../features/orchestrator/domain/Supe
 import { createAbortFilePredicate } from '../../features/orchestrator/infrastructure/AbortFile.js';
 import { CommandVerificationGate } from '../../features/orchestrator/infrastructure/CommandVerificationGate.js';
 import { createDefaultBMADCommandRunner } from '../../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
+import { GitCommitAnchor } from '../../features/orchestrator/infrastructure/GitCommitAnchor.js';
 import { GitWorkspaceInspector } from '../../features/orchestrator/infrastructure/GitWorkspaceInspector.js';
 import { createInterCommandApprovalResolver } from '../../features/orchestrator/infrastructure/InterCommandApprovalResolver.js';
 import { stubBMADCommandRunner } from '../../features/orchestrator/infrastructure/testing/StubBMADCommandRunner.js';
@@ -211,6 +212,11 @@ function resolveRunner(
   // EA14-S2: Wire ExchangeHistoryWriter for Track 2 per-session markdown files.
   const exchangeHistoryWriter = new ExchangeHistoryWriter(projectRoot);
 
+  // Commit anchor (EA14-S3) — opt-in: commits verified per-story work as a
+  // durable rollback unit. Off by default (auto-commit blast radius); enable
+  // with COP1_COMMIT_ANCHOR=1.
+  const commitAnchor = process.env.COP1_COMMIT_ANCHOR === '1' ? new GitCommitAnchor() : undefined;
+
   return createDefaultBMADCommandRunner({
     sessionPort,
     supervisorService,
@@ -218,6 +224,7 @@ function resolveRunner(
     interactionCollector,
     verificationGate: new CommandVerificationGate(),
     workspaceInspection: new GitWorkspaceInspector(),
+    ...(commitAnchor ? { commitAnchor } : {}),
   });
 }
 
