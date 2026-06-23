@@ -10,6 +10,7 @@ import type {
 } from '@cop1/sprint-core';
 import type { ExchangeHistoryWriter } from '@cop1/sprint-core';
 import type { BMADCommandRunner } from '../application/OrchestratorService.js';
+import { type CommitAnchorPort, commitAnchorMessage } from '../domain/CommitAnchor.js';
 import { classifyReviewVerdict, isReviewCommand } from '../domain/ReviewVerdict.js';
 import { type VerificationGate, shouldVerify } from '../domain/VerificationGate.js';
 import {
@@ -46,6 +47,12 @@ export interface DefaultBMADCommandRunnerDeps {
   workspaceInspection?: WorkspaceInspectionPort;
   /** Max corrective "implement now" continuations (default 2). */
   maxImplementationRetries?: number;
+  /**
+   * Commit anchor (EA14-S3): when wired, the runner commits a verified
+   * code-producing command's work as a durable rollback unit and records the
+   * SHA in Track 2. Opt-in (auto-commit blast radius) — off unless injected.
+   */
+  commitAnchor?: CommitAnchorPort;
 }
 
 /**
@@ -95,6 +102,7 @@ export function createDefaultBMADCommandRunner(
       status: ExchangeFrontMatter['status'],
       sessionId: string,
       output?: string,
+      commit?: string,
     ): Promise<void> =>
       writeExchangeRecord(deps, {
         sessionId,
@@ -104,6 +112,7 @@ export function createDefaultBMADCommandRunner(
         startedAt,
         status,
         output: output ?? outputs.join('\n'),
+        commit,
       });
 
     // Evidence-gate baseline: snapshot already-dirty paths BEFORE the session so
@@ -254,7 +263,17 @@ export function createDefaultBMADCommandRunner(
 
     const nextStatus = inferNextStatus(command);
 
-    await recordExchange('success', handle.sessionId);
+    // Commit anchor (EA14-S3): after a code-producing command is verified done,
+    // commit the work as a durable rollback unit and record the SHA in Track 2.
+    // Opt-in via the injected port (auto-commit blast radius). Best-effort.
+    let commitSha: string | undefined;
+    if (deps.commitAnchor && shouldHaveCodeChanges(command)) {
+      commitSha =
+        (await deps.commitAnchor.commit(projectRoot, commitAnchorMessage(storyKey, command))) ??
+        undefined;
+    }
+
+    await recordExchange('success', handle.sessionId, undefined, commitSha);
 
     return {
       success: true,
@@ -280,6 +299,8 @@ async function writeExchangeRecord(
     /** Agent session output / failure note — keeps Track 2 non-blank for
      * non-interactive sessions (zero supervisor interactions). */
     output?: string;
+    /** Commit-anchor SHA, when the runner committed the verified work. */
+    commit?: string;
   },
 ): Promise<void> {
   if (!deps.exchangeHistoryWriter || !deps.interactionCollector) return;
@@ -294,6 +315,7 @@ async function writeExchangeRecord(
       endedAt: new Date().toISOString(),
       supervisorTurns: interactions.filter((i) => i.role === 'supervisor').length,
       status: meta.status,
+      ...(meta.commit ? { commit: meta.commit } : {}),
     };
     await deps.exchangeHistoryWriter.write({ frontMatter, interactions, agentOutput: meta.output });
   } catch (err) {
