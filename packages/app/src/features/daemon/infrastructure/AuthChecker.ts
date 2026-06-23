@@ -34,6 +34,16 @@ export async function checkAuth(queryFn?: AuthQueryFn): Promise<AuthCheckResult>
         maxTurns: 1,
         allowedTools: [],
         systemPrompt: { type: 'preset', preset: 'claude_code' },
+        // Make the probe genuinely tool-less (Codex review): `allowedTools: []`
+        // only auto-approves nothing — unlisted tools still fall through to
+        // settings/permissionMode. Load NO filesystem settings so project/user
+        // MCP servers + hooks never start, and deny any tool defensively. A
+        // credential check must not execute side effects.
+        settingSources: [],
+        canUseTool: async (toolName: string) => ({
+          behavior: 'deny' as const,
+          message: `auth probe is tool-less (blocked ${toolName})`,
+        }),
       },
     });
     for await (const message of iterable) {
