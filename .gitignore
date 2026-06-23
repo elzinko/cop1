@@ -48,6 +48,10 @@ logs/
 
 # Testing
 coverage/
+.playwright-mcp/
+
+# Dogfood / cobaye verification screenshots (throwaway)
+cobaye-*.png
 
 # Temp
 tmp/
