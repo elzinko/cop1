@@ -25,6 +25,7 @@ import type { SupervisorPlaybook } from '../../features/orchestrator/domain/Supe
 import { createAbortFilePredicate } from '../../features/orchestrator/infrastructure/AbortFile.js';
 import { CommandVerificationGate } from '../../features/orchestrator/infrastructure/CommandVerificationGate.js';
 import { createDefaultBMADCommandRunner } from '../../features/orchestrator/infrastructure/DefaultBMADCommandRunner.js';
+import { GitWorkspaceInspector } from '../../features/orchestrator/infrastructure/GitWorkspaceInspector.js';
 import { createInterCommandApprovalResolver } from '../../features/orchestrator/infrastructure/InterCommandApprovalResolver.js';
 import { stubBMADCommandRunner } from '../../features/orchestrator/infrastructure/testing/StubBMADCommandRunner.js';
 
@@ -194,6 +195,7 @@ function resolveRunner(
     exchangeHistoryWriter,
     interactionCollector,
     verificationGate: new CommandVerificationGate(),
+    workspaceInspection: new GitWorkspaceInspector(),
   });
 }
 

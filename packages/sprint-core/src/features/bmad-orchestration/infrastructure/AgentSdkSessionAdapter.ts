@@ -183,8 +183,11 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     const options: Options = {
       systemPrompt: { type: 'preset', preset: 'claude_code' },
       settingSources: ['project'],
-      allowedTools: ['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep'],
-      tools: ['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'AskUserQuestion'],
+      // Built-in tool permits. `AskUserQuestion` is included so the supervisor
+      // interception (via `canUseTool`) is reachable. NB: the SDK `tools` option
+      // is for *custom* MCP tool definitions (objects), NOT built-in tool-name
+      // strings — passing names there is a no-op at best, so it is omitted.
+      allowedTools: ['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'AskUserQuestion'],
       maxTurns: this.maxTurns,
       ...(model ? { model } : {}),
       ...(this.maxBudgetUsd !== undefined && { maxBudgetUsd: this.maxBudgetUsd }),
@@ -211,14 +214,20 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
     };
 
     // Declared outside the try so the catch block can still credit any tokens
-    // recorded before a mid-stream crash (ADR-017 budget accounting).
+    // recorded before a mid-stream crash (ADR-017 budget accounting) and detect
+    // a successful result that arrived before a teardown-only process exit.
     let tokensUsed: number | undefined;
+    let output = '';
+    let completed = false;
+    let turn = 0;
+    // True once a `result` message with subtype `success` has been observed.
+    // The Claude Code CLI subprocess can still exit non-zero during teardown
+    // *after* a successful result (MCP/hook cleanup, telemetry flush). That
+    // post-success exit must NOT flip a completed session to failed.
+    let sawSuccessResult = false;
 
     try {
       const iterable = this.queryFn({ prompt, options });
-      let output = '';
-      let completed = false;
-      let turn = 0;
 
       for await (const message of iterable) {
         // Capture SDK session_id from the first message that carries one
@@ -252,12 +261,23 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
             ? message.usage.input_tokens + message.usage.output_tokens
             : undefined;
 
-          if (message.subtype === 'success') {
+          // A result can carry subtype `success` yet `is_error: true` when the
+          // agent surfaced an API error (e.g. a 4xx/5xx, rate limit) as its
+          // final answer. Treat that as a failed session, never a false success.
+          const isErrorResult = (message as { is_error?: boolean }).is_error === true;
+
+          if (message.subtype === 'success' && !isErrorResult) {
+            sawSuccessResult = true;
             output = message.result || output;
           } else {
             const durationMs = Date.now() - startTime;
             const errorMessages = 'errors' in message ? message.errors : [];
-            const errorMsg = errorMessages.join('; ') || `Session ended with: ${message.subtype}`;
+            const resultText =
+              typeof (message as { result?: unknown }).result === 'string'
+                ? ((message as { result?: string }).result as string)
+                : undefined;
+            const errorMsg =
+              errorMessages.join('; ') || resultText || `Session ended with: ${message.subtype}`;
 
             this.eventBus?.emit('session.workflow.failed', {
               sessionId,
@@ -301,11 +321,28 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
       const durationMs = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
 
+      // Known Claude Code CLI quirk: the subprocess can exit non-zero during
+      // teardown *after* emitting a successful result. The session's work is
+      // done and was reported as success, so honor that rather than letting the
+      // teardown exit flip a completed story to `failed` (which would escalate
+      // and abort an otherwise-green run). See AgentSdkSessionAdapter tests.
+      if (sawSuccessResult) {
+        this.eventBus?.emit('session.workflow.completed', {
+          sessionId,
+          storyId: context?.storyId,
+          totalTurns: turn,
+          totalDurationMs: durationMs,
+          tokensUsed,
+          teardownExitIgnored: errorMsg,
+        });
+        return { completed: true, output, tokensUsed, durationMs };
+      }
+
       this.eventBus?.emit('session.workflow.failed', {
         sessionId,
         storyId: context?.storyId,
         error: errorMsg,
-        turn: 0,
+        turn,
         tokensUsed,
       });
 
@@ -314,6 +351,7 @@ export class AgentSdkSessionAdapter implements BMADSessionPort {
         output: errorMsg,
         error: true,
         errorMessage: errorMsg,
+        tokensUsed,
         durationMs,
       };
     }

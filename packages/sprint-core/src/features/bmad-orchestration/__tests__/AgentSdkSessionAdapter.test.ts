@@ -169,8 +169,7 @@ describe('AgentSdkSessionAdapter', () => {
     expect(opts.cwd).toBe('/tmp/test-project');
     expect(opts.systemPrompt).toEqual({ type: 'preset', preset: 'claude_code' });
     expect(opts.settingSources).toEqual(['project']);
-    expect(opts.allowedTools).toEqual(['Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep']);
-    expect(opts.tools).toEqual([
+    expect(opts.allowedTools).toEqual([
       'Skill',
       'Read',
       'Write',
@@ -180,7 +179,47 @@ describe('AgentSdkSessionAdapter', () => {
       'Grep',
       'AskUserQuestion',
     ]);
+    // The SDK `tools` option is for custom MCP tool definitions, not built-in
+    // tool-name strings — it must not be set with tool names.
+    expect('tools' in opts).toBe(false);
     expect(opts.canUseTool).toBeDefined();
+  });
+
+  it('should treat a result with subtype=success but is_error=true as a failed session', async () => {
+    // The SDK reports the agent surfacing an API error (e.g. a 4xx) as
+    // subtype=success + is_error=true, with the error text in `result`. The
+    // adapter must NOT count that as success (no false-positive story advance).
+    const apiError =
+      'API Error: 400 {"type":"error","error":{"message":"`tool_use` ids must be unique"}}';
+    const queryFn = createMockQuery([
+      makeAssistantMessage('attempting...'),
+      {
+        type: 'result',
+        subtype: 'success',
+        result: apiError,
+        is_error: true,
+        duration_ms: 500,
+        duration_api_ms: 400,
+        num_turns: 2,
+        total_cost_usd: 0.01,
+        usage: { input_tokens: 100, output_tokens: 50 },
+        modelUsage: {},
+        permission_denials: [],
+        uuid: 'uuid-iserr',
+        session_id: 'sdk-session-abc',
+      } as unknown as SDKMessage,
+    ]);
+    eventBus = new EventBus();
+    const failed: { tokensUsed?: unknown }[] = [];
+    eventBus.on('session.workflow.failed', (p) => failed.push(p as { tokensUsed?: unknown }));
+    const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
+
+    const handle = await adapter.startSession('/bmad-bmm-dev-story', makeContext());
+
+    expect(handle.firstTurn.error).toBe(true);
+    expect(handle.firstTurn.errorMessage).toContain('tool_use');
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.tokensUsed).toBe(150);
   });
 
   it('should intercept AskUserQuestion via canUseTool and route to QuestionHandler', async () => {
@@ -343,9 +382,11 @@ describe('AgentSdkSessionAdapter', () => {
     expect(handle.firstTurn.errorMessage).toBe('AsyncGenerator crashed mid-stream');
   });
 
-  it('should emit tokensUsed in session.workflow.failed when crashing after a result (ADR-017)', async () => {
-    // A result arrives (recording 150 tokens), then the stream crashes — the
-    // catch path must still carry tokensUsed so the budget is credited.
+  it('should treat a crash after a success result as completed and still credit tokens (ADR-017 + teardown)', async () => {
+    // A success result arrives (recording 150 tokens), then the stream crashes.
+    // The session's work already succeeded, so the adapter reports it completed
+    // (not failed) and still credits the budget — now via the completed event,
+    // which the orchestrator also subscribes for budget accounting.
     const queryFn: QueryFunction = (_params) => {
       return (async function* () {
         yield makeResultSuccess('partial');
@@ -353,15 +394,47 @@ describe('AgentSdkSessionAdapter', () => {
       })();
     };
     eventBus = new EventBus();
-    const failed: { tokensUsed?: unknown }[] = [];
-    eventBus.on('session.workflow.failed', (p) => failed.push(p as { tokensUsed?: unknown }));
+    const completed: { tokensUsed?: unknown }[] = [];
+    const failed: unknown[] = [];
+    eventBus.on('session.workflow.completed', (p) => completed.push(p as { tokensUsed?: unknown }));
+    eventBus.on('session.workflow.failed', (p) => failed.push(p));
     const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
 
     const handle = await adapter.startSession('/test', makeContext());
 
-    expect(handle.firstTurn.error).toBe(true);
-    expect(failed).toHaveLength(1);
-    expect(failed[0]?.tokensUsed).toBe(150);
+    expect(handle.firstTurn.error).toBeUndefined();
+    expect(handle.firstTurn.completed).toBe(true);
+    expect(failed).toHaveLength(0);
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.tokensUsed).toBe(150);
+  });
+
+  it('should treat a non-zero process exit AFTER a success result as success (teardown quirk)', async () => {
+    // Reproduces the real BMAD-session bug: result:success is yielded, then the
+    // Claude Code CLI subprocess exits 1 during teardown and the SDK throws.
+    // Without this guard, an otherwise-green story is flipped to failed and the
+    // run escalates + aborts. The error is recorded for observability.
+    const queryFn: QueryFunction = (_params) => {
+      return (async function* () {
+        yield makeAssistantMessage('did the work');
+        yield makeResultSuccess('Story created');
+        throw new Error('Claude Code process exited with code 1');
+      })();
+    };
+    eventBus = new EventBus();
+    const completed: { teardownExitIgnored?: unknown }[] = [];
+    eventBus.on('session.workflow.completed', (p) =>
+      completed.push(p as { teardownExitIgnored?: unknown }),
+    );
+    const adapter = new AgentSdkSessionAdapter(eventBus, {}, queryFn);
+
+    const handle = await adapter.startSession('/bmad-bmm-create-story', makeContext());
+
+    expect(handle.firstTurn.completed).toBe(true);
+    expect(handle.firstTurn.error).toBeUndefined();
+    expect(handle.firstTurn.output).toBe('Story created');
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.teardownExitIgnored).toBe('Claude Code process exited with code 1');
   });
 
   it('should emit correct events on successful session lifecycle', async () => {

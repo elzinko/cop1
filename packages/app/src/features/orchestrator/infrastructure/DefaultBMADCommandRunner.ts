@@ -11,8 +11,22 @@ import type {
 import type { ExchangeHistoryWriter } from '@cop1/sprint-core';
 import type { BMADCommandRunner } from '../application/OrchestratorService.js';
 import { type VerificationGate, shouldVerify } from '../domain/VerificationGate.js';
+import {
+  type WorkspaceInspectionPort,
+  hasImplementationChanges,
+  shouldHaveCodeChanges,
+} from '../domain/WorkspaceChanges.js';
 
 const MAX_FOLLOWUP_TURNS = 3;
+
+/** Corrective "implement now" continuations when a dev command wrote no code. */
+const DEFAULT_MAX_IMPLEMENTATION_RETRIES = 2;
+
+/** Forcing prompt sent when a code-producing command only planned (no edits). */
+const IMPLEMENT_NOW_PROMPT =
+  'You have not modified any source files — only a plan was produced. Implement ' +
+  "the story's acceptance criteria NOW by actually editing the project files with " +
+  'the Write/Edit tools. Do not output another plan; make the concrete code changes.';
 
 export interface DefaultBMADCommandRunnerDeps {
   sessionPort: BMADSessionPort;
@@ -23,6 +37,14 @@ export interface DefaultBMADCommandRunnerDeps {
   interactionCollector?: SessionInteractionCollector;
   /** Sprint 2 (ADR-016): optional verification gate run after code-producing commands. */
   verificationGate?: VerificationGate;
+  /**
+   * Evidence gate (2026-06-22 post-mortem): inspects the working tree to prove a
+   * code-producing command actually wrote source. Without it, a dev-story that
+   * only prints a plan is accepted as done.
+   */
+  workspaceInspection?: WorkspaceInspectionPort;
+  /** Max corrective "implement now" continuations (default 2). */
+  maxImplementationRetries?: number;
 }
 
 /**
@@ -64,6 +86,15 @@ export function createDefaultBMADCommandRunner(
       projectPath: projectRoot,
       storyId: storyKey,
     };
+
+    // Evidence-gate baseline: snapshot already-dirty paths BEFORE the session so
+    // the gate counts only NEW source changes. Otherwise a file left dirty by a
+    // prior/failed run (or a dirty checkout) would satisfy the gate on its own,
+    // letting a plan-only dev-story advance the story on fiction.
+    const evidenceBaseline =
+      deps.workspaceInspection && shouldHaveCodeChanges(command)
+        ? new Set(await deps.workspaceInspection.changedPaths(projectRoot))
+        : new Set<string>();
 
     let handle: SessionHandle;
     try {
@@ -169,6 +200,71 @@ export function createDefaultBMADCommandRunner(
         status: 'escalated',
       });
       return result;
+    }
+
+    // Evidence gate (2026-06-22 post-mortem): a code-producing command must
+    // actually change source files. If the session only planned, drive
+    // corrective "implement now" continuations; if still nothing changed, block
+    // rather than advance the story on a self-reported (fictional) success.
+    if (deps.workspaceInspection && shouldHaveCodeChanges(command)) {
+      const maxAttempts = deps.maxImplementationRetries ?? DEFAULT_MAX_IMPLEMENTATION_RETRIES;
+      // Only NEW non-bookkeeping paths (not in the pre-session baseline) count.
+      const hasFreshImpl = (paths: string[]): boolean =>
+        hasImplementationChanges(paths.filter((p) => !evidenceBaseline.has(p)));
+      let changedPaths = await deps.workspaceInspection.changedPaths(projectRoot);
+      let attempts = 0;
+      while (!hasFreshImpl(changedPaths) && attempts < maxAttempts) {
+        attempts++;
+        try {
+          lastTurn = await deps.sessionPort.continueSession(handle.sessionId, IMPLEMENT_NOW_PROMPT);
+        } catch (error) {
+          await writeExchangeRecord(deps, {
+            sessionId: handle.sessionId,
+            storyId: storyKey,
+            sprintId: epicId,
+            command,
+            startedAt,
+            status: 'failed',
+          });
+          return {
+            success: false,
+            escalated: true,
+            note: error instanceof Error ? error.message : String(error),
+          };
+        }
+        if (lastTurn.output.length > 0) outputs.push(lastTurn.output);
+        if (lastTurn.error === true) {
+          await writeExchangeRecord(deps, {
+            sessionId: handle.sessionId,
+            storyId: storyKey,
+            sprintId: epicId,
+            command,
+            startedAt,
+            status: 'failed',
+          });
+          return {
+            success: false,
+            escalated: true,
+            note: lastTurn.errorMessage ?? lastTurn.output ?? 'session error',
+          };
+        }
+        changedPaths = await deps.workspaceInspection.changedPaths(projectRoot);
+      }
+      if (!hasFreshImpl(changedPaths)) {
+        await writeExchangeRecord(deps, {
+          sessionId: handle.sessionId,
+          storyId: storyKey,
+          sprintId: epicId,
+          command,
+          startedAt,
+          status: 'failed',
+        });
+        return {
+          success: false,
+          escalated: true,
+          note: `no source changes after ${command} (${maxAttempts} corrective attempt(s)) — refusing to mark done`,
+        };
+      }
     }
 
     if (deps.verificationGate && shouldVerify(command)) {
