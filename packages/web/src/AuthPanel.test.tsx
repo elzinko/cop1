@@ -26,4 +26,21 @@ describe('AuthPanel', () => {
     fireEvent.click(screen.getByText('Tester la connexion'));
     expect(await screen.findByText(/boom-401/)).toBeTruthy();
   });
+
+  it('shows a yellow "temporarily unavailable" state when availability is degraded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        json: async () => ({
+          ok: false,
+          model: null,
+          error: 'overloaded',
+          availability: 'degraded',
+        }),
+      })),
+    );
+    render(<AuthPanel />);
+    fireEvent.click(screen.getByText('Tester la connexion'));
+    expect(await screen.findByText(/temporairement indisponible/)).toBeTruthy();
+  });
 });

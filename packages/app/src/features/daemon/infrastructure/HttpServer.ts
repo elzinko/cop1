@@ -131,7 +131,12 @@ export class HttpServer {
   private async handleAuthCheck(res: ServerResponse): Promise<void> {
     const result: AuthCheckResult = this.authChecker
       ? await this.authChecker()
-      : { ok: false, model: null, error: 'auth checker not configured' };
+      : {
+          ok: false,
+          model: null,
+          error: 'auth checker not configured',
+          availability: 'unavailable',
+        };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   }
