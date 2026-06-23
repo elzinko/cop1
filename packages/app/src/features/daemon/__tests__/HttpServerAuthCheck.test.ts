@@ -11,11 +11,11 @@ describe('HttpServer GET /api/auth/check', () => {
 
   it('returns the auth checker result (ok + model)', async () => {
     server = new HttpServer();
-    server.setAuthChecker(async () => ({ ok: true, model: 'claude-test' }));
+    server.setAuthChecker(async () => ({ ok: true, model: 'claude-test', availability: 'ok' }));
     await server.start(PORT);
     const res = await fetch(`http://127.0.0.1:${PORT}/api/auth/check`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, model: 'claude-test' });
+    expect(await res.json()).toEqual({ ok: true, model: 'claude-test', availability: 'ok' });
   });
 
   it('reports not-configured (200, no secret) when no checker is set', async () => {
@@ -30,10 +30,20 @@ describe('HttpServer GET /api/auth/check', () => {
 
   it('surfaces ok:false as 200 so the UI renders red', async () => {
     server = new HttpServer();
-    server.setAuthChecker(async () => ({ ok: false, model: null, error: '401' }));
+    server.setAuthChecker(async () => ({
+      ok: false,
+      model: null,
+      error: '401',
+      availability: 'unavailable',
+    }));
     await server.start(PORT);
     const res = await fetch(`http://127.0.0.1:${PORT}/api/auth/check`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: false, model: null, error: '401' });
+    expect(await res.json()).toEqual({
+      ok: false,
+      model: null,
+      error: '401',
+      availability: 'unavailable',
+    });
   });
 });

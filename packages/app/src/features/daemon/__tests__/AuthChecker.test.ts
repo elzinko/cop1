@@ -28,28 +28,44 @@ const resultError = (): SDKMessage =>
   }) as unknown as SDKMessage;
 
 describe('checkAuth', () => {
-  it('returns ok + model from the system/init message on success', async () => {
+  it('returns ok + model + availability:ok from the system/init message on success', async () => {
     const r = await checkAuth(mockQuery([systemInit('claude-test'), resultSuccess()]));
-    expect(r).toEqual({ ok: true, model: 'claude-test' });
+    expect(r).toEqual({ ok: true, model: 'claude-test', availability: 'ok' });
   });
 
   it('returns ok:false on a non-success result, keeping the model seen', async () => {
     const r = await checkAuth(mockQuery([systemInit('claude-test'), resultError()]));
     expect(r.ok).toBe(false);
     expect(r.model).toBe('claude-test');
+    expect(r.availability).toBe('unavailable');
   });
 
-  it('returns ok:false with the error message when the query throws', async () => {
+  it('maps a hard error (auth) to availability:unavailable', async () => {
     const throwing: AuthQueryFn = () => {
       throw new Error('401 invalid credentials');
     };
     const r = await checkAuth(throwing);
-    expect(r).toEqual({ ok: false, model: null, error: '401 invalid credentials' });
+    expect(r).toEqual({
+      ok: false,
+      model: null,
+      error: '401 invalid credentials',
+      availability: 'unavailable',
+    });
+  });
+
+  it('maps a transient blockage (overloaded/5xx/network) to availability:degraded', async () => {
+    const overloaded: AuthQueryFn = () => {
+      throw new Error('API Error: 529 {"type":"overloaded_error"}');
+    };
+    const r = await checkAuth(overloaded);
+    expect(r.ok).toBe(false);
+    expect(r.availability).toBe('degraded');
   });
 
   it('returns ok:false when no result message is produced', async () => {
     const r = await checkAuth(mockQuery([systemInit('claude-test')]));
     expect(r.ok).toBe(false);
     expect(r.model).toBe('claude-test');
+    expect(r.availability).toBe('unavailable');
   });
 });
