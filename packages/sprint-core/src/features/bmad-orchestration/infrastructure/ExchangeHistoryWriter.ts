@@ -33,7 +33,7 @@ export class ExchangeHistoryWriter {
 
     await mkdir(dir, { recursive: true });
 
-    const body = this.renderBody(interactions);
+    const body = this.renderBody(interactions, record.agentOutput);
     const content = this.renderFrontMatter(frontMatter) + body;
     await writeFile(tmpPath, content, 'utf-8');
     await rename(tmpPath, finalPath);
@@ -64,10 +64,8 @@ export class ExchangeHistoryWriter {
 
   private renderBody(
     interactions: import('../application/SessionLogger.js').SessionInteraction[],
+    agentOutput?: string,
   ): string {
-    if (interactions.length === 0) {
-      return '_No interactions recorded._\n';
-    }
     const lines: string[] = [];
     for (const it of interactions) {
       lines.push(`### turn ${it.turn} — ${it.role} (${it.analysis.method})`);
@@ -113,6 +111,16 @@ export class ExchangeHistoryWriter {
         if (gr.detail) lines.push(gr.detail);
         lines.push('');
       }
+    }
+    // Non-interactive sessions have no interactions but still produce output —
+    // record it so the Track 2 file is not blank.
+    const trimmed = agentOutput?.trim();
+    if (trimmed) {
+      const truncated = trimmed.length > 4000 ? `${trimmed.slice(0, 3997)}...` : trimmed;
+      lines.push('### agent output', '', '```', truncated, '```', '');
+    }
+    if (lines.length === 0) {
+      return '_No interactions recorded._\n';
     }
     return lines.join('\n');
   }

@@ -88,6 +88,24 @@ export function createDefaultBMADCommandRunner(
       storyId: storyKey,
     };
 
+    // Accumulated agent output across turns, threaded into every Track 2 record
+    // so a non-interactive session (zero supervisor interactions) is not blank.
+    const outputs: string[] = [];
+    const recordExchange = (
+      status: ExchangeFrontMatter['status'],
+      sessionId: string,
+      output?: string,
+    ): Promise<void> =>
+      writeExchangeRecord(deps, {
+        sessionId,
+        storyId: storyKey,
+        sprintId: epicId,
+        command,
+        startedAt,
+        status,
+        output: output ?? outputs.join('\n'),
+      });
+
     // Evidence-gate baseline: snapshot already-dirty paths BEFORE the session so
     // the gate counts only NEW source changes. Otherwise a file left dirty by a
     // prior/failed run (or a dirty checkout) would satisfy the gate on its own,
@@ -106,14 +124,7 @@ export function createDefaultBMADCommandRunner(
         escalated: true,
         note: error instanceof Error ? error.message : String(error),
       };
-      await writeExchangeRecord(deps, {
-        sessionId: '',
-        storyId: storyKey,
-        sprintId: epicId,
-        command,
-        startedAt,
-        status: 'failed',
-      });
+      await recordExchange('failed', '', result.note);
       return result;
     }
 
@@ -125,7 +136,6 @@ export function createDefaultBMADCommandRunner(
       handle.sessionId,
     );
 
-    const outputs: string[] = [];
     let lastTurn: SessionTurnResult = handle.firstTurn;
 
     if (lastTurn.error === true) {
@@ -134,14 +144,7 @@ export function createDefaultBMADCommandRunner(
         escalated: true,
         note: lastTurn.errorMessage ?? lastTurn.output ?? 'session error',
       };
-      await writeExchangeRecord(deps, {
-        sessionId: handle.sessionId,
-        storyId: storyKey,
-        sprintId: epicId,
-        command,
-        startedAt,
-        status: 'failed',
-      });
+      await recordExchange('failed', handle.sessionId);
       return result;
     }
     if (lastTurn.output.length > 0) outputs.push(lastTurn.output);
@@ -157,14 +160,7 @@ export function createDefaultBMADCommandRunner(
           escalated: true,
           note: error instanceof Error ? error.message : String(error),
         };
-        await writeExchangeRecord(deps, {
-          sessionId: handle.sessionId,
-          storyId: storyKey,
-          sprintId: epicId,
-          command,
-          startedAt,
-          status: 'failed',
-        });
+        await recordExchange('failed', handle.sessionId);
         return result;
       }
       if (lastTurn.output.length > 0) outputs.push(lastTurn.output);
@@ -174,14 +170,7 @@ export function createDefaultBMADCommandRunner(
           escalated: true,
           note: lastTurn.errorMessage ?? lastTurn.output ?? 'session error',
         };
-        await writeExchangeRecord(deps, {
-          sessionId: handle.sessionId,
-          storyId: storyKey,
-          sprintId: epicId,
-          command,
-          startedAt,
-          status: 'failed',
-        });
+        await recordExchange('failed', handle.sessionId);
         return result;
       }
     }
@@ -192,14 +181,7 @@ export function createDefaultBMADCommandRunner(
         escalated: true,
         note: 'session did not complete within follow-up budget',
       };
-      await writeExchangeRecord(deps, {
-        sessionId: handle.sessionId,
-        storyId: storyKey,
-        sprintId: epicId,
-        command,
-        startedAt,
-        status: 'escalated',
-      });
+      await recordExchange('escalated', handle.sessionId);
       return result;
     }
 
@@ -219,14 +201,7 @@ export function createDefaultBMADCommandRunner(
         try {
           lastTurn = await deps.sessionPort.continueSession(handle.sessionId, IMPLEMENT_NOW_PROMPT);
         } catch (error) {
-          await writeExchangeRecord(deps, {
-            sessionId: handle.sessionId,
-            storyId: storyKey,
-            sprintId: epicId,
-            command,
-            startedAt,
-            status: 'failed',
-          });
+          await recordExchange('failed', handle.sessionId);
           return {
             success: false,
             escalated: true,
@@ -235,14 +210,7 @@ export function createDefaultBMADCommandRunner(
         }
         if (lastTurn.output.length > 0) outputs.push(lastTurn.output);
         if (lastTurn.error === true) {
-          await writeExchangeRecord(deps, {
-            sessionId: handle.sessionId,
-            storyId: storyKey,
-            sprintId: epicId,
-            command,
-            startedAt,
-            status: 'failed',
-          });
+          await recordExchange('failed', handle.sessionId);
           return {
             success: false,
             escalated: true,
@@ -252,14 +220,7 @@ export function createDefaultBMADCommandRunner(
         changedPaths = await deps.workspaceInspection.changedPaths(projectRoot);
       }
       if (!hasFreshImpl(changedPaths)) {
-        await writeExchangeRecord(deps, {
-          sessionId: handle.sessionId,
-          storyId: storyKey,
-          sprintId: epicId,
-          command,
-          startedAt,
-          status: 'failed',
-        });
+        await recordExchange('failed', handle.sessionId);
         return {
           success: false,
           escalated: true,
@@ -271,14 +232,7 @@ export function createDefaultBMADCommandRunner(
     if (deps.verificationGate && shouldVerify(command)) {
       const verification = await deps.verificationGate.verify({ projectRoot, command, storyKey });
       if (!verification.passed) {
-        await writeExchangeRecord(deps, {
-          sessionId: handle.sessionId,
-          storyId: storyKey,
-          sprintId: epicId,
-          command,
-          startedAt,
-          status: 'failed',
-        });
+        await recordExchange('failed', handle.sessionId);
         return { success: false, escalated: true, note: verification.summary };
       }
     }
@@ -290,14 +244,7 @@ export function createDefaultBMADCommandRunner(
     // only an explicit rejection blocks; approved/ambiguous reviews advance (the
     // evidence + verification gates already catch non-implementation).
     if (isReviewCommand(command) && classifyReviewVerdict(joined) === 'changes-requested') {
-      await writeExchangeRecord(deps, {
-        sessionId: handle.sessionId,
-        storyId: storyKey,
-        sprintId: epicId,
-        command,
-        startedAt,
-        status: 'failed',
-      });
+      await recordExchange('failed', handle.sessionId);
       return {
         success: false,
         escalated: true,
@@ -307,14 +254,7 @@ export function createDefaultBMADCommandRunner(
 
     const nextStatus = inferNextStatus(command);
 
-    await writeExchangeRecord(deps, {
-      sessionId: handle.sessionId,
-      storyId: storyKey,
-      sprintId: epicId,
-      command,
-      startedAt,
-      status: 'success',
-    });
+    await recordExchange('success', handle.sessionId);
 
     return {
       success: true,
@@ -337,6 +277,9 @@ async function writeExchangeRecord(
     command: string;
     startedAt: string;
     status: ExchangeFrontMatter['status'];
+    /** Agent session output / failure note — keeps Track 2 non-blank for
+     * non-interactive sessions (zero supervisor interactions). */
+    output?: string;
   },
 ): Promise<void> {
   if (!deps.exchangeHistoryWriter || !deps.interactionCollector) return;
@@ -352,7 +295,7 @@ async function writeExchangeRecord(
       supervisorTurns: interactions.filter((i) => i.role === 'supervisor').length,
       status: meta.status,
     };
-    await deps.exchangeHistoryWriter.write({ frontMatter, interactions });
+    await deps.exchangeHistoryWriter.write({ frontMatter, interactions, agentOutput: meta.output });
   } catch (err) {
     // Best-effort — do not let Track 2 write failure break the session.
     console.warn(

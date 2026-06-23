@@ -78,6 +78,18 @@ describe('ExchangeHistoryWriter', () => {
     expect(content).toContain('_No interactions recorded._');
   });
 
+  it('records agentOutput for a non-interactive session (no "_No interactions recorded._")', async () => {
+    const writer = new ExchangeHistoryWriter(dir);
+    const path = await writer.write({
+      ...record({ interactions: [] }),
+      agentOutput: 'Implemented the dark-mode toggle in src/app.js and src/style.css.',
+    });
+    const content = await readFile(path, 'utf-8');
+    expect(content).toContain('### agent output');
+    expect(content).toContain('Implemented the dark-mode toggle');
+    expect(content).not.toContain('_No interactions recorded._');
+  });
+
   it('EA12-S6: frontmatter carries commit SHA when provided', async () => {
     const writer = new ExchangeHistoryWriter(dir);
     const path = await writer.write(
