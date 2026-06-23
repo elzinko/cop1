@@ -87,6 +87,15 @@ export function createDefaultBMADCommandRunner(
       storyId: storyKey,
     };
 
+    // Evidence-gate baseline: snapshot already-dirty paths BEFORE the session so
+    // the gate counts only NEW source changes. Otherwise a file left dirty by a
+    // prior/failed run (or a dirty checkout) would satisfy the gate on its own,
+    // letting a plan-only dev-story advance the story on fiction.
+    const evidenceBaseline =
+      deps.workspaceInspection && shouldHaveCodeChanges(command)
+        ? new Set(await deps.workspaceInspection.changedPaths(projectRoot))
+        : new Set<string>();
+
     let handle: SessionHandle;
     try {
       handle = await deps.sessionPort.startSession(command, bmadContext);
@@ -199,9 +208,12 @@ export function createDefaultBMADCommandRunner(
     // rather than advance the story on a self-reported (fictional) success.
     if (deps.workspaceInspection && shouldHaveCodeChanges(command)) {
       const maxAttempts = deps.maxImplementationRetries ?? DEFAULT_MAX_IMPLEMENTATION_RETRIES;
+      // Only NEW non-bookkeeping paths (not in the pre-session baseline) count.
+      const hasFreshImpl = (paths: string[]): boolean =>
+        hasImplementationChanges(paths.filter((p) => !evidenceBaseline.has(p)));
       let changedPaths = await deps.workspaceInspection.changedPaths(projectRoot);
       let attempts = 0;
-      while (!hasImplementationChanges(changedPaths) && attempts < maxAttempts) {
+      while (!hasFreshImpl(changedPaths) && attempts < maxAttempts) {
         attempts++;
         try {
           lastTurn = await deps.sessionPort.continueSession(handle.sessionId, IMPLEMENT_NOW_PROMPT);
@@ -238,7 +250,7 @@ export function createDefaultBMADCommandRunner(
         }
         changedPaths = await deps.workspaceInspection.changedPaths(projectRoot);
       }
-      if (!hasImplementationChanges(changedPaths)) {
+      if (!hasFreshImpl(changedPaths)) {
         await writeExchangeRecord(deps, {
           sessionId: handle.sessionId,
           storyId: storyKey,

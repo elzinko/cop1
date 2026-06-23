@@ -66,7 +66,8 @@ describe('DefaultBMADCommandRunner evidence gate', () => {
 
   it('blocks dev-story that never writes code (only bookkeeping changes)', async () => {
     const port = new FakeSessionPort(PLANNED_ONLY);
-    const inspector = new FakeInspector([['_bmad-output/implementation-artifacts/FEAT-S1.md']]);
+    // [baseline=clean, then only bookkeeping changes throughout].
+    const inspector = new FakeInspector([[], ['_bmad-output/implementation-artifacts/FEAT-S1.md']]);
     const runner = createDefaultBMADCommandRunner({
       sessionPort: port,
       supervisorService: buildSupervisorService(dir),
@@ -94,8 +95,9 @@ describe('DefaultBMADCommandRunner evidence gate', () => {
     const port = new FakeSessionPort(PLANNED_ONLY, [
       { completed: true, output: 'done implementing', durationMs: 1 },
     ]);
-    // 1st snapshot (pre-loop): no code. 2nd snapshot (after 1 continuation): code present.
+    // [baseline=clean, post-session=no code yet, post-continuation=code present].
     const inspector = new FakeInspector([
+      [],
       ['_bmad-output/implementation-artifacts/FEAT-S1.md'],
       ['_bmad-output/implementation-artifacts/FEAT-S1.md', 'src/app.js'],
     ]);
@@ -120,7 +122,7 @@ describe('DefaultBMADCommandRunner evidence gate', () => {
 
   it('advances dev-story that wrote code on the first turn (no corrective continuation)', async () => {
     const port = new FakeSessionPort({ completed: true, output: 'implemented', durationMs: 1 });
-    const inspector = new FakeInspector([['src/app.js', 'src/style.css']]);
+    const inspector = new FakeInspector([[], ['src/app.js', 'src/style.css']]);
     const runner = createDefaultBMADCommandRunner({
       sessionPort: port,
       supervisorService: buildSupervisorService(dir),
@@ -137,6 +139,31 @@ describe('DefaultBMADCommandRunner evidence gate', () => {
     expect(result.success).toBe(true);
     expect(result.nextStatus).toBe('in-review');
     expect(port.continueCalls).toHaveLength(0);
+  });
+
+  it('blocks a plan-only dev-story when src was ALREADY dirty before the session (baseline)', async () => {
+    // Codex P2: a file left dirty by a prior run must not satisfy the gate. The
+    // inspector reports `src/app.js` dirty throughout (baseline + after), but the
+    // session adds no NEW change — so the delta is empty and the story is blocked.
+    const port = new FakeSessionPort(PLANNED_ONLY);
+    const inspector = new FakeInspector([['src/app.js']]);
+    const runner = createDefaultBMADCommandRunner({
+      sessionPort: port,
+      supervisorService: buildSupervisorService(dir),
+      workspaceInspection: inspector,
+      maxImplementationRetries: 2,
+    });
+
+    const result = await runner({
+      command: '/bmad-bmm-dev-story',
+      storyKey: 'FEAT-S1',
+      epicId: 'FEAT',
+      projectRoot: dir,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.escalated).toBe(true);
+    expect(result.note).toContain('no source changes');
   });
 
   it('does not inspect the workspace for non-code commands (create-story)', async () => {
