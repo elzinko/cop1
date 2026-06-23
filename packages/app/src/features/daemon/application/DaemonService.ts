@@ -1,6 +1,7 @@
 import { SprintSessionService } from '@cop1/sprint-core';
 import { YamlSprintStatusAdapter } from '../../orchestrator/infrastructure/YamlSprintStatusAdapter.js';
 import { DEFAULT_PORT } from '../domain/DaemonState.js';
+import { checkAuth } from '../infrastructure/AuthChecker.js';
 import { HttpServer } from '../infrastructure/HttpServer.js';
 import { PidFileManager } from '../infrastructure/PidFileManager.js';
 
@@ -32,6 +33,10 @@ export class DaemonService {
 
       return { stories, session: sessionService.check() };
     });
+
+    // Wire the auth-check probe (Story A): GET /api/auth/check runs a cheap,
+    // single-turn SDK call inheriting the environment's Claude credentials.
+    this.httpServer.setAuthChecker(() => checkAuth());
   }
 
   async start(): Promise<void> {
