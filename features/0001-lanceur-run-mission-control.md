@@ -33,4 +33,4 @@ POC fonctionnel d'abord (déclenchement + flux d'événements), polish ensuite.
 
 ## Notes / décisions
 
-Source : [SPRINT.md](../SPRINT.md), tech-spec `_bmad-output/.../tech-spec-web-ui-auth-and-run-launcher.md`.
+Source : ex-`SPRINT.md` (capturé dans ce backlog), tech-spec `_bmad-output/.../tech-spec-web-ui-auth-and-run-launcher.md`.

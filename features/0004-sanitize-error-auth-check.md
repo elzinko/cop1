@@ -29,4 +29,4 @@ détail interne). Toujours 200, zéro secret (invariant existant de l'endpoint).
 
 ## Notes / décisions
 
-Source : [SPRINT.md](../SPRINT.md) (Suivi revue Story A).
+Source : ex-`SPRINT.md` (Suivi revue Story A).
