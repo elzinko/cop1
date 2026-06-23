@@ -29,4 +29,4 @@ Scénario Playwright : (1) panneau auth affiche 🟢 + modèle quand l'auth est 
 
 ## Notes / décisions
 
-Source : [SPRINT.md](../SPRINT.md) (section Suivi). Auth débloquée — mémoire `web_ui_and_cobaye_handoff`.
+Source : ex-`SPRINT.md` (section Suivi). Auth débloquée — mémoire `web_ui_and_cobaye_handoff`.
