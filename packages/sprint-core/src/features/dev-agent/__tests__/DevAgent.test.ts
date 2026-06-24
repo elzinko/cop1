@@ -167,11 +167,13 @@ describe('DevAgent', () => {
 
     await agent.run(context);
 
-    // Agent directory should be cleaned up
-    const agentDir = join(testDir, 'agent');
-    if (existsSync(agentDir)) {
-      const remaining = readdirSync(agentDir);
+    // Worktrees live under .cop1/worktrees (ADR-019) and must be cleaned up.
+    const worktreesDir = join(testDir, '.cop1', 'worktrees');
+    if (existsSync(worktreesDir)) {
+      const remaining = readdirSync(worktreesDir);
       expect(remaining).toHaveLength(0);
     }
+    // Nothing must leak into the versioned tree at agent/.
+    expect(existsSync(join(testDir, 'agent'))).toBe(false);
   });
 });

@@ -1,5 +1,4 @@
-import { execSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { LoggerBridge, StructuredLogger } from '@cop1/observability';
 import { QualityGateService } from '@cop1/quality-intelligence';
@@ -13,6 +12,7 @@ import {
   type StoryMetadata,
   WorkflowEngine,
   type WorkflowStep,
+  WorktreeManager,
 } from '@cop1/sprint-core';
 import { ConfigLoader } from '../features/config/application/ConfigLoader.js';
 import type { SprintStatusPort } from '../features/orchestrator/domain/SprintStatusPort.js';
@@ -211,28 +211,35 @@ export class SprintRunner {
   }
 
   private createSimulateWorktree(): string {
-    const timestamp = Date.now();
-    const worktreeName = `simulate-${timestamp}`;
-    const worktreePath = join(this.projectPath, 'agent', worktreeName);
+    // Delegate to the single worktree path source of truth (ADR-019): lands
+    // under <projectPath>/.cop1/worktrees/<runId>/, never in the versioned tree.
+    const worktreePath = new WorktreeManager().create(this.projectPath, 'simulate');
 
     this.eventBus.emit('simulate.worktree.creating', { path: worktreePath });
 
-    execSync(`git worktree add "${worktreePath}" HEAD`, {
-      cwd: this.projectPath,
-      stdio: 'pipe',
-    });
-
-    // Copy .cop1 state into the worktree
-    const cop1Dir = join(this.projectPath, '.cop1');
-    const targetCop1Dir = join(worktreePath, '.cop1');
-    if (existsSync(cop1Dir)) {
-      mkdirSync(targetCop1Dir, { recursive: true });
-      cpSync(cop1Dir, targetCop1Dir, { recursive: true });
-    }
+    this.copyCop1StateInto(worktreePath);
 
     this.eventBus.emit('simulate.worktree.created', { path: worktreePath });
 
     return worktreePath;
+  }
+
+  /**
+   * Copy `.cop1` runtime state into the simulate worktree, child by child, so
+   * the transient `worktrees/` subtree (which now hosts this very worktree per
+   * ADR-019) is never copied into itself.
+   */
+  private copyCop1StateInto(worktreePath: string): void {
+    const cop1Dir = join(this.projectPath, '.cop1');
+    if (!existsSync(cop1Dir)) return;
+
+    const targetCop1Dir = join(worktreePath, '.cop1');
+    mkdirSync(targetCop1Dir, { recursive: true });
+
+    for (const entry of readdirSync(cop1Dir)) {
+      if (entry === 'worktrees') continue;
+      cpSync(join(cop1Dir, entry), join(targetCop1Dir, entry), { recursive: true });
+    }
   }
 
   private filterEligibleFromMap(

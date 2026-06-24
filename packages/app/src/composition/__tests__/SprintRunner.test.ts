@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import {
   DevAgentStep,
   InMemoryStatusReader,
@@ -222,7 +222,9 @@ describe('SprintRunner simulate mode', () => {
 
     expect(result.simulate).toBe(true);
     expect(result.worktreePath).toBeDefined();
-    expect(result.worktreePath).toContain('agent/simulate-');
+    expect(result.worktreePath).toContain(join('.cop1', 'worktrees'));
+    expect(result.worktreePath).toContain('simulate-');
+    expect(result.worktreePath).not.toContain(`${sep}agent${sep}`);
     expect(result.storiesDone).toBe(3);
 
     // Worktree is preserved (not cleaned up)
