@@ -3,8 +3,8 @@ id: 0002
 title: Fix emplacement du worktree en session concurrente
 type: bug
 priority: P1
-status: todo
-pr:
+status: shipped
+pr: "#26"
 created: 2026-06-23
 ---
 
