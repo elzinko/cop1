@@ -3,8 +3,8 @@ id: 0001
 title: Story B — lanceur de run + mission-control live
 type: feature
 priority: P1
-status: todo
-pr:
+status: shipped
+pr: "#24"
 created: 2026-06-23
 ---
 
