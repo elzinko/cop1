@@ -4,7 +4,7 @@ import type { WorktreePort } from '../domain/ports/WorktreePort.js';
 
 function stubAdapter(overrides: Partial<WorktreePort> = {}): WorktreePort {
   return {
-    create: vi.fn(() => '/tmp/agent/story-1234'),
+    create: vi.fn(() => '/tmp/.cop1/worktrees/run/story-1234'),
     cleanup: vi.fn(),
     list: vi.fn(() => []),
     ...overrides,
@@ -15,15 +15,15 @@ describe('WorktreeService', () => {
   it('delegates create to the adapter and returns its path', () => {
     const adapter = stubAdapter();
     const svc = new WorktreeService(adapter);
-    expect(svc.create('/proj', 'EA11-S3')).toBe('/tmp/agent/story-1234');
+    expect(svc.create('/proj', 'EA11-S3')).toBe('/tmp/.cop1/worktrees/run/story-1234');
     expect(adapter.create).toHaveBeenCalledWith('/proj', 'EA11-S3');
   });
 
   it('delegates cleanup to the adapter', () => {
     const adapter = stubAdapter();
     const svc = new WorktreeService(adapter);
-    svc.cleanup('/proj', '/tmp/agent/story-1234');
-    expect(adapter.cleanup).toHaveBeenCalledWith('/proj', '/tmp/agent/story-1234');
+    svc.cleanup('/proj', '/tmp/.cop1/worktrees/run/story-1234');
+    expect(adapter.cleanup).toHaveBeenCalledWith('/proj', '/tmp/.cop1/worktrees/run/story-1234');
   });
 
   it('delegates list and returns adapter output', () => {

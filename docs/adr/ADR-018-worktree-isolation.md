@@ -67,9 +67,9 @@ Alternatives écartées :
 - Une mauvaise story est confinée à son worktree ; l'arbre principal et les autres
   stories restent sains. Le statut reste centralisé et lisible en continu.
 - Worktrees d'échec conservés = matière à debug, mais nécessitent un `git worktree
-  prune` manuel périodique (accepté pour le POC). `WorktreeManager.create` place le
-  worktree sous `<projectPath>/agent/...` ; à confirmer hors arbre versionné pour
-  éviter qu'il apparaisse dans `git status` principal.
+  prune` manuel périodique (accepté pour le POC). L'emplacement (`<projectPath>/agent/...`,
+  in-tree et non collision-safe) est **affiné par ADR-019** : worktrees sous
+  `<projectPath>/.cop1/worktrees/<runId>/...` (gitignoré, run-scoped, sûr en concurrence).
 - Le code des stories n'est pas intégré automatiquement (merge-back différé) :
   acceptable pour un run de nuit dont on inspecte les résultats au réveil.
 - Rétro-compatible : sans `worktreePort`, la boucle fonctionne comme avant.

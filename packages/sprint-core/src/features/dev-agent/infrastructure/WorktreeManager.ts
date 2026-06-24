@@ -1,28 +1,62 @@
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readdirSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-export class WorktreeManager {
-  create(projectPath: string, storyId: string): string {
-    const timestamp = Date.now();
-    const worktreeName = `${storyId}-${timestamp}`;
-    const worktreePath = join(projectPath, 'agent', worktreeName);
+/**
+ * Single source of truth for worktree paths (ADR-019).
+ *
+ * Worktrees live under the gitignored `.cop1/` runtime dir, scoped by `runId`
+ * so two concurrent runs on the same project never share a base directory.
+ */
+export function worktreeBaseDir(projectPath: string, runId: string): string {
+  return join(projectPath, '.cop1', 'worktrees', runId);
+}
 
-    execSync(`git worktree add "${worktreePath}" HEAD`, {
+export function worktreePath(baseDir: string, storyId: string): string {
+  return join(baseDir, `${storyId}-${randomUUID().slice(0, 8)}`);
+}
+
+/**
+ * Stateful per-run worktree manager (ADR-019).
+ *
+ * The constructor freezes a unique `runId`, giving this instance an isolated
+ * base dir `<projectPath>/.cop1/worktrees/<runId>/`. MUST be constructed once
+ * per run: two runs = two managers = two runIds = disjoint bases, even for the
+ * same `projectPath` + same `storyId`. The `WorktreePort` contract is unchanged;
+ * `runId` is an implementation detail.
+ */
+export class WorktreeManager {
+  private readonly runId = randomUUID();
+
+  create(projectPath: string, storyId: string): string {
+    const baseDir = worktreeBaseDir(projectPath, this.runId);
+    const target = worktreePath(baseDir, storyId);
+
+    // git worktree add requires the parent directory to exist.
+    mkdirSync(baseDir, { recursive: true });
+
+    execSync(`git worktree add "${target}" HEAD`, {
       cwd: projectPath,
       stdio: 'pipe',
     });
 
-    return worktreePath;
+    return target;
   }
 
-  cleanup(projectPath: string, worktreePath: string): void {
-    if (!existsSync(worktreePath)) return;
+  cleanup(projectPath: string, target: string): void {
+    if (existsSync(target)) {
+      execSync(`git worktree remove "${target}" --force`, {
+        cwd: projectPath,
+        stdio: 'pipe',
+      });
+    }
 
-    execSync(`git worktree remove "${worktreePath}" --force`, {
-      cwd: projectPath,
-      stdio: 'pipe',
-    });
+    // Drop any stale administrative references (no-orphan, AC2).
+    execSync('git worktree prune', { cwd: projectPath, stdio: 'pipe' });
+
+    // Remove the run base only if empty — a kept worktree (ADR-018) must survive.
+    removeIfEmpty(worktreeBaseDir(projectPath, this.runId));
   }
 
   list(projectPath: string): string[] {
@@ -35,5 +69,15 @@ export class WorktreeManager {
       .split('\n')
       .filter((line) => line.startsWith('worktree '))
       .map((line) => line.replace('worktree ', ''));
+  }
+}
+
+function removeIfEmpty(dir: string): void {
+  try {
+    if (existsSync(dir) && readdirSync(dir).length === 0) {
+      rmdirSync(dir);
+    }
+  } catch {
+    // best-effort: a non-empty or concurrently-used base is left in place.
   }
 }

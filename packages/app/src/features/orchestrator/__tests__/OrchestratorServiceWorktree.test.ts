@@ -39,6 +39,16 @@ async function seedStatusFile(dir: string): Promise<string> {
 }
 
 /**
+ * Synthetic worktree path used by the in-memory spy. Mirrors the ADR-019
+ * location (`.cop1/worktrees/...`) so the test never re-encodes the dead
+ * `agent/` convention. The exact value is opaque to the orchestrator — it only
+ * needs to be stable and keyed by storyId.
+ */
+function stubWorktreePath(projectPath: string, storyId: string): string {
+  return join(projectPath, '.cop1', 'worktrees', 'run', `${storyId}-wt`);
+}
+
+/**
  * In-memory synchronous WorktreePort spy. Mirrors the real adapter contract:
  * `create(projectPath, storyId) => string` and `cleanup(projectPath, worktreePath) => void`.
  */
@@ -53,7 +63,7 @@ function createWorktreeSpy(): WorktreePort & {
     cleanupCalls,
     create(projectPath: string, storyId: string): string {
       createCalls.push({ projectPath, storyId });
-      return join(projectPath, 'agent', `${storyId}-wt`);
+      return stubWorktreePath(projectPath, storyId);
     },
     cleanup(projectPath: string, worktreePath: string): void {
       cleanupCalls.push({ projectPath, worktreePath });
@@ -114,8 +124,8 @@ describe('OrchestratorService — worktree isolation (ADR-018)', () => {
 
     // Runner ran inside the worktree path, never the main tree.
     expect(runnerProjectRoots).toEqual([
-      join(projectRoot, 'agent', 'EA99-S1-wt'),
-      join(projectRoot, 'agent', 'EA99-S2-wt'),
+      stubWorktreePath(projectRoot, 'EA99-S1'),
+      stubWorktreePath(projectRoot, 'EA99-S2'),
     ]);
     // Status persisted in the MAIN tree (not the worktree).
     const finalStatus = await readFile(statusPath, 'utf-8');
@@ -138,8 +148,8 @@ describe('OrchestratorService — worktree isolation (ADR-018)', () => {
     });
 
     expect(worktree.cleanupCalls.map((c) => c.worktreePath)).toEqual([
-      join(projectRoot, 'agent', 'EA99-S1-wt'),
-      join(projectRoot, 'agent', 'EA99-S2-wt'),
+      stubWorktreePath(projectRoot, 'EA99-S1'),
+      stubWorktreePath(projectRoot, 'EA99-S2'),
     ]);
     expect(worktree.cleanupCalls.every((c) => c.projectPath === projectRoot)).toBe(true);
   });
@@ -168,11 +178,11 @@ describe('OrchestratorService — worktree isolation (ADR-018)', () => {
 
     // S1 failed → kept (not cleaned). S2 succeeded → cleaned.
     expect(worktree.cleanupCalls.map((c) => c.worktreePath)).toEqual([
-      join(projectRoot, 'agent', 'EA99-S2-wt'),
+      stubWorktreePath(projectRoot, 'EA99-S2'),
     ]);
     expect(kept).toHaveLength(1);
     expect(kept[0]?.storyKey).toBe('EA99-S1');
-    expect(kept[0]?.worktreePath).toBe(join(projectRoot, 'agent', 'EA99-S1-wt'));
+    expect(kept[0]?.worktreePath).toBe(stubWorktreePath(projectRoot, 'EA99-S1'));
   });
 
   it('keeps the worktree on escalation abort and emits orchestrator.worktree.kept', async () => {
