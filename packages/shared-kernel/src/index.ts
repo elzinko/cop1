@@ -5,6 +5,7 @@ export type { BudgetConfig, Cop1Config } from './features/config/domain/Cop1Conf
 export type { ConfigPort } from './features/config/domain/ports/ConfigPort.js';
 
 export { EventBus } from './features/events/domain/EventBus.js';
+export { TaggingEventBus } from './features/events/domain/TaggingEventBus.js';
 export { EventType } from './features/events/domain/EventType.js';
 export type { EventTypeValue } from './features/events/domain/EventType.js';
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AuthPanel } from './AuthPanel.js';
+import { OrchestratorRunView } from './OrchestratorRunView.js';
 import { RuleProposalsView } from './RuleProposalsView.js';
 
 interface Project {
@@ -28,7 +29,7 @@ interface Task {
   createdAt: string;
 }
 
-type Tab = 'projects' | 'agents' | 'tasks' | 'rules' | 'connexion';
+type Tab = 'projects' | 'agents' | 'tasks' | 'rules' | 'connexion' | 'run';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('projects');
@@ -43,7 +44,7 @@ function App() {
   }, [activeTab]);
 
   const fetchData = async () => {
-    if (activeTab === 'rules' || activeTab === 'connexion') {
+    if (activeTab === 'rules' || activeTab === 'connexion' || activeTab === 'run') {
       setLoading(false);
       return;
     }
@@ -181,6 +182,12 @@ function App() {
           >
             Connexion
           </button>
+          <button
+            className={`tab ${activeTab === 'run' ? 'active' : ''}`}
+            onClick={() => setActiveTab('run')}
+          >
+            Run
+          </button>
         </div>
 
         {error && (
@@ -198,6 +205,7 @@ function App() {
             {activeTab === 'tasks' && renderTasks()}
             {activeTab === 'rules' && <RuleProposalsView />}
             {activeTab === 'connexion' && <AuthPanel />}
+            {activeTab === 'run' && <OrchestratorRunView />}
           </>
         )}
       </div>

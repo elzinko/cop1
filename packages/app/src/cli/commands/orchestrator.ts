@@ -18,6 +18,7 @@ import {
 import {
   type BMADCommandRunner,
   type OrchestratorMode,
+  type OrchestratorRunResult,
   OrchestratorService,
 } from '../../features/orchestrator/application/OrchestratorService.js';
 import { SupervisorPlaybookLoader } from '../../features/orchestrator/application/SupervisorPlaybookLoader.js';
@@ -75,7 +76,60 @@ export async function orchestratorRunCommand(
       ? 'step-by-step'
       : 'normal';
 
-  const eventBus = new EventBus();
+  try {
+    const handle = await buildOrchestratorRun({
+      playbook,
+      epic: options.epic,
+      mode,
+      projectRoot,
+      eventBus: new EventBus(),
+      runner: overrides.runner,
+      runnerChoice: options.runner,
+    });
+    const result = await handle.run();
+    if (result.aborted) {
+      process.exitCode = 3;
+    }
+    console.log(
+      `Orchestrator finished: ${result.storiesProcessed.length} stories, escalated=${result.escalated}, aborted=${result.aborted}`,
+    );
+  } catch (err) {
+    console.error('Orchestrator runtime error:', err);
+    process.exitCode = 2;
+  }
+}
+
+export interface BuildOrchestratorRunOptions {
+  /** Playbook already loaded by the caller. */
+  playbook: SupervisorPlaybook;
+  epic: string;
+  mode: OrchestratorMode;
+  projectRoot: string;
+  /** Injected — the run emits on THIS bus (CLI: a fresh bus; daemon: a TaggingEventBus). */
+  eventBus: EventBus;
+  /** Explicit runner override (tests / daemon); else resolveRunner(...). */
+  runner?: BMADCommandRunner;
+  /** CLI `--runner` flag (`default`/`stub`) forwarded to resolveRunner when no explicit runner. */
+  runnerChoice?: 'default' | 'stub';
+  /** Optional caps; when provided, override the COP1_* env equivalents. */
+  caps?: { maxTokens?: number; deadlineMin?: number; maxUsdPerSession?: number };
+}
+
+export interface OrchestratorRunHandle {
+  run(): Promise<OrchestratorRunResult>;
+}
+
+/**
+ * Builds the orchestrator run wiring (mode-aware gate, budget/kill-switch, event
+ * listeners, runner resolution, OrchestratorService construction) WITHOUT
+ * touching `process.exitCode` and WITHOUT printing the completion summary —
+ * those stay in the CLI command. Reused by the daemon's in-process run adapter.
+ */
+export async function buildOrchestratorRun(
+  opts: BuildOrchestratorRunOptions,
+): Promise<OrchestratorRunHandle> {
+  const { playbook, epic, mode, projectRoot, eventBus, caps } = opts;
+
   const resolver = createInterCommandApprovalResolver();
   const gate = async (ctx: { storyKey: string; nextCommand: string }) =>
     resolver({ phase: 'inter', label: `${ctx.storyKey}:${ctx.nextCommand}` });
@@ -88,9 +142,13 @@ export async function orchestratorRunCommand(
   };
 
   // Budget / kill-switch: token cap, wall-clock deadline, and external abort file.
+  // Explicit `caps` override the COP1_* env equivalents (deadlineMin → ms).
   const budget = new RunBudget({
-    maxTokens: parseEnvInt('COP1_MAX_TOKENS'),
-    deadlineMs: parseEnvMinToMs('COP1_DEADLINE_MIN'),
+    maxTokens: caps?.maxTokens ?? parseEnvInt('COP1_MAX_TOKENS'),
+    deadlineMs:
+      caps?.deadlineMin !== undefined && caps.deadlineMin > 0
+        ? caps.deadlineMin * 60_000
+        : parseEnvMinToMs('COP1_DEADLINE_MIN'),
     externalAbort: createAbortFilePredicate(join(logDir, 'abort')),
   });
   // `completed` and `failed` are mutually exclusive per command execution, so
@@ -106,7 +164,7 @@ export async function orchestratorRunCommand(
   // Surface Claude availability: a transient blockage (overloaded / rate-limit /
   // 5xx / network) is retried with backoff inside the adapter and reported here,
   // so an operator sees a temporary degradation instead of a silent stall. The
-  // web traffic-light panel will consume the same event once Story A lands.
+  // web traffic-light panel consumes the same event over SSE.
   eventBus.on(CLAUDE_STATUS_EVENT, (p) => {
     const e = p as { status?: string; attempt?: number; detail?: string; storyId?: string };
     autoDecisionLogger({
@@ -124,37 +182,30 @@ export async function orchestratorRunCommand(
     }
   });
 
-  try {
-    const runner = overrides.runner ?? resolveRunner(options, projectRoot, eventBus);
-    // ADR-018 — opt-in per-story git worktree isolation. Off by default to keep
-    // the V1.1 behavior; enable with COP1_WORKTREE_ISOLATION=1.
-    const worktreePort =
-      process.env.COP1_WORKTREE_ISOLATION === '1' ? new WorktreeService() : undefined;
-    const svc = new OrchestratorService(
-      runner,
-      eventBus,
-      gate,
-      autoDecisionLogger,
-      budget,
-      worktreePort,
-    );
-    const result = await svc.run({ playbook, epicId: options.epic, projectRoot, mode });
-    if (result.aborted) {
-      process.exitCode = 3;
-    }
-    console.log(
-      `Orchestrator finished: ${result.storiesProcessed.length} stories, escalated=${result.escalated}, aborted=${result.aborted}`,
-    );
-  } catch (err) {
-    console.error('Orchestrator runtime error:', err);
-    process.exitCode = 2;
-  }
+  const runner =
+    opts.runner ??
+    resolveRunner({ runner: opts.runnerChoice }, projectRoot, eventBus, caps?.maxUsdPerSession);
+  // ADR-018 — opt-in per-story git worktree isolation. Off by default to keep
+  // the V1.1 behavior; enable with COP1_WORKTREE_ISOLATION=1.
+  const worktreePort =
+    process.env.COP1_WORKTREE_ISOLATION === '1' ? new WorktreeService() : undefined;
+  const svc = new OrchestratorService(
+    runner,
+    eventBus,
+    gate,
+    autoDecisionLogger,
+    budget,
+    worktreePort,
+  );
+
+  return { run: () => svc.run({ playbook, epicId: epic, projectRoot, mode }) };
 }
 
 function resolveRunner(
-  options: OrchestratorRunCliOptions,
+  options: { runner?: 'default' | 'stub' },
   projectRoot: string,
   eventBus: EventBus,
+  maxUsdPerSessionOverride?: number,
 ): BMADCommandRunner {
   if (options.runner === 'stub') {
     if (process.env.COP1_ALLOW_STUB_RUNNER !== '1') {
@@ -189,8 +240,14 @@ function resolveRunner(
   const questionHandler = supervisorService.createQuestionHandler();
 
   // Per-session USD ceiling: forwarded to the SDK adapter's native maxBudgetUsd.
+  // An explicit override (from the caller's `caps.maxUsdPerSession`) takes
+  // precedence over the COP1_MAX_USD_PER_SESSION env var.
   const parsedUsd = Number.parseFloat(process.env.COP1_MAX_USD_PER_SESSION ?? '');
-  const maxBudgetUsd = Number.isFinite(parsedUsd) && parsedUsd > 0 ? parsedUsd : undefined;
+  const envUsd = Number.isFinite(parsedUsd) && parsedUsd > 0 ? parsedUsd : undefined;
+  const maxBudgetUsd =
+    maxUsdPerSessionOverride !== undefined && maxUsdPerSessionOverride > 0
+      ? maxUsdPerSessionOverride
+      : envUsd;
 
   const adapterChoice = (process.env.COP1_BMAD_ADAPTER ?? '').trim();
   let sessionPort: BMADSessionPort;
