@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Mode = 'normal' | 'abort-on-escalation';
 
@@ -31,8 +31,11 @@ export function OrchestratorRunView() {
   const [tokenCap, setTokenCap] = useState<number | null>(null);
   const [alert, setAlert] = useState<string | null>(null);
   const [terminal, setTerminal] = useState(false);
-  const [lastEventAt, setLastEventAt] = useState<number>(Date.now());
   const [silentMs, setSilentMs] = useState(0);
+  // Last-event timestamp lives in a ref (not state) so the heartbeat interval
+  // doesn't tear down and re-create on every incoming frame — it re-subscribes
+  // only when the run starts or reaches a terminal state.
+  const lastEventAtRef = useRef<number>(Date.now());
 
   // Raw run frames, retained as they arrive (even before the runId is known).
   // The rendered state is derived from these by filtering on the active runId,
@@ -106,20 +109,21 @@ export function OrchestratorRunView() {
     setTokensUsed(nextTokens);
     if (nextAlert !== null) setAlert(nextAlert);
     if (nextTerminal) setTerminal(true);
-    setLastEventAt(Date.now());
+    lastEventAtRef.current = Date.now();
   }, [frames, runId]);
 
   // Heartbeat: surface a "silent for Ns" hint when no event has arrived recently,
-  // so a long-running command doesn't look like a frozen screen.
+  // so a long-running command doesn't look like a frozen screen. One stable
+  // interval per run (reads the last-event ref) — not re-created on every frame.
   useEffect(() => {
     if (!runId || terminal) return;
     const interval = setInterval(() => {
-      setSilentMs(Date.now() - lastEventAt);
+      setSilentMs(Date.now() - lastEventAtRef.current);
     }, 1000);
     return () => {
       clearInterval(interval);
     };
-  }, [runId, terminal, lastEventAt]);
+  }, [runId, terminal]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +163,7 @@ export function OrchestratorRunView() {
       setCommand(null);
       setAlert(null);
       setTerminal(false);
-      setLastEventAt(Date.now());
+      lastEventAtRef.current = Date.now();
       setSilentMs(0);
       setRunId(data.runId);
     } catch (err) {
