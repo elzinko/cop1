@@ -132,6 +132,11 @@ export function OrchestratorRunView() {
       setError('epic est requis');
       return;
     }
+    // Bound the buffer across runs: drop the previous run's frames BEFORE the POST.
+    // The new run's frames are emitted only once the daemon receives this request,
+    // so they land in the now-empty buffer — the early-frame race stays handled
+    // (frames still arrive before runId is set, just into a fresh buffer).
+    setFrames([]);
     const caps: Record<string, number> = {};
     if (maxTokens) caps.maxTokens = Number(maxTokens);
     if (deadlineMin) caps.deadlineMin = Number(deadlineMin);
