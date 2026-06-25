@@ -283,6 +283,193 @@ describe('OrchestratorService', () => {
     expect(result.storiesProcessed.every((o) => o.nextStatus === o.previousStatus)).toBe(true);
   });
 
+  it('blocks a story whose per-story budget trips but lets the run CONTINUE', async () => {
+    const statusPath = await seedStatusFile(projectRoot);
+    const bus = new EventBus();
+    const budgetEvents: { storyKey?: string; reason?: string; storyTokens?: number }[] = [];
+    const runEvents: unknown[] = [];
+    bus.on('orchestrator.story.budget_exceeded', (p) =>
+      budgetEvents.push(p as { storyKey?: string; reason?: string; storyTokens?: number }),
+    );
+    bus.on('orchestrator.run.aborted', (p) => runEvents.push(p));
+
+    // Run-level guard never trips (run continues). spentTokens climbs +100 per
+    // status() call so the per-story diff crosses the 50-token story cap quickly.
+    let spent = 0;
+    const guard = {
+      recordTokens: () => {},
+      status: () => {
+        spent += 100;
+        return { tripped: false as const, spentTokens: spent, elapsedMs: 0 };
+      },
+    };
+
+    const runner = vi.fn(async ({ command }) => ({
+      success: true,
+      nextStatus: command.includes('create-story') ? 'ready-for-dev' : 'in-review',
+    }));
+    const svc = new OrchestratorService(runner, bus, undefined, undefined, guard, undefined, {
+      maxTokens: 50,
+    });
+
+    const result = await svc.run({
+      playbook: samplePlaybook(),
+      epicId: 'EA99',
+      projectRoot,
+      mode: 'normal',
+    });
+
+    // The run was NOT aborted — both stories appear in the outcomes.
+    expect(result.aborted).toBe(false);
+    expect(runEvents).toHaveLength(0);
+    expect(result.storiesProcessed.map((o) => o.storyKey)).toEqual(['EA99-S1', 'EA99-S2']);
+
+    // Each story is blocked by its own per-story budget.
+    const s1 = result.storiesProcessed.find((o) => o.storyKey === 'EA99-S1');
+    expect(s1?.nextStatus).toBe('blocked');
+    expect(s1?.error).toContain('story budget exceeded');
+    expect(s1?.error).toContain('story-tokens');
+
+    // The per-story budget_exceeded event was emitted for the blocked story.
+    expect(budgetEvents.length).toBeGreaterThanOrEqual(1);
+    expect(budgetEvents[0]?.storyKey).toBe('EA99-S1');
+    expect(budgetEvents[0]?.reason).toBe('story-tokens');
+
+    // Status persisted as blocked for the first story.
+    const finalStatus = await readFile(statusPath, 'utf-8');
+    expect(finalStatus).toContain('EA99-S1: blocked');
+  });
+
+  it('a tripped per-story budget on the first story does NOT prevent the next story from running', async () => {
+    await seedStatusFile(projectRoot);
+    const bus = new EventBus();
+
+    // Story 1 trips (huge per-story spend); story 2 stays cheap and completes.
+    // The run-level guard never trips, so the run keeps going to story 2.
+    let spent = 0;
+    const guard = {
+      recordTokens: () => {},
+      status: () => ({ tripped: false as const, spentTokens: spent, elapsedMs: 0 }),
+    };
+
+    const ran: string[] = [];
+    const runner = vi.fn(async ({ storyKey, command }) => {
+      ran.push(`${storyKey}:${command}`);
+      // Only story 1 burns tokens (crosses the 50 cap on its first command).
+      if (storyKey === 'EA99-S1') spent += 100;
+      return {
+        success: true,
+        nextStatus: command.includes('create-story')
+          ? 'ready-for-dev'
+          : command.includes('dev-story')
+            ? 'in-review'
+            : 'done',
+      };
+    });
+    const svc = new OrchestratorService(runner, bus, undefined, undefined, guard, undefined, {
+      maxTokens: 50,
+    });
+
+    const result = await svc.run({
+      playbook: samplePlaybook(),
+      epicId: 'EA99',
+      projectRoot,
+      mode: 'normal',
+    });
+
+    expect(result.aborted).toBe(false);
+    const s1 = result.storiesProcessed.find((o) => o.storyKey === 'EA99-S1');
+    const s2 = result.storiesProcessed.find((o) => o.storyKey === 'EA99-S2');
+    expect(s1?.nextStatus).toBe('blocked');
+    // Story 2 ran its full command sequence and reached done (never tripped).
+    expect(s2?.nextStatus).toBe('done');
+    expect(ran.some((c) => c.startsWith('EA99-S2:'))).toBe(true);
+  });
+
+  it('with no storyBudgetConfig the per-story budget is inert (behavior unchanged)', async () => {
+    const statusPath = await seedStatusFile(projectRoot);
+    const bus = new EventBus();
+    const budgetEvents: unknown[] = [];
+    bus.on('orchestrator.story.budget_exceeded', (p) => budgetEvents.push(p));
+
+    // A guard that would trip ANY story budget — but with no config it is never
+    // consulted as a StoryBudget. The run-level guard itself never trips.
+    let spent = 0;
+    const guard = {
+      recordTokens: () => {},
+      status: () => {
+        spent += 1_000_000;
+        return { tripped: false as const, spentTokens: spent, elapsedMs: 0 };
+      },
+    };
+
+    const runner = vi.fn(async ({ command }) => ({
+      success: true,
+      nextStatus: command.includes('create-story')
+        ? 'ready-for-dev'
+        : command.includes('dev-story')
+          ? 'in-review'
+          : 'done',
+    }));
+    // 6th positional arg (worktreePort) undefined, NO 7th storyBudgetConfig.
+    const svc = new OrchestratorService(runner, bus, undefined, undefined, guard);
+
+    const result = await svc.run({
+      playbook: samplePlaybook(),
+      epicId: 'EA99',
+      projectRoot,
+      mode: 'normal',
+    });
+
+    expect(result.aborted).toBe(false);
+    expect(budgetEvents).toHaveLength(0);
+    const finalStatus = await readFile(statusPath, 'utf-8');
+    expect(finalStatus).toContain('EA99-S1: done');
+    expect(finalStatus).toContain('EA99-S2: done');
+  });
+
+  it('the run-level budget still aborts the whole run (story budget does not weaken it)', async () => {
+    const statusPath = await seedStatusFile(projectRoot);
+    const bus = new EventBus();
+    const aborts: { reason?: string }[] = [];
+    bus.on('orchestrator.run.aborted', (p) => aborts.push(p as { reason?: string }));
+
+    const runner = vi.fn(async () => ({ success: true, nextStatus: 'done' }));
+    const trippedGuard = {
+      recordTokens: () => {},
+      status: () => ({
+        tripped: true as const,
+        reason: 'tokens' as const,
+        spentTokens: 1,
+        elapsedMs: 0,
+      }),
+    };
+    // Story budget config present too — must NOT prevent the run-level abort.
+    const svc = new OrchestratorService(
+      runner,
+      bus,
+      undefined,
+      undefined,
+      trippedGuard,
+      undefined,
+      { maxTokens: 999_999 },
+    );
+
+    const result = await svc.run({
+      playbook: samplePlaybook(),
+      epicId: 'EA99',
+      projectRoot,
+      mode: 'normal',
+    });
+
+    expect(result.aborted).toBe(true);
+    expect(runner).not.toHaveBeenCalled();
+    expect(aborts).toHaveLength(1);
+    expect(aborts[0]?.reason).toBe('tokens');
+    const finalStatus = await readFile(statusPath, 'utf-8');
+    expect(finalStatus).toContain('EA99-S1: ready-for-dev');
+  });
+
   it('calls auto-decision logger per command', async () => {
     await seedStatusFile(projectRoot);
     const bus = new EventBus();

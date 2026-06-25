@@ -4,6 +4,7 @@ import type { EventBus } from '@cop1/shared-kernel';
 import { defaultCommandsForPhase } from '@cop1/sprint-core';
 import type { WorktreePort } from '@cop1/sprint-core';
 import type { BudgetGuard } from '../domain/RunBudget.js';
+import { StoryBudget, type StoryBudgetConfig } from '../domain/StoryBudget.js';
 import type { SupervisorPlaybook } from '../domain/SupervisorPlaybook.js';
 
 // NOTE — `sprint-status.yaml` file-level coupling is intentional and localized
@@ -78,6 +79,7 @@ export class OrchestratorService {
     private readonly autoDecisionLogger?: (payload: Record<string, unknown>) => void,
     private readonly budgetGuard?: BudgetGuard,
     private readonly worktreePort?: WorktreePort,
+    private readonly storyBudgetConfig?: StoryBudgetConfig,
   ) {}
 
   async run(options: OrchestratorRunOptions): Promise<OrchestratorRunResult> {
@@ -131,6 +133,14 @@ export class OrchestratorService {
         }
       }
 
+      // ADR-020 — per-story budget. A view over the run budget that snapshots
+      // its counters here (story start) and diffs from them. A trip blocks THIS
+      // story (run continues), unlike the run budget which aborts the run.
+      const storyBudget =
+        this.budgetGuard && this.storyBudgetConfig
+          ? new StoryBudget(this.budgetGuard, this.storyBudgetConfig)
+          : undefined;
+
       for (const phase of options.playbook.phases) {
         // EA12-S3 / A5 pivot: if the playbook doesn't enumerate phase commands,
         // fall back to the canonical cycle from sprint-core. Unknown phase names
@@ -158,6 +168,32 @@ export class OrchestratorService {
               });
               this.finalizeWorktree(options.projectRoot, storyKey, worktreePath, true);
               break storyLoop;
+            }
+          }
+
+          // ADR-020 — per-story budget. A trip blocks THIS story and lets the
+          // run CONTINUE (continue storyLoop), unlike the run budget above which
+          // aborts the whole run (break storyLoop).
+          if (storyBudget) {
+            const sb = storyBudget.status();
+            if (sb.tripped) {
+              outcomes.push({
+                storyKey,
+                previousStatus,
+                nextStatus: 'blocked',
+                commandsRun,
+                error: `story budget exceeded: ${sb.reason}`,
+              });
+              await this.persistStatus(statusPath, storyKey, 'blocked');
+              this.eventBus.emit('orchestrator.story.budget_exceeded', {
+                storyKey,
+                reason: sb.reason,
+                storyTokens: sb.storyTokens,
+                storyElapsedMs: sb.storyElapsedMs,
+                ts: new Date().toISOString(),
+              });
+              this.finalizeWorktree(options.projectRoot, storyKey, worktreePath, true);
+              continue storyLoop;
             }
           }
 

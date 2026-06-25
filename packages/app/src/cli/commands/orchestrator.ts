@@ -189,6 +189,19 @@ export async function buildOrchestratorRun(
   // the V1.1 behavior; enable with COP1_WORKTREE_ISOLATION=1.
   const worktreePort =
     process.env.COP1_WORKTREE_ISOLATION === '1' ? new WorktreeService() : undefined;
+
+  // ADR-020 — opt-in per-story budget. When neither env is set, pass undefined
+  // so the run behaves exactly as before (no per-story budget).
+  const storyMaxTokens = parseEnvInt('COP1_MAX_TOKENS_PER_STORY');
+  const storyDeadlineMs = parseEnvMinToMs('COP1_DEADLINE_MIN_PER_STORY');
+  const storyBudgetConfig =
+    storyMaxTokens !== undefined || storyDeadlineMs !== undefined
+      ? {
+          ...(storyMaxTokens !== undefined && { maxTokens: storyMaxTokens }),
+          ...(storyDeadlineMs !== undefined && { deadlineMs: storyDeadlineMs }),
+        }
+      : undefined;
+
   const svc = new OrchestratorService(
     runner,
     eventBus,
@@ -196,6 +209,7 @@ export async function buildOrchestratorRun(
     autoDecisionLogger,
     budget,
     worktreePort,
+    storyBudgetConfig,
   );
 
   return { run: () => svc.run({ playbook, epicId: epic, projectRoot, mode }) };
