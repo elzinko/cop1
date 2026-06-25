@@ -142,6 +142,35 @@ describe('OrchestratorRunView', () => {
     expect(screen.getByRole('button', { name: /lancer/i })).toBeTruthy();
   });
 
+  it('clears the previous run buffer and the next run still renders its frames', async () => {
+    render(<OrchestratorRunView />);
+    await startRun(); // run 1 → r1
+
+    await pushSse('orchestrator.command.started', { command: '/run1-cmd', runId: 'r1' });
+    expect(await screen.findByText(/run1-cmd/)).toBeTruthy();
+    await pushSse('orchestrator.run.completed', { runId: 'r1' });
+    await screen.findByText(/run terminé/i);
+
+    // A second run gets a fresh runId; submitting clears the previous buffer.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ runId: 'r2' }) }),
+    );
+    fireEvent.change(screen.getByLabelText(/epic/i), { target: { value: 'EA2' } });
+    fireEvent.click(screen.getByRole('button', { name: /lancer/i }));
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/orchestrator/run',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    // The new run's frames render; the previous run's command does not bleed through.
+    await pushSse('orchestrator.command.started', { command: '/run2-cmd', runId: 'r2' });
+    expect(await screen.findByText(/run2-cmd/)).toBeTruthy();
+    expect(screen.queryByText(/run1-cmd/)).toBeNull();
+  });
+
   it('shows "un run est déjà actif" on a 409 response', async () => {
     vi.stubGlobal(
       'fetch',
