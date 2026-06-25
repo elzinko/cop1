@@ -110,6 +110,27 @@ describe('WorktreeManager (real git, ADR-019)', () => {
     expect(existsSync(wt)).toBe(false);
   });
 
+  it('Hardening: a storyId with shell metacharacters is treated literally, never executed', () => {
+    const mgr = new WorktreeManager();
+    // `$(touch INJECTED)` resolves against cwd=projectPath if a shell ever ran it.
+    // With execFileSync the whole path is a single literal argv entry, so nothing runs.
+    const sentinel = join(projectPath, 'INJECTED');
+    const wt = mgr.create(projectPath, 'evil$(touch INJECTED)x');
+
+    // No shell executed the injected command.
+    expect(existsSync(sentinel)).toBe(false);
+    // The worktree exists with the metacharacters as a literal directory name.
+    expect(existsSync(wt)).toBe(true);
+    expect(wt).toContain('evil$(touch INJECTED)x');
+    expect(gitWorktreeList(projectPath)).toContain(wt);
+
+    // Clean up via the manager (execFileSync too — also exercises remove on a
+    // metacharacter path) so the shell-based afterEach never sees this path.
+    mgr.cleanup(projectPath, wt);
+    expect(existsSync(sentinel)).toBe(false);
+    expect(gitWorktreeList(projectPath)).not.toContain(wt);
+  });
+
   it('Keep coexists: a kept worktree stays under .cop1/worktrees and its base is not deleted', () => {
     const mgr = new WorktreeManager();
     const kept = mgr.create(projectPath, 'EA11-S1');
