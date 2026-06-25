@@ -3,8 +3,8 @@ id: 0009
 title: Durcir les appels git worktree (execFileSync, anti-injection shell)
 type: refactor
 priority: P2
-status: todo
-pr:
+status: shipped
+pr: "#30"
 created: 2026-06-24
 ---
 

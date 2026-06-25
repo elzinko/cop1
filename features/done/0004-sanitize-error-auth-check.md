@@ -3,8 +3,8 @@ id: 0004
 title: Sanitiser/tronquer le champ error de /api/auth/check
 type: bug
 priority: P2
-status: todo
-pr:
+status: shipped
+pr: "#29"
 created: 2026-06-23
 ---
 
