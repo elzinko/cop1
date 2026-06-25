@@ -1,6 +1,8 @@
 import type {
   BMADSessionContext,
   BMADSessionPort,
+  DoDCheck,
+  DoDCheckRegistry,
   ExchangeFrontMatter,
   SessionHandle,
   SessionInteractionCollector,
@@ -8,18 +10,28 @@ import type {
   SupervisorQuestionContext,
   SupervisorService,
 } from '@cop1/sprint-core';
-import type { ExchangeHistoryWriter } from '@cop1/sprint-core';
+import { DoDService, type ExchangeHistoryWriter } from '@cop1/sprint-core';
 import type { BMADCommandRunner } from '../application/OrchestratorService.js';
 import { type CommitAnchorPort, commitAnchorMessage } from '../domain/CommitAnchor.js';
-import { classifyReviewVerdict, isReviewCommand } from '../domain/ReviewVerdict.js';
-import { type VerificationGate, shouldVerify } from '../domain/VerificationGate.js';
+import type { VerificationGate } from '../domain/VerificationGate.js';
 import {
   type WorkspaceInspectionPort,
   hasImplementationChanges,
   shouldHaveCodeChanges,
 } from '../domain/WorkspaceChanges.js';
+import { ReviewVerdictDoDCheck } from './ReviewVerdictDoDCheck.js';
+import { VerificationDoDCheck } from './VerificationDoDCheck.js';
 
 const MAX_FOLLOWUP_TURNS = 3;
+
+/**
+ * Built-in Definition-of-Done criteria the orchestrator enforces at the story
+ * transition seam (ADR-020). Order matters: the first failure becomes the
+ * blocking note, preserving the historical gate ordering (verification before
+ * review-verdict). Built-in defaults are the accepted policy when no project
+ * `iamthelaw/global.yaml` overrides them.
+ */
+const DEFAULT_DOD_CRITERIA = ['verification', 'review_verdict'] as const;
 
 /** Corrective "implement now" continuations when a dev command wrote no code. */
 const DEFAULT_MAX_IMPLEMENTATION_RETRIES = 2;
@@ -53,6 +65,26 @@ export interface DefaultBMADCommandRunnerDeps {
    * SHA in Track 2. Opt-in (auto-commit blast radius) — off unless injected.
    */
   commitAnchor?: CommitAnchorPort;
+  /**
+   * DoD completion gate (ADR-020): evaluates the built-in criteria
+   * (`verification`, `review_verdict`) through a declarative registry instead
+   * of the old inline if-blocks. Defaults to a real `DoDService` so production
+   * wiring is unchanged; injectable for testing the routing seam.
+   */
+  dodService?: DoDService;
+}
+
+/**
+ * Build the DoD check registry from the injected gates (ADR-020). The
+ * verification adapter is present only when a `VerificationGate` is injected
+ * (mirrors the old `if (deps.verificationGate && …)` guard); the review-verdict
+ * adapter is always present (it needs no injected port). A criterion whose
+ * adapter is absent is simply skipped by `DoDService.evaluate`.
+ */
+function buildDoDRegistry(verificationGate?: VerificationGate): DoDCheckRegistry {
+  const checks: DoDCheck[] = [new ReviewVerdictDoDCheck()];
+  if (verificationGate) checks.unshift(new VerificationDoDCheck(verificationGate));
+  return new Map(checks.map((check) => [check.id, check]));
 }
 
 /**
@@ -70,6 +102,12 @@ export interface DefaultBMADCommandRunnerDeps {
 export function createDefaultBMADCommandRunner(
   deps: DefaultBMADCommandRunnerDeps,
 ): BMADCommandRunner {
+  // DoD completion gate (ADR-020): default-construct a real service + registry
+  // so production wiring keeps working without injecting anything. Built once
+  // per runner — the gates it depends on are fixed for the runner's lifetime.
+  const dodService = deps.dodService ?? new DoDService();
+  const dodRegistry = buildDoDRegistry(deps.verificationGate);
+
   return async ({ command, storyKey, epicId, projectRoot }) => {
     const startedAt = new Date().toISOString();
 
@@ -238,27 +276,22 @@ export function createDefaultBMADCommandRunner(
       }
     }
 
-    if (deps.verificationGate && shouldVerify(command)) {
-      const verification = await deps.verificationGate.verify({ projectRoot, command, storyKey });
-      if (!verification.passed) {
-        await recordExchange('failed', handle.sessionId);
-        return { success: false, escalated: true, note: verification.summary };
-      }
-    }
-
     const joined = outputs.join('\n');
 
-    // Review-verdict gate (2b): honor an explicit blocking code-review verdict
-    // instead of advancing to done on a self-reported success. Conservative —
-    // only an explicit rejection blocks; approved/ambiguous reviews advance (the
-    // evidence + verification gates already catch non-implementation).
-    if (isReviewCommand(command) && classifyReviewVerdict(joined) === 'changes-requested') {
+    // DoD completion gate (ADR-020): the verification (ADR-016) and
+    // review-verdict gates are now declarative `DoDCheck`s resolved by id
+    // through the registry. A single `evaluate` replaces the two inline
+    // if-blocks; the verdict — and the blocking note — is byte-identical (the
+    // first failure's detail is the historical gate note). The evidence-retry
+    // loop above is intentionally NOT folded in here (it drives the session).
+    const dod = await dodService.evaluate(
+      { projectRoot, command, storyKey, agentOutput: joined },
+      [...DEFAULT_DOD_CRITERIA],
+      dodRegistry,
+    );
+    if (!dod.passed) {
       await recordExchange('failed', handle.sessionId);
-      return {
-        success: false,
-        escalated: true,
-        note: `code-review requested changes — not advancing to done: ${joined.slice(0, 300)}`,
-      };
+      return { success: false, escalated: true, note: dodFailureNote(dod.failures) };
     }
 
     const nextStatus = inferNextStatus(command);
@@ -325,6 +358,19 @@ async function writeExchangeRecord(
       err instanceof Error ? err.message : err,
     );
   }
+}
+
+/**
+ * Blocking note for a failed DoD evaluation. The first failure's `detail` is
+ * the historical gate note (verification summary / review-verdict note), kept
+ * byte-identical so the golden behaviour is preserved. Falls back to a combined
+ * summary only if a check failed without a detail (shouldn't happen for the
+ * built-in checks).
+ */
+function dodFailureNote(failures: { id: string; detail?: string }[]): string {
+  const first = failures[0];
+  if (first?.detail) return first.detail;
+  return `DoD not satisfied: ${failures.map((f) => f.detail ?? f.id).join('; ')}`;
 }
 
 /**

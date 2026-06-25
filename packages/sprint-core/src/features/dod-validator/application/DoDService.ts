@@ -1,10 +1,23 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
+import type { DoDCheckRegistry, DoDContext } from '../domain/DoDCheck.js';
 
 export interface DoDResult {
   passed: boolean;
   failedCriteria: string[];
+}
+
+/** A single criterion that did not satisfy, with the check's explanation. */
+export interface DoDFailure {
+  id: string;
+  detail?: string;
+}
+
+/** Aggregate verdict of evaluating a criteria list against a registry. */
+export interface DoDEvaluation {
+  passed: boolean;
+  failures: DoDFailure[];
 }
 
 export interface DoDSnapshot {
@@ -17,6 +30,30 @@ export interface DoDSnapshot {
 }
 
 export class DoDService {
+  /**
+   * ADR-020 declarative completion gate: for each criterion id, resolve a
+   * `DoDCheck` from the registry and run it against `ctx`. A criterion absent
+   * from the registry is **skipped** (not a failure) — mirroring the historical
+   * `default: return true` leniency of `checkCriterion`. Failures collect the
+   * id and the check's `detail`. `passed` iff no criterion failed.
+   */
+  async evaluate(
+    ctx: DoDContext,
+    criteria: string[],
+    registry: DoDCheckRegistry,
+  ): Promise<DoDEvaluation> {
+    const failures: DoDFailure[] = [];
+    for (const id of criteria) {
+      const check = registry.get(id);
+      if (!check) continue; // unknown criterion → skipped (lenient)
+      const result = await check.evaluate(ctx);
+      if (!result.satisfied) {
+        failures.push(result.detail === undefined ? { id } : { id, detail: result.detail });
+      }
+    }
+    return { passed: failures.length === 0, failures };
+  }
+
   validate(snapshot: DoDSnapshot, projectPath: string): DoDResult {
     const criteria = this.loadCriteria(projectPath);
     const failedCriteria: string[] = [];
