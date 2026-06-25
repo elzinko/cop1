@@ -17,7 +17,7 @@ Dernière mise à jour : 2026-06-25
 | 0006 | V1.1 — DoD automatisée, iamthelaw et enforcement budget (épic → ADR-020) | feature | P2 | 🔴 todo | |
 | 0008 | Proxy Vite cible :3000 alors que le daemon écoute :4242 | bug | P2 | ✅ shipped | #28 |
 | 0009 | Durcir les appels git worktree (execFileSync, anti-injection shell) | refactor | P2 | ✅ shipped | #30 |
-| 0014 | iamthelaw enforced — Rule.check → DoDCheck, advisory dans le prompt | feature | P2 | 🔴 todo | |
+| 0014 | iamthelaw enforced — Rule.check → DoDCheck, advisory dans le prompt | feature | P2 | ✅ shipped | #36 |
 | 0015 | StoryBudget par story + câblage DoDLimiter (enforcement budget fin) | feature | P2 | 🔴 todo | |
 | 0005 | Résorber les warnings biome | chore | P3 | 🔴 todo | |
 | 0007 | V1.1 — format de session log + discipline de commit | chore | P3 | 🔴 todo | |
