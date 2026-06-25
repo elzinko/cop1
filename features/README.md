@@ -19,10 +19,10 @@ Dernière mise à jour : 2026-06-25
 | 0009 | Durcir les appels git worktree (execFileSync, anti-injection shell) | refactor | P2 | ✅ shipped | #30 |
 | 0014 | iamthelaw enforced — Rule.check → DoDCheck, advisory dans le prompt | feature | P2 | ✅ shipped | #36 |
 | 0015 | StoryBudget par story (enforcement budget fin) | feature | P2 | ✅ shipped | #38 |
+| 0010 | Heartbeat mission-control — setInterval recréé à chaque frame SSE | refactor | P3 | ✅ shipped | #40 |
+| 0011 | Buffer frames non borné dans la mission-control | refactor | P3 | ✅ shipped | #41 |
 | 0005 | Résorber les warnings biome | chore | P3 | 🔴 todo | |
 | 0007 | V1.1 — format de session log + discipline de commit | chore | P3 | 🔴 todo | |
-| 0010 | Heartbeat mission-control — setInterval recréé à chaque frame SSE | refactor | P3 | 🔴 todo | |
-| 0011 | Buffer frames non borné dans la mission-control | refactor | P3 | 🔴 todo | |
 | 0012 | Rafraîchir brownfield-snapshot.md (ancien emplacement worktree agent/) | chore | P3 | 🔴 todo | |
 | 0016 | Surfaçage des violations DoD dans la mission-control (web) | feature | P3 | 🔴 todo | |
 | 0017 | E2E Playwright — dark-mode cobaye (post-FEAT-S1) | chore | P3 | ⛔ blocked | |

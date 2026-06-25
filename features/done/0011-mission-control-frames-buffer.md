@@ -3,8 +3,8 @@ id: 0011
 title: Buffer `frames` non borné dans la mission-control
 type: refactor
 priority: P3
-status: todo
-pr:
+status: shipped
+pr: "#41"
 created: 2026-06-24
 ---
 
