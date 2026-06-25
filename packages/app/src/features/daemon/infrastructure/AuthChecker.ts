@@ -33,6 +33,23 @@ function availabilityFor(ok: boolean, error?: string): ClaudeAvailability {
   return error && transientClassifier.isTransientError(error) ? 'degraded' : 'unavailable';
 }
 
+/** Max length of the `error` field surfaced to the browser. */
+const MAX_ERROR_LEN = 200;
+
+/**
+ * Defense-in-depth for the `error` field returned to the browser (Story A review
+ * follow-up): collapse whitespace to a single line, redact anything shaped like a
+ * Claude OAuth/API token, and truncate to a bounded length. The probe already
+ * never puts the credential in a message — this guards against a verbose SDK error
+ * leaking internal detail or an unexpectedly long body. Availability is classified
+ * from the RAW message (before sanitizing) so transient detection is unaffected.
+ */
+export function sanitizeError(raw: string): string {
+  const collapsed = raw.replace(/\s+/g, ' ').trim();
+  const redacted = collapsed.replace(/sk-ant-[A-Za-z0-9_-]+/g, '[redacted]');
+  return redacted.length > MAX_ERROR_LEN ? `${redacted.slice(0, MAX_ERROR_LEN)}…` : redacted;
+}
+
 /**
  * Cheap connectivity probe: a single-turn, tool-less SDK call. Reports whether
  * Claude is reachable, the active model — read from the `system`/init message
@@ -74,13 +91,28 @@ export async function checkAuth(queryFn?: AuthQueryFn): Promise<AuthCheckResult>
           return { ok: true, model, availability: 'ok' };
         }
         const error = `auth check ended: ${message.subtype}`;
-        return { ok: false, model, error, availability: availabilityFor(false, error) };
+        return {
+          ok: false,
+          model,
+          error: sanitizeError(error),
+          availability: availabilityFor(false, error),
+        };
       }
     }
     const error = 'no result message from auth check';
-    return { ok: false, model, error, availability: availabilityFor(false, error) };
+    return {
+      ok: false,
+      model,
+      error: sanitizeError(error),
+      availability: availabilityFor(false, error),
+    };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    return { ok: false, model: null, error, availability: availabilityFor(false, error) };
+    return {
+      ok: false,
+      model: null,
+      error: sanitizeError(error),
+      availability: availabilityFor(false, error),
+    };
   }
 }

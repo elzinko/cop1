@@ -1,6 +1,6 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { describe, expect, it } from 'vitest';
-import { type AuthQueryFn, checkAuth } from '../infrastructure/AuthChecker.js';
+import { type AuthQueryFn, checkAuth, sanitizeError } from '../infrastructure/AuthChecker.js';
 
 function mockQuery(messages: SDKMessage[]): AuthQueryFn {
   return () =>
@@ -67,5 +67,44 @@ describe('checkAuth', () => {
     expect(r.ok).toBe(false);
     expect(r.model).toBe('claude-test');
     expect(r.availability).toBe('unavailable');
+  });
+
+  it('truncates a verbose error before returning it to the browser', async () => {
+    const longMsg = `boom ${'x'.repeat(500)}`;
+    const r = await checkAuth(() => {
+      throw new Error(longMsg);
+    });
+    expect(r.ok).toBe(false);
+    expect(r.error).toBeDefined();
+    // 200 chars + the single-char ellipsis.
+    expect((r.error as string).length).toBeLessThanOrEqual(201);
+    expect(r.error?.endsWith('…')).toBe(true);
+  });
+
+  it('redacts a token-shaped secret and collapses newlines in the error', async () => {
+    const r = await checkAuth(() => {
+      throw new Error('failed with key\n  sk-ant-oat01-SECRETSECRET\n  at line 2');
+    });
+    expect(r.error).toBe('failed with key [redacted] at line 2');
+  });
+});
+
+describe('sanitizeError', () => {
+  it('leaves a short clean message unchanged', () => {
+    expect(sanitizeError('401 invalid credentials')).toBe('401 invalid credentials');
+  });
+
+  it('collapses whitespace/newlines to single spaces', () => {
+    expect(sanitizeError('a\n\n  b\tc')).toBe('a b c');
+  });
+
+  it('redacts token-shaped secrets', () => {
+    expect(sanitizeError('leak sk-ant-oat01-ABCdef_123 end')).toBe('leak [redacted] end');
+  });
+
+  it('truncates to a bounded length with an ellipsis', () => {
+    const out = sanitizeError('y'.repeat(500));
+    expect(out.length).toBe(201);
+    expect(out.endsWith('…')).toBe(true);
   });
 });
