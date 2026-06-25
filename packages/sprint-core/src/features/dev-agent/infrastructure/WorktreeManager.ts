@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -36,7 +36,9 @@ export class WorktreeManager {
     // git worktree add requires the parent directory to exist.
     mkdirSync(baseDir, { recursive: true });
 
-    execSync(`git worktree add "${target}" HEAD`, {
+    // execFileSync (no shell): `target` is passed as a literal argv entry, so a
+    // storyId/path with shell metacharacters can never be interpreted (ADR-019).
+    execFileSync('git', ['worktree', 'add', target, 'HEAD'], {
       cwd: projectPath,
       stdio: 'pipe',
     });
@@ -46,21 +48,21 @@ export class WorktreeManager {
 
   cleanup(projectPath: string, target: string): void {
     if (existsSync(target)) {
-      execSync(`git worktree remove "${target}" --force`, {
+      execFileSync('git', ['worktree', 'remove', target, '--force'], {
         cwd: projectPath,
         stdio: 'pipe',
       });
     }
 
     // Drop any stale administrative references (no-orphan, AC2).
-    execSync('git worktree prune', { cwd: projectPath, stdio: 'pipe' });
+    execFileSync('git', ['worktree', 'prune'], { cwd: projectPath, stdio: 'pipe' });
 
     // Remove the run base only if empty — a kept worktree (ADR-018) must survive.
     removeIfEmpty(worktreeBaseDir(projectPath, this.runId));
   }
 
   list(projectPath: string): string[] {
-    const output = execSync('git worktree list --porcelain', {
+    const output = execFileSync('git', ['worktree', 'list', '--porcelain'], {
       cwd: projectPath,
       encoding: 'utf-8',
     });
