@@ -3,14 +3,25 @@ import type {
   BMADSessionPort,
   DoDCheck,
   DoDCheckRegistry,
+  DoDFailure,
   ExchangeFrontMatter,
+  HistoryEntry,
+  Rule,
+  RuleSet,
   SessionHandle,
   SessionInteractionCollector,
   SessionTurnResult,
   SupervisorQuestionContext,
   SupervisorService,
 } from '@cop1/sprint-core';
-import { DoDService, type ExchangeHistoryWriter } from '@cop1/sprint-core';
+import {
+  DoDService,
+  type ExchangeHistoryWriter,
+  IamTheLawLoader,
+  assembleRuleEnforcement,
+  flattenRules,
+  formatAdvisory,
+} from '@cop1/sprint-core';
 import type { BMADCommandRunner } from '../application/OrchestratorService.js';
 import { type CommitAnchorPort, commitAnchorMessage } from '../domain/CommitAnchor.js';
 import type { VerificationGate } from '../domain/VerificationGate.js';
@@ -72,6 +83,19 @@ export interface DefaultBMADCommandRunnerDeps {
    * wiring is unchanged; injectable for testing the routing seam.
    */
   dodService?: DoDService;
+  /**
+   * iamthelaw rule source (ADR-020 / fiche 0014). Resolves the project's
+   * `RuleSet`; rules WITH a `check` become enforced DoD criteria, rules WITHOUT
+   * one are formatted into the supervisor prompt (advisory). Defaults to a real
+   * `IamTheLawLoader(projectRoot).load()`; injectable for tests.
+   */
+  lawProvider?: (projectRoot: string) => RuleSet;
+  /**
+   * iamthelaw audit sink (ADR-020 / fiche 0014). Receives a history entry when
+   * a DoD failure is attributable to an enforced `check` rule. Defaults to the
+   * loader's `appendHistory`. Best-effort — a throw never breaks the run.
+   */
+  auditSink?: (entry: HistoryEntry) => void;
 }
 
 /**
@@ -108,8 +132,27 @@ export function createDefaultBMADCommandRunner(
   const dodService = deps.dodService ?? new DoDService();
   const dodRegistry = buildDoDRegistry(deps.verificationGate);
 
+  // iamthelaw provider + audit sink (ADR-020 / fiche 0014). Default to a real
+  // loader per projectRoot so production wiring needs no new required dep.
+  const loadRules = deps.lawProvider ?? ((root: string) => new IamTheLawLoader(root).load());
+
   return async ({ command, storyKey, epicId, projectRoot }) => {
     const startedAt = new Date().toISOString();
+
+    // Split the project's rules: enforced `check` ids extend the DoD criteria,
+    // advisory rules feed the supervisor prompt (fixes the historical `''`).
+    // Guard the load: a rule-load failure (FS race / EACCES) must never crash the
+    // night-loop — fall back to no rules (advisory '' + built-in criteria only).
+    let ruleSet: RuleSet;
+    try {
+      ruleSet = loadRules(projectRoot);
+    } catch {
+      ruleSet = emptyRuleSet();
+    }
+    const { enforcedChecks, advisory } = assembleRuleEnforcement(ruleSet);
+    const auditSink =
+      deps.auditSink ??
+      ((entry: HistoryEntry) => new IamTheLawLoader(projectRoot).appendHistory(entry));
 
     // Drain any stale interactions from a previous command.
     deps.interactionCollector?.drain();
@@ -120,7 +163,9 @@ export function createDefaultBMADCommandRunner(
       storyContent: '',
       projectContext: '',
       architectureRules: '',
-      iamtheLawRules: '',
+      // Advisory iamthelaw rules (ADR-020 / fiche 0014) finally reach the
+      // supervisor prompt — previously hard-coded to '' (the bug).
+      iamtheLawRules: formatAdvisory(advisory),
       sessionHistory: [],
       currentQuestion: '',
     };
@@ -284,12 +329,18 @@ export function createDefaultBMADCommandRunner(
     // if-blocks; the verdict — and the blocking note — is byte-identical (the
     // first failure's detail is the historical gate note). The evidence-retry
     // loop above is intentionally NOT folded in here (it drives the session).
+    // Enforced iamthelaw checks (fiche 0014) extend the built-in criteria. A
+    // `check` matching a registered DoDCheck is enforced; an unknown id is
+    // skipped by `DoDService.evaluate` (custom checks beyond the built-in
+    // registry are a documented follow-up — not invented here).
+    const criteria = dedupe([...DEFAULT_DOD_CRITERIA, ...enforcedChecks]);
     const dod = await dodService.evaluate(
       { projectRoot, command, storyKey, agentOutput: joined },
-      [...DEFAULT_DOD_CRITERIA],
+      criteria,
       dodRegistry,
     );
     if (!dod.passed) {
+      auditCheckViolations(dod.failures, ruleSet, auditSink);
       await recordExchange('failed', handle.sessionId);
       return { success: false, escalated: true, note: dodFailureNote(dod.failures) };
     }
@@ -371,6 +422,60 @@ function dodFailureNote(failures: { id: string; detail?: string }[]): string {
   const first = failures[0];
   if (first?.detail) return first.detail;
   return `DoD not satisfied: ${failures.map((f) => f.detail ?? f.id).join('; ')}`;
+}
+
+/** Stable de-duplication preserving first-occurrence order. */
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+/**
+ * Audit DoD failures attributable to an enforced iamthelaw `check` rule
+ * (fiche 0014). For each failed criterion that some rule opted into via
+ * `check`, append a `violated` history entry crediting that rule. Best-effort:
+ * an audit-write throw is swallowed so it never breaks the run. Failures of the
+ * built-in criteria (no owning `check` rule) are skipped.
+ */
+function auditCheckViolations(
+  failures: DoDFailure[],
+  ruleSet: RuleSet,
+  auditSink: (entry: HistoryEntry) => void,
+): void {
+  const rulesByCheck = indexRulesByCheck(ruleSet);
+  const added_at = new Date().toISOString();
+  for (const failure of failures) {
+    for (const rule of rulesByCheck.get(failure.id) ?? []) {
+      try {
+        auditSink({
+          id: rule.id,
+          added_at,
+          added_by: 'orchestrator',
+          source: rule.source,
+          rationale: failure.detail ?? `DoD check '${failure.id}' not satisfied`,
+          status: 'violated',
+        });
+      } catch {
+        // Best-effort audit — never let a write failure break the run.
+      }
+    }
+  }
+}
+
+/** An empty rule set — the safe fallback when a project has (or fails to load) rules. */
+function emptyRuleSet(): RuleSet {
+  return { global: [], scrum: [], architecture: [], agents: {} };
+}
+
+/** Map each enforced `check` id to the rules (any group) that opted into it. */
+function indexRulesByCheck(ruleSet: RuleSet): Map<string, Rule[]> {
+  const index = new Map<string, Rule[]>();
+  for (const rule of flattenRules(ruleSet)) {
+    if (!rule.check) continue;
+    const existing = index.get(rule.check);
+    if (existing) existing.push(rule);
+    else index.set(rule.check, [rule]);
+  }
+  return index;
 }
 
 /**
