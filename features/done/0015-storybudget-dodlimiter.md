@@ -3,8 +3,8 @@ id: 0015
 title: StoryBudget par story + câblage DoDLimiter (enforcement budget fin)
 type: feature
 priority: P2
-status: todo
-pr:
+status: shipped
+pr: "#38"
 created: 2026-06-25
 ---
 
@@ -34,3 +34,8 @@ Le grain intra-commande (AbortSignal SDK) reste explicitement hors-scope (risqu�
 ## Notes / décisions
 
 Source : ADR-020. Dépend de la fiche 0013.
+
+**Livré (#38)** : la **moitié StoryBudget** (cap par story → `blocked`, run continue ; event
+`orchestrator.story.budget_exceeded` ; env `COP1_MAX_TOKENS_PER_STORY`/`COP1_DEADLINE_MIN_PER_STORY`).
+La **moitié DoDLimiter** est **splittée dans la fiche 0018** : sans boucle de retry (absente,
+ADR-016), le seuil « N rejets DoD » n'est jamais atteint dans un run (une story est tentée une fois).
