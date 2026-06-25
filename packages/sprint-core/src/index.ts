@@ -134,6 +134,16 @@ export type { SidecarSyncPort } from './features/iamthelaw/domain/ports/SidecarS
 
 // DoD Validator
 export { DoDService } from './features/dod-validator/application/DoDService.js';
+export type {
+  DoDEvaluation,
+  DoDFailure,
+} from './features/dod-validator/application/DoDService.js';
+export type {
+  DoDCheck,
+  DoDCheckRegistry,
+  DoDCheckResult,
+  DoDContext,
+} from './features/dod-validator/domain/DoDCheck.js';
 export { DoDLimiter } from './features/dod-validator/application/DoDLimiter.js';
 
 // Iteration Limiter
