@@ -125,10 +125,17 @@ export { SprintEndReportService } from './features/sprint-end-report/application
 
 // iamthelaw
 export { IamTheLawLoader } from './features/iamthelaw/application/IamTheLawLoader.js';
+export type { HistoryEntry } from './features/iamthelaw/application/IamTheLawLoader.js';
 export { SidecarSyncService } from './features/iamthelaw/application/SidecarSyncService.js';
 export { SidecarSyncListener } from './features/iamthelaw/application/SidecarSyncListener.js';
 export { FileSidecarAdapter } from './features/iamthelaw/infrastructure/FileSidecarAdapter.js';
 export type { Rule, RuleSet } from './features/iamthelaw/domain/RuleSet.js';
+export {
+  assembleRuleEnforcement,
+  flattenRules,
+  formatAdvisory,
+} from './features/iamthelaw/domain/RuleEnforcement.js';
+export type { RuleEnforcement } from './features/iamthelaw/domain/RuleEnforcement.js';
 export type { RuleLoaderPort } from './features/iamthelaw/domain/ports/RuleLoaderPort.js';
 export type { SidecarSyncPort } from './features/iamthelaw/domain/ports/SidecarSyncPort.js';
 
