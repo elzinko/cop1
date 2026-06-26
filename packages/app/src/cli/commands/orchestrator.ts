@@ -295,6 +295,9 @@ function resolveRunner(
     interactionCollector,
     verificationGate: new CommandVerificationGate(),
     workspaceInspection: new GitWorkspaceInspector(),
+    // fiche 0016: surface DoD violations to the web mission-control. The run's
+    // TaggingEventBus tags emitted payloads with runId downstream.
+    eventBus,
     ...(commitAnchor ? { commitAnchor } : {}),
   });
 }

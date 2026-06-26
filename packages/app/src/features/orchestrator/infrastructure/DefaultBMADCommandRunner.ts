@@ -1,3 +1,4 @@
+import type { EventBus } from '@cop1/shared-kernel';
 import type {
   BMADSessionContext,
   BMADSessionPort,
@@ -96,6 +97,15 @@ export interface DefaultBMADCommandRunnerDeps {
    * loader's `appendHistory`. Best-effort — a throw never breaks the run.
    */
   auditSink?: (entry: HistoryEntry) => void;
+  /**
+   * Run event bus (ADR-020 / fiche 0016). When wired, the runner emits a
+   * `dod.check.failed` event listing the unsatisfied DoD criteria so the web
+   * mission-control can surface WHICH criteria blocked the story (not just the
+   * generic log note). Optional — absent in tests / non-web wiring, in which
+   * case nothing is emitted. The run's `TaggingEventBus` injects `runId`
+   * downstream, so the runner intentionally does not set it here.
+   */
+  eventBus?: EventBus;
 }
 
 /**
@@ -341,6 +351,14 @@ export function createDefaultBMADCommandRunner(
     );
     if (!dod.passed) {
       auditCheckViolations(dod.failures, ruleSet, auditSink);
+      // Surface the failed criteria to the web mission-control (fiche 0016).
+      // `runId` is injected downstream by the run's TaggingEventBus, not here.
+      deps.eventBus?.emit('dod.check.failed', {
+        storyKey,
+        command,
+        failures: dod.failures,
+        ts: new Date().toISOString(),
+      });
       await recordExchange('failed', handle.sessionId);
       return { success: false, escalated: true, note: dodFailureNote(dod.failures) };
     }

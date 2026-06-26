@@ -171,6 +171,32 @@ describe('OrchestratorRunView', () => {
     expect(screen.queryByText(/run1-cmd/)).toBeNull();
   });
 
+  it('surfaces the DoD criteria from a runId-tagged dod.check.failed event (fiche 0016)', async () => {
+    render(<OrchestratorRunView />);
+    await startRun();
+
+    await pushSse('dod.check.failed', {
+      failures: [{ id: 'verification', detail: 'verify failed' }],
+      runId: 'r1',
+    });
+
+    expect(await screen.findByText(/verification/)).toBeTruthy();
+    expect(screen.getByText(/verify failed/)).toBeTruthy();
+  });
+
+  it('ignores a dod.check.failed event whose runId does not match the active run', async () => {
+    render(<OrchestratorRunView />);
+    await startRun();
+
+    await pushSse('dod.check.failed', {
+      failures: [{ id: 'review_verdict', detail: 'foreign violation' }],
+      runId: 'SOMEONE-ELSE',
+    });
+
+    expect(screen.queryByText(/foreign violation/)).toBeNull();
+    expect(screen.queryByText(/review_verdict/)).toBeNull();
+  });
+
   it('shows "un run est déjà actif" on a 409 response', async () => {
     vi.stubGlobal(
       'fetch',
