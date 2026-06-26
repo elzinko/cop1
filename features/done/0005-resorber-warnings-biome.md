@@ -3,8 +3,8 @@ id: 0005
 title: Résorber les warnings biome
 type: chore
 priority: P3
-status: todo
-pr:
+status: shipped
+pr: "#45"
 created: 2026-06-23
 ---
 
@@ -29,3 +29,9 @@ Lancer `pnpm lint`, lister les warnings, les corriger par lots ; viser
 ## Notes / décisions
 
 Source : mémoire `project_controlled_overnight_run`.
+
+**Résolu en no-op (vérifié 2026-06-26)** : aucun changement de code nécessaire. `biome` est
+pinné en **1.9.4** (pas la 2.5.1 → aucune erreur de config) et `pnpm lint`
+(`biome check --error-on-warnings .`) sort **exit 0 — 0 warning, 0 erreur** (451 fichiers).
+Les ~26 warnings de la vieille mémoire ont été résorbés au fil des PRs de la session, qui
+exigeaient toutes `--error-on-warnings` vert. Les 2 AC sont remplies.

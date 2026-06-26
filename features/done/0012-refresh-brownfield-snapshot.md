@@ -3,8 +3,8 @@ id: 0012
 title: Rafraîchir brownfield-snapshot.md (ancien emplacement worktree agent/)
 type: chore
 priority: P3
-status: todo
-pr:
+status: shipped
+pr: "#43"
 created: 2026-06-24
 ---
 

@@ -3,8 +3,8 @@ id: 0016
 title: Surfaçage des violations DoD dans la mission-control (web)
 type: feature
 priority: P3
-status: todo
-pr:
+status: shipped
+pr: "#44"
 created: 2026-06-25
 ---
 

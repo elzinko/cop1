@@ -30,3 +30,8 @@ Définir un format de session log exploitable + verrouiller la discipline de com
 ## Notes / décisions
 
 Source : mémoire `project_v1_light_closure`, `project_v1_1_architect_agenda`.
+
+**Cadrage (2026-06-26)** : malgré le label `chore P3`, cette fiche empile **4 décisions
+d'architecture** (format session log · ADR-009 manquant · D1 pin BMAD · D2 qa-automate) →
+relève d'une **session architecte dédiée** (`ezk-architect`), pas d'un passage mécanique.
+À traiter à froid ; envisager de la découper en sous-fiches (une par décision) au démarrage.
