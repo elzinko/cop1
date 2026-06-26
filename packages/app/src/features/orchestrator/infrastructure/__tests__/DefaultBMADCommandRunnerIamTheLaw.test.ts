@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { StructuredLogger } from '@cop1/observability';
 import { EventBus } from '@cop1/shared-kernel';
 import {
+  type DoDCheckRegistry,
   type DoDContext,
   type DoDEvaluation,
   DoDService,
@@ -48,7 +49,11 @@ class StubDoDService extends DoDService {
   constructor(private readonly verdict: DoDEvaluation) {
     super();
   }
-  override async evaluate(ctx: DoDContext, criteria: string[]): Promise<DoDEvaluation> {
+  override async evaluate(
+    ctx: DoDContext,
+    criteria: string[],
+    _registry: DoDCheckRegistry,
+  ): Promise<DoDEvaluation> {
     this.calls.push({ criteria, ctx });
     return this.verdict;
   }
