@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 
 type Mode = 'normal' | 'abort-on-escalation';
 
+/** A single unsatisfied DoD criterion surfaced from a `dod.check.failed` event. */
+interface DoDViolation {
+  id: string;
+  detail?: string;
+}
+
 interface SseFrame {
   eventType: string;
   payload: Record<string, unknown> & { runId?: string };
@@ -9,6 +15,17 @@ interface SseFrame {
 
 const TERMINAL_EVENTS = new Set(['orchestrator.run.completed', 'orchestrator.run.failed']);
 const HEARTBEAT_IDLE_MS = 10_000;
+
+/** Parse the `failures` array of a `dod.check.failed` payload into typed violations. */
+function parseDoDViolations(raw: unknown): DoDViolation[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const { id, detail } = entry as { id?: unknown; detail?: unknown };
+    if (typeof id !== 'string') return [];
+    return [typeof detail === 'string' ? { id, detail } : { id }];
+  });
+}
 
 /**
  * Mission-control view: launches an orchestrator run and streams its live status
@@ -30,6 +47,7 @@ export function OrchestratorRunView() {
   const [tokensUsed, setTokensUsed] = useState(0);
   const [tokenCap, setTokenCap] = useState<number | null>(null);
   const [alert, setAlert] = useState<string | null>(null);
+  const [dodViolations, setDodViolations] = useState<DoDViolation[]>([]);
   const [terminal, setTerminal] = useState(false);
   const [silentMs, setSilentMs] = useState(0);
   // Last-event timestamp lives in a ref (not state) so the heartbeat interval
@@ -75,6 +93,7 @@ export function OrchestratorRunView() {
     let nextCommand: string | null = null;
     let nextTokens = 0;
     let nextAlert: string | null = null;
+    let nextViolations: DoDViolation[] = [];
     let nextTerminal = false;
 
     for (const frame of mine) {
@@ -91,6 +110,9 @@ export function OrchestratorRunView() {
           if (typeof used === 'number') nextTokens += used;
           break;
         }
+        case 'dod.check.failed':
+          nextViolations = parseDoDViolations(payload.failures);
+          break;
         case 'orchestrator.run.aborted':
           nextAlert = `Run interrompu : ${String(payload.reason ?? 'abort')}`;
           break;
@@ -108,6 +130,7 @@ export function OrchestratorRunView() {
     if (nextCommand !== null) setCommand(nextCommand);
     setTokensUsed(nextTokens);
     if (nextAlert !== null) setAlert(nextAlert);
+    setDodViolations(nextViolations);
     if (nextTerminal) setTerminal(true);
     lastEventAtRef.current = Date.now();
   }, [frames, runId]);
@@ -167,6 +190,7 @@ export function OrchestratorRunView() {
       setStory(null);
       setCommand(null);
       setAlert(null);
+      setDodViolations([]);
       setTerminal(false);
       lastEventAtRef.current = Date.now();
       setSilentMs(0);
@@ -185,6 +209,23 @@ export function OrchestratorRunView() {
   };
 
   const running = runId !== null && !terminal;
+
+  // Shared violations panel: surfaced both while the run is live (mission-control)
+  // and once it ends (terminal), so a DoD-blocked story stays explained.
+  const dodViolationsBlock =
+    dodViolations.length > 0 ? (
+      <div className="error" role="alert">
+        <strong>Critères DoD non satisfaits :</strong>
+        <ul>
+          {dodViolations.map((v) => (
+            <li key={v.id}>
+              <strong>{v.id}</strong>
+              {v.detail ? ` — ${v.detail}` : ''}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : null;
 
   return (
     <div className="orchestrator-run">
@@ -253,6 +294,7 @@ export function OrchestratorRunView() {
               <strong>⚠ {alert}</strong>
             </div>
           )}
+          {dodViolationsBlock}
           <p>
             <strong>Run :</strong> {runId}
           </p>
@@ -290,6 +332,7 @@ export function OrchestratorRunView() {
               <strong>⚠ {alert}</strong>
             </div>
           )}
+          {dodViolationsBlock}
         </div>
       )}
     </div>
