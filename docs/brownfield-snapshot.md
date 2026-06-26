@@ -55,8 +55,8 @@ not_authoritative:
 │   ├── metrics/                 # Track 3 — per-exchange JSONL
 │   ├── rules/                   # machine YAML rules (→ synced to _bmad/_memory/...)
 │   ├── audit/                   # MCP audit JSONL (planned E5-S13, not yet shipped)
-│   └── sprint-log-YYYY-MM-DD.jsonl  # narrative log, append-only
-├── agent/simulate-<ts>/         # disposable worktree per `sprint run --simulate` (leftover from dev)
+│   ├── sprint-log-YYYY-MM-DD.jsonl  # narrative log, append-only
+│   └── worktrees/<runId>/       # per-story git worktrees, gitignored (ADR-019; was top-level agent/)
 ├── docs/                        # GETTING_STARTED.md (current) + this snapshot
 ├── supervisor-playbook.md       # minimal playbook (see §5.2)
 ├── cop1.config.yaml             # runtime config — mostly pre-pivot, see §10.4
@@ -212,7 +212,7 @@ Minimal — markdown with frontmatter-style config lines + `## Phase name` + num
 BMAD version: 6.0.0-Beta.8
 help: /bmad-help
 Epic/story restrictions: Process every story of the target epic…
-Worktree hooks: managed — each story runs in its own git worktree via WorktreeService. Cleanup on success, keep on failure.
+Worktree hooks: managed — each story runs in its own git worktree under `.cop1/worktrees/<runId>/` via WorktreeService (ADR-019). Cleanup on success, keep on failure.
 Step-by-step hooks: transition-level — inter-command pauses (EA10-S5).
 Decision policy: 3-tier supervisor cascade (deterministic match → LLM answer → terminal escalation).
 
@@ -238,7 +238,7 @@ commands/sprint-run.ts
          ├─ BmadStatusReader.getAllStatuses()                   ← read-only from sprint-status.yaml (ADR-009)
          ├─ filter eligible: backlog | ready | ready-for-dev | no-status, regex-filter if --filter
          ├─ if --dry-run: return early
-         ├─ if --simulate: createSimulateWorktree()             ← `git worktree add agent/simulate-<ts>`
+         ├─ if --simulate: createSimulateWorktree()             ← delegates to WorktreeManager → `.cop1/worktrees/<runId>/simulate-<uuid>` (ADR-019)
          ├─ init services:
          │     SprintSessionService  (duration/timeout)
          │     CheckpointService     (.cop1 checkpoint)
@@ -279,7 +279,7 @@ commands/sprint-run.ts
 | `SprintStatusReaderPort` | cop1 ← `sprint-status.yaml` **read-only** | `BmadStatusReader` (prod), `InMemoryStatusReader` (tests). `YamlStatusStore` deprecated. | ADR-009 |
 | `NarrativeLogPort` | cop1 → `.cop1/sprint-log-*.jsonl` | `StructuredLogger` (observability) | ADR-001 |
 | `ResourceMonitorPort` | cop1 ← system (RAM/CPU) | present; gated by `skipRamValidation` in current flow | ADR-001 / NFR11 |
-| `GitPort` / `WorktreeService` | cop1 → git worktrees | `WorktreeService` in `sprint-core` (EA11-S3, used by simulate mode + planned per-story worktree) | ADR-013 |
+| `GitPort` / `WorktreeService` | cop1 → git worktrees | `WorktreeService` in `sprint-core` (EA11-S3, used by simulate mode + per-story worktree, ADR-018/019) | ADR-013 |
 | `HistoryService` | cop1 → `.cop1/history/` | `ExchangeHistoryWriter` + `MetricsWriter` + `Reader` (EA11-S8) | ADR-014 §8.5 |
 | `StepByStepController` | inter-command approval | TTY prompt / `COP1_APPROVAL_FILE` / CI no-op | ADR-013 (EA10-S5) |
 | `SupervisorContext` | PRD + architecture + metadata loader | `SupervisorContextLoader` (EA11-S6) | ADR-012 (spike A3) |
@@ -427,7 +427,7 @@ The retro §"What Didn't Go Well §5" and §"Significant Discovery" section esta
 
 ### 10.8 Orphan artefacts in the repo
 
-- `agent/simulate-1775509624883/` — a leftover `git worktree add` from a `sprint run --simulate` invocation; not cleaned up. Safe to remove or gitignore.
+- ~~`agent/simulate-1775509624883/`~~ — RESOLVED (fiche 0002 / ADR-019): per-story worktrees moved under the gitignored `.cop1/worktrees/<runId>/`, so they no longer litter the tracked tree.
 - `coverage/` — vitest coverage output; should be gitignored.
 - `_bmad-output/brainstorming/` + `_bmad-output/test-artifacts/` + `_bmad-output/bmb-creations/` — present but not discussed in canonical docs; likely tooling output.
 - `_bmad-output/planning-artifacts/historical/` — explicit archive of superseded docs (healthy).
