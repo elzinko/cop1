@@ -5,7 +5,7 @@ Source de vérité = le front-matter de chaque fiche `features/NNNN-slug.md`. Ce
 
 Règles : 1 PR par feature, squash-merge quand la CI est verte.
 
-Dernière mise à jour : 2026-06-26
+Dernière mise à jour : 2026-06-28
 
 | # | Titre | Type | Prio | Statut | PR |
 |---|-------|------|------|--------|----|
@@ -24,7 +24,7 @@ Dernière mise à jour : 2026-06-26
 | 0012 | Rafraîchir brownfield-snapshot.md (ancien emplacement worktree agent/) | chore | P3 | ✅ shipped | #43 |
 | 0005 | Résorber les warnings biome (no-op : déjà satisfait) | chore | P3 | ✅ shipped | #45 |
 | 0016 | Surfaçage des violations DoD dans la mission-control (web) | feature | P3 | ✅ shipped | #44 |
+| 0019 | Rendre `pnpm typecheck` robuste sur état stale (TS6310) | chore | P3 | ✅ shipped | #49 |
 | 0007 | V1.1 — format de session log + ADR-009 + D1/D2 (→ session architecte) | chore | P3 | 🔴 todo | |
-| 0019 | Rendre `pnpm typecheck` robuste sur état stale (TS6310) | chore | P3 | 🔴 todo | |
 | 0017 | E2E Playwright — dark-mode cobaye (post-FEAT-S1) | chore | P3 | ⛔ blocked | |
 | 0018 | Câbler DoDLimiter (N rejets DoD → blocked + escalade) | feature | P3 | ⛔ blocked | |

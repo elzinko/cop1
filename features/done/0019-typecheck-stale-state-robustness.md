@@ -3,8 +3,8 @@ id: 0019
 title: Rendre `pnpm typecheck` robuste sur état stale (TS6310)
 type: chore
 priority: P3
-status: todo
-pr:
+status: shipped
+pr: "#49"
 created: 2026-06-26
 ---
 
