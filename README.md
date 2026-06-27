@@ -27,7 +27,7 @@ Monorepo — 8 packages, feature-first hexagonal. Dependency graph in the brownf
 ```bash
 pnpm install
 pnpm build        # tsc -b across compiled packages
-pnpm typecheck    # strict, no emit
+pnpm typecheck    # = pnpm build (tsc -b is the type-check; composite refs must emit)
 pnpm test         # vitest — ~850 tests
 pnpm lint         # biome check .
 pnpm lint:fix
