@@ -19,6 +19,7 @@ Dernière mise à jour : 2026-06-28
 | 0009 | Durcir les appels git worktree (execFileSync, anti-injection shell) | refactor | P2 | ✅ shipped | #30 |
 | 0014 | iamthelaw enforced — Rule.check → DoDCheck, advisory dans le prompt | feature | P2 | ✅ shipped | #36 |
 | 0015 | StoryBudget par story (enforcement budget fin) | feature | P2 | ✅ shipped | #38 |
+| 0020 | AgentSessionPort — prouver l'indépendance à l'agent (StubExecutor, puis LLM local) | feature | P2 | 🔴 todo | |
 | 0010 | Heartbeat mission-control — setInterval recréé à chaque frame SSE | refactor | P3 | ✅ shipped | #40 |
 | 0011 | Buffer frames non borné dans la mission-control | refactor | P3 | ✅ shipped | #41 |
 | 0012 | Rafraîchir brownfield-snapshot.md (ancien emplacement worktree agent/) | chore | P3 | ✅ shipped | #43 |
